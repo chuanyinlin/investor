@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D1620">
+<title>Invest OS v1.2</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%230D1620'/%3E%3Crect x='14' y='14' width='92' height='92' rx='16' fill='none' stroke='%2321D4B4' stroke-width='3'/%3E%3Ctext x='60' y='58' font-family='monospace' font-size='26' fill='%2321D4B4' text-anchor='middle' font-weight='700'%3EINVEST%3C/text%3E%3Ctext x='60' y='86' font-family='monospace' font-size='16' fill='%23FFB020' text-anchor='middle' letter-spacing='2'%3EOS%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0B131C;
+    --bg-grad:#0D1B26;
+    --panel:#141F2B;
+    --panel-2:#1B2938;
+    --panel-3:#0F1822;
+    --hair: rgba(255,255,255,0.07);
+    --hair-strong: rgba(255,255,255,0.14);
+    --text: #E8EEF3;
+    --text-dim: #8CA0B2;
+    --text-faint: #57697A;
+    --amber:#FFB020;
+    --amber-dim: rgba(255,176,32,0.14);
+    --teal:#22D3AE;
+    --teal-dim: rgba(34,211,174,0.14);
+    --red:#FF5C6C;
+    --red-dim: rgba(255,92,108,0.14);
+    --led-off:#25303B;
+    --font-ui: -apple-system, BlinkMacSystemFont, "PingFang TC", "Helvetica Neue", "Microsoft JhengHei", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Menlo", "JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family: var(--font-ui);
+    background:
+      radial-gradient(1200px 600px at 50% -10%, var(--bg-grad), var(--bg) 60%);
+    color: var(--text);
+    min-height:100vh;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .app{
+    max-width: 480px;
+    margin: 0 auto;
+    padding: calc(14px + env(safe-area-inset-top)) 14px 0;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 14px;
+  }
+  .brand{ display:flex; flex-direction:column; }
+  .brand .wordmark{
+    font-family: var(--font-mono);
+    font-size: 28px; font-weight:700; letter-spacing: 1px;
+    color: var(--text);
+    text-shadow: 0 0 14px rgba(232,238,243,0.4);
+  }
+  .brand .wordmark span{ color: var(--text); text-shadow: 0 0 14px rgba(232,238,243,0.4); }
+  .brand .tagline{ font-size:11px; color:var(--text-faint); margin-top:2px; letter-spacing:0.5px;}
+  .icon-btn{
+    width:38px; height:38px; border-radius:11px;
+    background: var(--bg); border:none;
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text); font-size:17px;
+  }
+  .icon-btn:active{ opacity:0.85; }
+
+  /* ---------- Hero status ---------- */
+  .hero{
+    border-radius: 20px;
+    padding: 18px 18px 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--hair-strong);
+    position: relative;
+    overflow:hidden;
+    min-height: 130px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .hero .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 10.5px; line-height:13px; letter-spacing: 1.6px; text-transform:uppercase;
+    color: var(--text-dim); margin-bottom:8px;
+  }
+  .hero .headline{
+    font-size: 21px; font-weight:700; line-height:28px;
+  }
+  .hero .sub{ font-size:12.5px; line-height:18px; color:var(--text-dim); margin-top:6px; }
+  .hero.st-idle{ background: linear-gradient(160deg, var(--panel), var(--panel-3)); }
+  .hero.st-idle .headline{ color: var(--text); }
+  .hero.st-momentum{ background: linear-gradient(160deg, var(--teal-dim), var(--panel-3)); border-color: rgba(34,211,174,0.35); }
+  .hero.st-momentum .headline{ color: var(--teal); }
+  .hero.st-bombard{ background: linear-gradient(160deg, var(--teal-dim), var(--panel-3)); border-color: rgba(34,211,174,0.35); }
+  .hero.st-bombard .headline{ color: var(--teal); }
+  .hero.st-exit{ background: linear-gradient(160deg, var(--red-dim), var(--panel-3)); border-color: rgba(255,92,108,0.4); }
+  .hero.st-exit .headline{ color: var(--red); }
+  .hero.st-defense{ background: linear-gradient(160deg, rgba(255,92,108,0.08), var(--panel-3)); border-color: rgba(255,92,108,0.25); }
+  .hero.st-defense .headline{ color: var(--red); }
+  .hero.st-warn{ background: linear-gradient(160deg, var(--amber-dim), var(--panel-3)); border-color: rgba(255,176,32,0.4); }
+  .hero.st-warn .headline{ color: var(--amber); }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    display:flex; background: var(--panel); border:1px solid var(--hair);
+    border-radius: 13px; padding:3px; margin-bottom:16px;
+  }
+  .tab{
+    flex:1; text-align:center; padding:9px 0; border-radius:10px;
+    font-size:13.5px; font-weight:600; color:var(--text-dim);
+  }
+  .tab.active{ background: var(--panel-2); color: var(--text); }
+
+  /* ---------- Cards ---------- */
+  .card{
+    background: var(--panel);
+    border:1px solid var(--hair);
+    border-radius:16px;
+    padding:14px 14px 15px;
+    margin-bottom:14px;
+  }
+  .card-title{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:11px;
+  }
+  .card-title h3{
+    margin:0; font-size:15.5px; font-weight:700; letter-spacing:0.3px;
+    color: var(--text); text-transform:uppercase; font-family:var(--font-mono);
+  }
+
+  /* ---------- Inputs ---------- */
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .field{ margin-bottom:9px; }
+  .field label{ display:block; font-size:11px; color:var(--text-faint); margin-bottom:4px; }
+  .field input{
+    width:100%; background: var(--panel-3); border:1px solid var(--hair);
+    border-radius:10px; padding:10px 11px; color:var(--text);
+    font-family: var(--font-mono); font-size:14.5px;
+  }
+  .field input:focus{ outline:none; border-color: var(--teal); }
+  input[type="number"]{
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance: none; margin:0;
+  }
+  .field input[type="file"]{
+    padding:9px 10px; font-size:12px; color: var(--text-dim);
+  }
+  .field input[type="file"]::file-selector-button{
+    background: var(--panel-3); color: var(--text-dim); border:1px solid var(--hair-strong);
+    border-radius:8px; padding:6px 10px; font-size:11.5px; font-family: var(--font-ui);
+    margin-right:10px; cursor:pointer;
+  }
+  .btn{
+    width:100%; padding:12px; border-radius:12px; border:none;
+    font-weight:700; font-size:14.5px; font-family:var(--font-ui);
+    margin-top:2px;
+  }
+  .btn-primary{ background: var(--teal); color:#04231C; }
+  .btn-primary:active{ opacity:0.85; }
+  .btn-neutral{ background: var(--panel-2); color: var(--text); border:1px solid var(--hair-strong); }
+  .btn-neutral:active{ background: var(--panel-3); }
+  .btn-sm{
+    width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
+  }
+  #toggleInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders{
+    width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
+    text-align:center; flex-shrink:0;
+    background: var(--panel); color: var(--text);
+  }
+  .chev{
+    display:inline-block; font-size:13px;
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+  }
+  .chev.collapsed{ transform: rotate(-90deg); }
+  #btnAdd, #btnImportFile, #btnExportHist{
+    display: table; margin: 14px auto 0;
+  }
+  #btnAdd, #btnImportFile, #btnExportHist{
+    display: table; margin: 14px auto 0;
+  }
+
+  /* ---------- History list ---------- */
+  .hist-entry{
+    padding:10px 0; border-bottom:1px solid var(--hair);
+  }
+  .hist-entry:last-child{ border-bottom:none; }
+  .hist-entry-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .hist-entry-date{
+    font-family: var(--font-mono); font-size:12.5px; font-weight:700; color:var(--text-dim);
+  }
+  .hist-entry-del{ color: var(--text-faint); font-size:15px; padding-left:10px; }
+  .hist-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px 9px; }
+  .hist-grid2 + .hist-grid2{ margin-top:8px; }
+  .hist-stat-label{ font-size:10px; color:var(--text-faint); margin-bottom:2px; }
+  .hist-stat-value{ font-family: var(--font-mono); font-size:13px; color:var(--text); }
+  .empty-hint{
+    text-align:left; color:var(--text-faint); font-size:12.5px;
+    padding: 14px 6px; line-height:1.6;
+  }
+
+  /* ---------- LED annunciator panel ---------- */
+  .led-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:9px; }
+  .led{
+    display:flex; align-items:center; gap:9px;
+    background: var(--panel-3); border:1px solid var(--hair);
+    border-radius:11px; padding:9px 10px;
+  }
+  .led .lamp{
+    width:11px; height:11px; border-radius:50%;
+    background: var(--led-off); flex-shrink:0;
+  }
+  .led.on .lamp{ background: var(--teal); box-shadow: 0 0 8px 1px rgba(34,211,174,0.75); }
+  .led.on.amber .lamp{ background: var(--amber); box-shadow: 0 0 8px 1px rgba(255,176,32,0.75); }
+  .led.on.red .lamp{ background: var(--red); box-shadow: 0 0 8px 1px rgba(255,92,108,0.75); }
+  .led .label{ font-size:11.5px; line-height:1.3; color:var(--text-dim); }
+  .led.on .label{ color: var(--text); }
+
+  /* ---------- Order checklist ---------- */
+  .order{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:11px 0; border-bottom:1px solid var(--hair);
+  }
+  .order:last-child{ border-bottom:none; }
+  .order .dot{
+    width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0;
+    background: var(--led-off);
+  }
+  .order.active .dot{ background: var(--teal); box-shadow: 0 0 6px 1px rgba(34,211,174,0.7); }
+  .order .name{ font-size:13.5px; font-weight:600; }
+  .order.active .name{ color: var(--text); }
+  .order:not(.active) .name{ color: var(--text-faint); }
+  .order .detail{ font-size:12px; color:var(--text-dim); margin-top:2px; font-family:var(--font-mono); }
+  .order:not(.active) .detail{ color: var(--text-faint); }
+  .order .cond{ font-size:10.5px; color:var(--text-faint); margin-top:2px; }
+
+  /* ---------- Params modal ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:none; align-items:flex-end; z-index:50;
+  }
+  .modal-backdrop.show{ display:flex; }
+  .modal{
+    background: var(--panel); width:100%; max-width:480px; margin:0 auto;
+    border-radius: 20px 20px 0 0; padding:16px 16px calc(20px + env(safe-area-inset-bottom));
+    max-height: 82vh; overflow-y:auto;
+    border-top:1px solid var(--hair-strong);
+  }
+  .modal h2{ font-size:15px; margin:2px 0 12px; font-family:var(--font-mono); }
+  .param-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 0; border-bottom:1px solid var(--hair); gap:10px;
+  }
+  .param-row .plabel{ font-size:12.5px; color:var(--text-dim); flex:1; }
+  .param-row input{
+    width:92px; text-align:right; background: var(--panel-3); border:1px solid var(--hair);
+    border-radius:9px; padding:7px 9px; color:var(--text); font-family:var(--font-mono); font-size:13px;
+  }
+  .modal-close{ margin-top:14px; }
+
+  .asset-card{
+    background: var(--panel-3); border:1px solid var(--hair); border-radius:12px;
+    padding:10px; margin-bottom:10px;
+  }
+  .asset-card .field{ margin-bottom:8px; }
+  .asset-card select{
+    width:100%; background: var(--panel-3); border:1px solid var(--hair);
+    border-radius:10px; padding:10px 11px; color:var(--text);
+    font-family: var(--font-ui); font-size:14px;
+  }
+  .asset-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .asset-name-row input{
+    flex:1; background: var(--panel-2); border:1px solid var(--hair);
+    border-radius:10px; padding:9px 10px; color:var(--text);
+    font-family: var(--font-ui); font-size:14px; font-weight:700;
+  }
+  .order-btn{
+    width:26px; height:26px; border-radius:8px; background: var(--panel-2);
+    border:1px solid var(--hair-strong); display:flex; align-items:center; justify-content:center;
+    color: var(--text); font-size:11px; flex-shrink:0;
+  }
+  .order-btn.disabled{ color: var(--text-faint); opacity:0.4; }
+  .order-btn:active{ background: var(--panel-3); }
+
+  .footer-note{
+    text-align:center; font-size:10.5px; color:var(--text-faint);
+    margin: 6px 0 4px; line-height:1.6;
+  }
+  .danger-link{ color: var(--red); text-decoration:underline; }
+
+  /* ---------- Calendar popover ---------- */
+  .field.date-field{ position:relative; }
+  #inDate{ cursor:pointer; }
+  .calendar-pop{
+    position:absolute; top:calc(100% + 6px); left:0; right:0;
+    background: var(--panel-2); border:1px solid var(--hair-strong);
+    border-radius:14px; padding:12px; z-index:60;
+    display:none; box-shadow:0 14px 32px rgba(0,0,0,0.5);
+  }
+  .calendar-pop.show{ display:block; }
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-title{ font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--text); }
+  .cal-nav{
+    width:28px; height:28px; border-radius:8px; background: var(--panel-3);
+    border:1px solid var(--hair); display:flex; align-items:center; justify-content:center;
+    color:var(--text-dim); font-size:14px;
+  }
+  .cal-nav:active{ background: var(--panel); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-dow{ text-align:center; font-size:10px; color:var(--text-faint); padding:4px 0 6px; }
+  .cal-day{
+    text-align:center; font-size:12.5px; padding:7px 0; border-radius:8px;
+    color:var(--text-dim); font-family:var(--font-mono);
+  }
+  .cal-day[data-date]:active{ background: var(--panel-3); }
+  .cal-day.other-month{ color:var(--text-faint); opacity:0.35; }
+  .cal-day.today{ border:1px solid var(--teal); color:var(--text); }
+  .cal-day.selected{ background: var(--teal); color:#04231C; font-weight:700; }
+  .cal-foot{ display:flex; justify-content:flex-end; margin-top:6px; }
+  .cal-today-btn{ font-size:11.5px; color:var(--teal); font-weight:600; padding:4px 6px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="wordmark">Invest<span>OS</span></div>
+      <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.2</div>
+    </div>
+    <div class="icon-btn" id="btnParams" title="參數設定">⚙︎</div>
+  </div>
+
+  <div class="hero st-idle" id="hero">
+    <div class="eyebrow" id="heroEyebrow">SYSTEM STATUS</div>
+    <div class="headline" id="heroHeadline">載入中…</div>
+    <div class="sub" id="heroSub">正在讀取資料</div>
+  </div>
+
+  <div class="tabs" id="tabsRow"></div>
+
+  <!-- ============ INPUT CARD ============ -->
+  <div class="card">
+    <div class="card-title"><h3>資料輸入</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="收合"><span class="chev">▾</span></button></div>
+    <div id="inputBody">
+    <div class="field date-field">
+      <label>日期</label>
+      <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
+      <div class="calendar-pop" id="calendarPop">
+        <div class="cal-head">
+          <div class="cal-nav" id="calPrev">‹</div>
+          <div class="cal-title" id="calTitle"></div>
+          <div class="cal-nav" id="calNext">›</div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-foot"><span class="cal-today-btn" id="calToday">今天</span></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>收盤價</label><input type="number" step="0.01" id="inClose" placeholder="0.00"></div>
+      <div class="field"><label>MA5</label><input type="number" step="0.01" id="inMa5" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>MA20</label><input type="number" step="0.01" id="inMa20" placeholder="0.00"></div>
+      <div class="field"><label>MA60</label><input type="number" step="0.01" id="inMa60" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label id="cashLabel">現金</label>
+        <input type="number" step="1" id="inCash" placeholder="0">
+      </div>
+      <div class="field">
+        <label id="sharesLabel">股數</label>
+        <input type="number" step="1" id="inShares" placeholder="0">
+      </div>
+    </div>
+    <button class="btn btn-neutral btn-sm" id="btnAdd">新增</button>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">或匯入歷史紀錄檔案</label>
+      <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
+      <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile">匯入</button>
+      <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+    </div>
+  </div>
+
+  <!-- ============ HISTORY CARD ============ -->
+  <div class="card">
+    <div class="card-title"><h3>歷史紀錄</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="收合"><span class="chev">▾</span></button></div>
+    <div id="histBody">
+    <div id="histList"></div>
+    <button class="btn btn-neutral btn-sm" id="btnExportHist">匯出</button>
+    </div>
+  </div>
+
+  <!-- ============ LED PANEL ============ -->
+  <div class="card">
+    <div class="card-title"><h3>判定結果</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="收合"><span class="chev">▾</span></button></div>
+    <div id="ledBody">
+    <div class="led-grid" id="ledGrid"></div>
+    </div>
+  </div>
+
+  <!-- ============ RESERVE FUND CARD ============ -->
+  <div class="card">
+    <div class="card-title"><h3 id="reserveTitle">防禦邊界</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="收合"><span class="chev">▾</span></button></div>
+    <div id="reserveBody">
+    <div class="footer-note" id="reserveHint" style="text-align:left; margin-top:2px;"></div>
+    </div>
+  </div>
+
+  <!-- ============ ORDER CHECKLIST ============ -->
+  <div class="card">
+    <div class="card-title"><h3>委託清單</h3><button class="btn btn-primary btn-sm" id="toggleOrders" title="收合"><span class="chev">▾</span></button></div>
+    <div id="orderBody">
+    <div id="orderList"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a></div>
+</div>
+
+<!-- ============ PARAMS MODAL ============ -->
+<div class="modal-backdrop" id="paramsBackdrop">
+  <div class="modal">
+    <div class="card-title" style="margin-bottom:12px;">
+      <h2 style="margin:0;">參數設定</h2>
+      <button class="btn btn-neutral btn-sm" id="btnResetParams">恢復最初原始的數值</button>
+    </div>
+    <div id="paramList"></div>
+
+    <div class="card-title" style="margin-top:6px; margin-bottom:10px;">
+      <h2 style="margin:0; font-size:14px;">投資標的管理</h2>
+    </div>
+    <div id="assetManageList"></div>
+    <button class="btn btn-neutral btn-sm" id="btnAddAsset" style="margin-bottom:10px;">＋ 新增投資標的</button>
+
+    <div class="field" style="margin-top:6px; padding-top:10px; border-top:1px solid var(--hair);">
+      <div class="grid2">
+        <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
+        <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
+        <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets">匯入</button>
+      </div>
+      <div class="footer-note" id="assetImportStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="card-title" style="margin-top:16px; margin-bottom:10px; padding-top:14px; border-top:1px solid var(--hair);">
+      <h2 style="margin:0; font-size:14px;">資料管理</h2>
+    </div>
+    <div class="footer-note" style="text-align:left;">
+      資料僅儲存在您的裝置本機中。<span class="danger-link" id="btnReset">清除所有資料</span>
+    </div>
+
+    <button class="btn btn-neutral modal-close" id="btnCloseParams" style="margin-top:16px;">完成</button>
+  </div>
+</div>
+
+<script>
+const KEY_PARAMS = 'tsmos:params';
+const KEY_ASSETS = 'tsmos:assets';
+const KEY_LOG = k => 'tsmos:log:' + k;
+const KEY_CASH = k => 'tsmos:cash:' + k;
+const KEY_SHARES = k => 'tsmos:shares:' + k;
+
+const DEFAULT_PARAMS = {
+  tolerance: 0.005,
+  exitMult: 1.08,
+  layer2Mult: 0.97,
+  reserveMult: 40,
+};
+
+const PARAM_META = [
+  ['tolerance','MA20區間容忍度(上界)','pct'],
+  ['exitMult','出清價位乘數','mult'],
+  ['layer2Mult','第二層重砲乘數','mult'],
+  ['reserveMult','保留金倍數','int'],
+];
+
+// 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
+const DEFAULT_ASSETS = [
+  { key:'spot', name:'台積電 2330', currency:'元',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostValue:10000, l1:300, l2:400 },
+  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostValue:1,     l1:30,  l2:40  },
+];
+
+let state = {
+  params: {...DEFAULT_PARAMS},
+  assets: DEFAULT_ASSETS.map(a=>({...a})),
+  log: {},
+  cash: {},
+  shares: {},
+  activeTab: 'spot',
+  histCollapsed: false,
+  inputCollapsed: false,
+  ledCollapsed: false,
+  reserveCollapsed: false,
+  ordersCollapsed: false,
+};
+
+function getAsset(key){
+  return state.assets.find(a=>a.key===key) || state.assets[0];
+}
+
+async function storageGet(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw !== null) return JSON.parse(raw);
+    return fallback;
+  }catch(e){ return fallback; }
+}
+async function storageSet(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }
+  catch(e){ console.error('storage set failed', e); }
+}
+
+function fmt(n, d=1){
+  if(n === undefined || n === null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+// 不含千分位逗號的純數字格式化，專供匯出檔案與委託清單使用，避免逗號破壞匯入時的parseFloat解析
+function fmtRaw(n, d=2){
+  if(n === undefined || n === null || isNaN(n)) return '—';
+  return Number(n).toFixed(d);
+}
+
+// 依標的的價格取整單位（roundTick）調整價格；tick=0代表不取整
+function applyTick(n, tick, mode){
+  if(n === undefined || n === null || isNaN(n)) return null;
+  if(!tick) return n;
+  return mode === 'ceil' ? Math.ceil(n / tick) * tick : Math.round(n / tick) * tick;
+}
+
+function sortedLog(assetKey){
+  const rows = state.log[assetKey] || [];
+  return [...rows].sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+
+// 計算應保留金額，直接讀取歷史紀錄原始資料，不呼叫computeForAsset，避免與防禦邊界判定互相循環呼叫
+function getRequiredReserve(assetKey){
+  const P = state.params;
+  const asset = getAsset(assetKey);
+  if(asset.dcaMode === 'amount'){
+    return P.reserveMult * asset.dcaValue;
+  }
+  const rows = sortedLog(assetKey);
+  if(rows.length === 0) return null;
+  const today = rows[rows.length-1];
+  if(today.ma60 == null) return null;
+  return Math.round(P.reserveMult * today.ma60);
+}
+
+function computeForAsset(assetKey){
+  const rows = sortedLog(assetKey);
+  const n = rows.length;
+  const P = state.params;
+  const out = { ready: n>=3, ready1:n>=1, ready2:n>=2 };
+  if(n < 1) return out;
+  const today = rows[n-1];
+  out.today = today;
+
+  // 下面這些判定只需要「今天」的資料就能算，資料只有1筆也能判定
+  out.touch = today.close <= today.ma20 * (1 + P.tolerance);
+  out.exit = today.close >= today.ma20 * P.exitMult; // 出清不受防禦邊界影響
+  const requiredReserve = getRequiredReserve(assetKey);
+  const cur = state.cash[assetKey] || 0;
+  out.requiredReserve = requiredReserve;
+  out.cashSufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
+
+  // 股價站穩MA60只需要今天的MA60就能比較，不用等到有前一天的MA60資料
+  out.hasMa60Today = today.ma60 != null;
+  if(out.hasMa60Today){
+    out.priceAboveMa60 = today.close >= today.ma60;
+  }
+
+  if(n < 2){ return out; }
+  const t1 = rows[n-2];
+  out.t1 = t1;
+  out.ma5up = today.ma5 > t1.ma5;
+  out.ma5upFlat = today.ma5 >= t1.ma5;
+  out.ma20upFlat = today.ma20 >= t1.ma20;
+
+  // 防禦邊界（MA60）：MA60持平或向上，且股價站穩MA60，全系統正常運作；
+  // 否則暫停加倍與重砲，僅維持常態扣款。缺少MA60資料時保守視為防禦邊界未確認。
+  out.hasMa60 = out.hasMa60Today && (t1.ma60 != null);
+  if(out.hasMa60){
+    out.ma60upFlat = today.ma60 >= t1.ma60;
+    out.priceDefenseOk = out.ma60upFlat && out.priceAboveMa60;
+  } else {
+    out.priceDefenseOk = false;
+  }
+
+  // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
+  // 動能觸發與重砲觸發都會被暫停執行。
+  out.defenseOk = out.priceDefenseOk && (out.cashSufficient === true);
+  out.bombard = out.touch && out.ma20upFlat && out.defenseOk;
+
+  if(n >= 3){
+    const t2 = rows[n-3];
+    out.t2 = t2;
+    out.threeDay = today.close > today.ma5 && t1.close > t1.ma5 && t2.close > t2.ma5;
+    out.momentum = out.threeDay && out.ma5upFlat && out.defenseOk;
+  }
+  return out;
+}
+
+function renderHero(){
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const P = state.params;
+  const d = computeForAsset(key);
+  const hero = document.getElementById('hero');
+  const eyebrow = document.getElementById('heroEyebrow');
+  const headline = document.getElementById('heroHeadline');
+  const sub = document.getElementById('heroSub');
+  eyebrow.textContent = asset.name;
+  const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
+
+  if(!d.ready1){
+    hero.className = 'hero st-idle';
+    headline.textContent = '⏳ 尚無資料';
+    sub.textContent = '請先在下方輸入最近三日的資料';
+    return;
+  }
+  const defenseOff = d.ready2 && !d.defenseOk;
+
+  if(d.exit){
+    if((state.shares[key]||0) <= 0){
+      hero.className = 'hero st-warn';
+      headline.textContent = '⚠ 出清觸發，但目前股數為0';
+      sub.textContent = `目前股數池為0，沒有部位可以出清`;
+    } else {
+      hero.className = 'hero st-exit';
+      headline.textContent = '💰 出清觸發';
+      sub.textContent = `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
+    }
+  } else if(defenseOff){
+    hero.className = 'hero st-defense';
+    headline.textContent = '🛡 防禦邊界關閉';
+    sub.textContent = `暫停動能觸發與重砲觸發，僅維持${dcaLabel}`;
+  } else if(d.bombard){
+    const cashStatus = getCashStatus(key);
+    if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
+      hero.className = 'hero st-warn';
+      headline.textContent = '💥 重砲觸發：現金不足支付重砲';
+      sub.textContent = `股價小於MA20×${touchMult}，但現金不足支付第一層重砲`;
+    } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
+      hero.className = 'hero st-warn';
+      headline.textContent = '💥 重砲觸發：現金不足支付重砲第二層';
+      sub.textContent = `股價小於MA20×${touchMult}，但現金不足支付第二層重砲`;
+    } else {
+      hero.className = 'hero st-bombard';
+      headline.textContent = '💥 重砲觸發';
+      sub.textContent = `股價小於MA20×${touchMult} 且MA20持平或向上`;
+    }
+  } else if(d.momentum){
+    hero.className = 'hero st-momentum';
+    headline.textContent = '🔷 動能觸發';
+    sub.textContent = 'MA5持平或向上 且連續三日股價大於MA5';
+  } else {
+    hero.className = 'hero st-idle';
+    headline.textContent = `🟢 ${dcaLabel}`;
+    sub.textContent = `僅維持${dcaLabel}，無戰術訊號`;
+  }
+}
+
+function renderHistory(){
+  const list = document.getElementById('histList');
+  const body = document.getElementById('histBody');
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  { const btnH = document.getElementById('toggleHist'); btnH.querySelector('.chev').classList.toggle('collapsed', state.histCollapsed); btnH.title = state.histCollapsed ? '展開' : '收合'; }
+  if(state.histCollapsed){ body.style.display = 'none'; return; }
+  body.style.display = 'block';
+
+  const rowsAsc = sortedLog(key);
+  if(rowsAsc.length === 0){
+    list.innerHTML = '<div class="empty-hint">還沒有紀錄。<br>請在上方「資料輸入」輸入最近三日的收盤價、MA5、MA20、MA60、現金、股數，逐日按「新增」，開始追蹤。</div>';
+    return;
+  }
+
+  // 由舊到新依序帶入每日流動現金與股數，若當天沒有輸入則沿用前一筆有資料的數值
+  let carryCash = null;
+  let carryShares = null;
+  const withCash = rowsAsc.map(r=>{
+    let cashCarried = false;
+    let effectiveCash = r.cash;
+    if(effectiveCash == null){
+      effectiveCash = carryCash;
+      cashCarried = true;
+    } else {
+      carryCash = effectiveCash;
+    }
+    if(effectiveCash == null){
+      effectiveCash = state.cash[key];
+      cashCarried = true;
+    }
+
+    let sharesCarried = false;
+    let effectiveShares = r.shares;
+    if(effectiveShares == null){
+      effectiveShares = carryShares;
+      sharesCarried = true;
+    } else {
+      carryShares = effectiveShares;
+    }
+    if(effectiveShares == null){
+      effectiveShares = state.shares[key];
+      sharesCarried = true;
+    }
+
+    return { ...r, effectiveCash, cashCarried, effectiveShares, sharesCarried };
+  });
+
+  const rows = [...withCash].reverse();
+  list.innerHTML = rows.map((r)=>{
+    const realIdx = state.log[key].findIndex(x=>x.date===r.date && x.close===r.close && x.ma5===r.ma5 && x.ma20===r.ma20);
+    const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
+    const unit = asset.currency;
+    const cashTxt = (r.effectiveCash != null) ? `${fmtRaw(r.effectiveCash,0)} ${unit}${r.cashCarried?'（沿用）':''}` : '—';
+    const sharesTxt = (r.effectiveShares != null) ? `${fmtRaw(r.effectiveShares,0)} 股${r.sharesCarried?'（沿用）':''}` : '—';
+    return `<div class="hist-entry">
+      <div class="hist-entry-head">
+        <div class="hist-entry-date">${r.date}</div>
+        <div class="hist-entry-del" data-del="${realIdx}" title="清除">✕</div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">收盤價</div><div class="hist-stat-value">${fmtRaw(r.close,2)}</div></div>
+        <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${fmtRaw(r.ma5,2)}</div></div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20,2)}</div></div>
+        <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">現金</div><div class="hist-stat-value">${cashTxt}</div></div>
+        <div><div class="hist-stat-label">股數</div><div class="hist-stat-value">${sharesTxt}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function ledItem(on, label, cls=''){
+  return `<div class="led ${on?'on':''} ${cls}">
+    <div class="lamp"></div>
+    <div class="label">${label}</div>
+  </div>`;
+}
+
+function renderLeds(){
+  const key = state.activeTab;
+  const P = state.params;
+  const d = computeForAsset(key);
+  const grid = document.getElementById('ledGrid');
+  const n = (state.log[key]||[]).length;
+  if(!d.ready1){
+    grid.innerHTML = `<div class="empty-hint" style="grid-column:1/-1;">尚無資料，請先在上方輸入今天的資料。</div>`;
+    return;
+  }
+  let html = '';
+  if(d.ready2 && !d.hasMa60){
+    html += `<div class="empty-hint" style="grid-column:1/-1;">尚未輸入MA60資料，防禦邊界暫以「未確認」處理，動能觸發與重砲觸發將暫停。</div>`;
+  }
+  const need = (minN, label) => ledItem(false, `${label}（需${minN}筆，目前${n}筆）`, '');
+
+  // MA60持平或向上（需2筆）
+  { const mled = getMa60UpLedState(d); html += ledItem(mled.on, mled.label, mled.color==='var(--red)'?'red':''); }
+
+  // 價格站穩MA60（1筆即可，只需要今天的MA60）
+  { const pled = getPriceMa60LedState(d); html += ledItem(pled.on, pled.label, pled.color==='var(--red)'?'red':''); }
+
+  // 流動現金（1筆即可，但需算得出應保留金額）
+  const cashStatus = getCashStatus(key);
+  const cashLed = getCashLedState(cashStatus);
+  const cashLedOn = cashLed.color !== 'var(--text-faint)';
+  const cashLedCls = cashLed.color === 'var(--red)' ? 'red' : cashLed.color === 'var(--amber)' ? 'amber' : '';
+  html += ledItem(cashLedOn, cashLed.label, cashLedCls);
+
+  // 防禦邊界（需2筆）
+  { const dled = getDefenseLedState(d); html += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
+
+  // MA5持平或向上（需2筆）
+  html += d.ready2 ? ledItem(d.ma5upFlat, 'MA5持平或向上') : need(2, 'MA5持平或向上');
+
+  // MA20持平或向上（需2筆）
+  html += d.ready2 ? ledItem(d.ma20upFlat, 'MA20持平或向上') : need(2, 'MA20持平或向上');
+
+  // 連續三日股價大於MA5（需3筆）
+  html += d.ready ? ledItem(d.threeDay, '連續三日股價大於MA5') : need(3, '連續三日股價大於MA5');
+
+  // 動能觸發（需3筆）
+  html += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
+
+  // 股價小於MA20×容忍度（1筆即可）
+  html += ledItem(d.touch, `股價小於MA20×${(1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'')}`);
+
+  // 重砲觸發（需2筆）
+  html += d.ready2 ? ledItem(d.bombard, '重砲觸發') : need(2, '重砲觸發');
+
+  // 出清相關（1筆即可）
+  html += ledItem(d.exit, `股價大於MA20×${P.exitMult}`);
+  if(d.exit && (state.shares[key]||0) <= 0){
+    html += ledItem(true, '出清觸發，但目前股數為0', 'amber');
+  } else {
+    html += ledItem(d.exit, '出清觸發', d.exit?'red':'');
+  }
+
+  grid.innerHTML = html;
+}
+
+function orderRow(active, name, cond, detail){
+  return `<div class="order ${active?'active':''}">
+    <div class="dot"></div>
+    <div style="flex:1">
+      <div class="name">${name}</div>
+      <div class="cond">${cond}</div>
+      <div class="detail">${detail || '—'}</div>
+    </div>
+  </div>`;
+}
+
+function renderOrders(){
+  const P = state.params;
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const d = computeForAsset(key);
+  const list = document.getElementById('orderList');
+  let html = '';
+
+  // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價
+  let dcaDetail;
+  if(asset.dcaMode === 'amount'){
+    dcaDetail = `${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
+  } else {
+    dcaDetail = d.ready1 ? `${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `${asset.dcaValue} 股 ＠市價`;
+  }
+  const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
+  html += orderRow(true, dcaLabel, '恆常執行，不受防禦邊界影響', dcaDetail);
+
+  // 動能觸發
+  let boostDetail = '';
+  if(d.ready){
+    boostDetail = asset.dcaMode === 'amount'
+      ? `${asset.boostValue.toLocaleString()} ${asset.currency} ＠市價`
+      : `${asset.boostValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}`;
+  }
+  html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且連續三日股價大於MA5 且防禦邊界安全', boostDetail);
+
+  // 重砲觸發：第一層 / 第二層（只需要2筆資料即可試算）
+  const tickDec = asset.roundTick ? 0 : asset.priceDecimals;
+  let l1Detail = '', l2Detail = '';
+  if(d.ready2){
+    const basePrice = Math.min(d.today.close, d.today.ma20);
+    const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
+    const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
+    l1Detail = `${asset.l1} 股 ＠${fmtRaw(p1, tickDec)}`;
+    l2Detail = `${asset.l2} 股 ＠${fmtRaw(p2, tickDec)}`;
+  }
+  html += orderRow(!!d.bombard, '重砲觸發：第一層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l1Detail);
+  html += orderRow(!!d.bombard, '重砲觸發：第二層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l2Detail);
+
+  // 出清：直接顯示目前記錄的股數池全部（只需要1筆資料即可試算）
+  let exitDetail = '';
+  if(d.ready1){
+    const exitPrice = applyTick(d.today.ma20 * P.exitMult, asset.roundTick, 'round');
+    exitDetail = `${fmtRaw(state.shares[key]||0,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
+  }
+  html += orderRow(!!d.exit, '出清觸發', '股價大於MA20×出清乘數，不受防禦邊界影響', exitDetail);
+
+  list.innerHTML = html;
+}
+
+function getCashStatus(key){
+  const P = state.params;
+  const asset = getAsset(key);
+  const d = computeForAsset(key);
+  const requiredReserve = getRequiredReserve(key);
+  let requiredTxt = '';
+  if(asset.dcaMode === 'amount'){
+    requiredTxt = `${P.reserveMult} × 定期定額(${asset.dcaValue.toLocaleString()}) = ${requiredReserve.toLocaleString()} ${asset.currency}`;
+  } else if(requiredReserve != null && d.today){
+    requiredTxt = `${P.reserveMult} × MA60(${fmt(d.today.ma60,2)}) ≈ ${requiredReserve.toLocaleString()} ${asset.currency}`;
+  } else {
+    requiredTxt = `${P.reserveMult} × MA60 —（尚無MA60資料）`;
+  }
+  const cur = state.cash[key] || 0;
+  const unit = asset.currency;
+  const sufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
+
+  // 重砲觸發時，額外試算重砲觸發：第一層所需金額，並判斷目前流動現金是否足夠支付
+  let bombardTriggered = false, bombardCost = null, bombardSufficient = null, bombardCostTxt = '';
+  let layer2Cost = null, layer2CostTxt = '', bombardSufficientBoth = null;
+  if(d.bombard && d.today){
+    bombardTriggered = true;
+    const basePrice = Math.min(d.today.close, d.today.ma20);
+    const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
+    const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
+    bombardCost = asset.l1 * p1;
+    layer2Cost = asset.l2 * p2;
+    bombardCostTxt = `${bombardCost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}`;
+    layer2CostTxt = `${layer2Cost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}`;
+    // 可動用資金＝流動現金 - 應保留金額（現金池保留部分不計入可用於重砲的資金）
+    bombardSufficient = (requiredReserve == null) ? null : ((cur - requiredReserve) >= bombardCost);
+    // 兩層都觸發時會同時掛單，所以要檢查現金夠不夠同時支付第一層＋第二層
+    bombardSufficientBoth = (requiredReserve == null) ? null : ((cur - requiredReserve) >= (bombardCost + layer2Cost));
+  }
+
+  return { requiredReserve, requiredTxt, cur, unit, sufficient, bombardTriggered, bombardCost, bombardCostTxt, bombardSufficient, layer2Cost, layer2CostTxt, bombardSufficientBoth };
+}
+
+function getMa60UpLedState(d){
+  if(!d.ready2) return { label:'MA60持平或向上', color:'var(--text-faint)', on:false };
+  if(!d.hasMa60) return { label:'缺少MA60相關資料，無法判斷', color:'var(--text-faint)', on:false };
+  return d.ma60upFlat
+    ? { label:'MA60持平或向上', color:'var(--teal)', on:true }
+    : { label:'MA60向下', color:'var(--red)', on:true };
+}
+
+function getPriceMa60LedState(d){
+  if(!d.hasMa60Today) return { label:'缺少MA60相關資料，無法判斷', color:'var(--text-faint)', on:false };
+  return d.priceAboveMa60
+    ? { label:'價格站穩MA60', color:'var(--teal)', on:true }
+    : { label:'收盤價低於MA60', color:'var(--red)', on:true };
+}
+
+function getDefenseLedState(d){
+  if(!d.ready2) return { label:'防禦邊界安全', color:'var(--text-faint)', on:false };
+  if(!d.hasMa60) return { label:'缺少MA60相關資料，無法判斷', color:'var(--text-faint)', on:false };
+  if(d.defenseOk) return { label:'防禦邊界安全', color:'var(--teal)', on:true };
+  return { label:'防禦邊界關閉', color:'var(--red)', on:true };
+}
+
+function getCashLedState(cashStatus){
+  if(cashStatus.sufficient === false){
+    return { label:'流動現金不足', color:'var(--red)' };
+  } else if(cashStatus.sufficient === true && cashStatus.bombardTriggered && cashStatus.bombardSufficient === false){
+    return { label:'現金不足支付重砲', color:'var(--amber)' };
+  } else if(cashStatus.sufficient === true && cashStatus.bombardTriggered && cashStatus.bombardSufficientBoth === false){
+    return { label:'現金不足支付重砲第二層', color:'var(--amber)' };
+  } else if(cashStatus.sufficient === true){
+    return { label:'流動現金充足', color:'var(--teal)' };
+  } else {
+    return { label:'缺少現金相關資料，無法判斷', color:'var(--text-faint)' };
+  }
+}
+
+function renderReserve(){
+  const key = state.activeTab;
+
+  document.getElementById('reserveTitle').textContent = '防禦邊界';
+  document.getElementById('cashLabel').textContent = '現金';
+  document.getElementById('sharesLabel').textContent = '股數';
+
+  const d = computeForAsset(key);
+  if(!d.ready1){
+    document.getElementById('reserveHint').innerHTML =
+      `<span style="color:var(--text-faint);">尚無資料，請先在上方輸入今天的資料。</span>`;
+    return;
+  }
+
+  const st = getCashStatus(key);
+  let bombardLine = '';
+  if(st.bombardTriggered){
+    const available = (st.requiredReserve != null) ? (st.cur - st.requiredReserve) : null;
+    const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（缺少MA60資料）';
+    bombardLine = `<br>可動用資金（流動現金－應保留金額）：${availableTxt}<br>重砲觸發：第一層所需金額：${st.bombardCostTxt}<br>重砲觸發：第二層所需金額：${st.layer2CostTxt}`;
+  }
+  const cashLed = getCashLedState(st);
+  const defenseLed = getDefenseLedState(d);
+  const ma60UpLed = getMa60UpLedState(d);
+  const priceMa60Led = getPriceMa60LedState(d);
+
+  document.getElementById('reserveHint').innerHTML =
+    `現金應保留：${st.requiredTxt}<br>目前流動現金：${st.cur.toLocaleString()} ${st.unit}${bombardLine}<br>` +
+    `<span style="color:${ma60UpLed.color}; font-weight:700;">${ma60UpLed.label}</span><br>` +
+    `<span style="color:${priceMa60Led.color}; font-weight:700;">${priceMa60Led.label}</span><br>` +
+    `<span style="color:${cashLed.color}; font-weight:700;">${cashLed.label}</span><br>` +
+    `<span style="color:${defenseLed.color}; font-weight:700;">${defenseLed.label}</span>`;
+}
+
+function renderTabs(){
+  const row = document.getElementById('tabsRow');
+  row.innerHTML = state.assets.map(a=>
+    `<div class="tab ${a.key===state.activeTab?'active':''}" data-tab="${a.key}">${a.name}</div>`
+  ).join('');
+  row.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      state.activeTab = t.dataset.tab;
+      renderAll();
+      document.getElementById('inCash').value = '';
+      document.getElementById('inShares').value = '';
+      document.getElementById('importStatus').innerHTML = '';
+    });
+  });
+}
+
+function renderAll(){
+  renderTabs();
+  renderHero();
+  renderHistory();
+  renderLeds();
+  renderReserve();
+  renderOrders();
+}
+
+function renderParamsModal(){
+  const list = document.getElementById('paramList');
+  list.innerHTML = PARAM_META.map(([key,label,type])=>{
+    let val = state.params[key];
+    if(type==='pct') val = (val*100);
+    return `<div class="param-row">
+      <div class="plabel">${label}</div>
+      <input type="number" step="any" data-key="${key}" data-type="${type}" value="${val}">
+    </div>`;
+  }).join('');
+  list.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('change', async (e)=>{
+      const key = e.target.dataset.key;
+      const type = e.target.dataset.type;
+      let v = parseFloat(e.target.value);
+      if(isNaN(v)) return;
+      if(type==='pct') v = v/100;
+      state.params[key] = v;
+      await storageSet(KEY_PARAMS, state.params);
+      renderAll();
+    });
+  });
+}
+
+function ensureAssetData(key){
+  if(!state.log[key]) state.log[key] = [];
+  if(state.cash[key] === undefined) state.cash[key] = 0;
+  if(state.shares[key] === undefined) state.shares[key] = 0;
+}
+
+function renderAssetManage(){
+  const wrap = document.getElementById('assetManageList');
+  wrap.innerHTML = state.assets.map((a,idx)=>`
+    <div class="asset-card">
+      <div class="asset-name-row">
+        <span class="order-btn ${idx===0?'disabled':''}" data-aup="${idx}">▲</span>
+        <span class="order-btn ${idx===state.assets.length-1?'disabled':''}" data-adown="${idx}">▼</span>
+        <input type="text" data-aidx="${idx}" data-afield="name" value="${a.name}">
+        ${state.assets.length>1?`<span class="danger-link" data-adel="${idx}" style="font-size:12px; flex-shrink:0;">刪除</span>`:''}
+      </div>
+      <div class="grid2">
+        <div class="field"><label>幣別</label><input type="text" data-aidx="${idx}" data-afield="currency" value="${a.currency}"></div>
+        <div class="field"><label>計價模式</label>
+          <select data-aidx="${idx}" data-afield="dcaMode">
+            <option value="amount" ${a.dcaMode==='amount'?'selected':''}>金額</option>
+            <option value="shares" ${a.dcaMode==='shares'?'selected':''}>股數</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>定期定額/股</label><input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}"></div>
+        <div class="field"><label>動能觸發加額</label><input type="number" data-aidx="${idx}" data-afield="boostValue" value="${a.boostValue}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>重砲觸發：第一層(股)</label><input type="number" data-aidx="${idx}" data-afield="l1" value="${a.l1}"></div>
+        <div class="field"><label>重砲觸發：第二層(股)</label><input type="number" data-aidx="${idx}" data-afield="l2" value="${a.l2}"></div>
+      </div>
+      <div class="field"><label>價格取整單位（0＝不取整）</label><input type="number" data-aidx="${idx}" data-afield="roundTick" value="${a.roundTick}"></div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const idx = parseInt(e.target.dataset.aidx, 10);
+      const field = e.target.dataset.afield;
+      let v = e.target.value;
+      if(['dcaValue','boostValue','l1','l2','roundTick'].includes(field)) v = parseFloat(v) || 0;
+      state.assets[idx][field] = v;
+      await storageSet(KEY_ASSETS, state.assets);
+      renderTabs();
+      renderAll();
+    });
+  });
+  wrap.querySelectorAll('[data-adel]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const idx = parseInt(el.dataset.adel, 10);
+      if(state.assets.length <= 1) return;
+      const removedKey = state.assets[idx].key;
+      state.assets.splice(idx, 1);
+      await storageSet(KEY_ASSETS, state.assets);
+      if(state.activeTab === removedKey){ state.activeTab = state.assets[0].key; }
+      renderAssetManage();
+      renderTabs();
+      renderAll();
+    });
+  });
+  wrap.querySelectorAll('[data-aup]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const idx = parseInt(el.dataset.aup, 10);
+      if(idx <= 0) return;
+      [state.assets[idx-1], state.assets[idx]] = [state.assets[idx], state.assets[idx-1]];
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAssetManage();
+      renderTabs();
+    });
+  });
+  wrap.querySelectorAll('[data-adown]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const idx = parseInt(el.dataset.adown, 10);
+      if(idx >= state.assets.length-1) return;
+      [state.assets[idx+1], state.assets[idx]] = [state.assets[idx], state.assets[idx+1]];
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAssetManage();
+      renderTabs();
+    });
+  });
+}
+
+// ---------- custom calendar popover ----------
+let calState = { viewYear:0, viewMonth:0, selected:'' };
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toDateStr(y,m,d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
+
+function renderCalendar(){
+  const {viewYear, viewMonth, selected} = calState;
+  document.getElementById('calTitle').textContent = `${viewYear}年 ${viewMonth+1}月`;
+  const dows = ['日','一','二','三','四','五','六'];
+  let html = dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  for(let i=0;i<firstDay;i++){
+    const d = daysInPrevMonth - firstDay + 1 + i;
+    html += `<div class="cal-day other-month">${d}</div>`;
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = toDateStr(viewYear, viewMonth, d);
+    let cls = 'cal-day';
+    if(dateStr === todayStr) cls += ' today';
+    if(dateStr === selected) cls += ' selected';
+    html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+  }
+  const totalCells = firstDay + daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for(let d=1; d<=trailing; d++){
+    html += `<div class="cal-day other-month">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function openCalendar(){
+  const cur = document.getElementById('inDate').value || new Date().toISOString().slice(0,10);
+  const [y,m] = cur.split('-').map(Number);
+  calState.viewYear = y; calState.viewMonth = m-1; calState.selected = cur;
+  renderCalendar();
+  document.getElementById('calendarPop').classList.add('show');
+}
+function closeCalendar(){
+  document.getElementById('calendarPop').classList.remove('show');
+}
+
+document.getElementById('inDate').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  openCalendar();
+});
+document.getElementById('calPrev').addEventListener('click', ()=>{
+  calState.viewMonth--; if(calState.viewMonth<0){ calState.viewMonth=11; calState.viewYear--; }
+  renderCalendar();
+});
+document.getElementById('calNext').addEventListener('click', ()=>{
+  calState.viewMonth++; if(calState.viewMonth>11){ calState.viewMonth=0; calState.viewYear++; }
+  renderCalendar();
+});
+document.getElementById('calGrid').addEventListener('click', (e)=>{
+  const cell = e.target.closest('[data-date]');
+  if(!cell) return;
+  document.getElementById('inDate').value = cell.dataset.date;
+  calState.selected = cell.dataset.date;
+  closeCalendar();
+});
+document.getElementById('calToday').addEventListener('click', ()=>{
+  const t = new Date().toISOString().slice(0,10);
+  document.getElementById('inDate').value = t;
+  const [y,m] = t.split('-').map(Number);
+  calState.viewYear = y; calState.viewMonth = m-1; calState.selected = t;
+  renderCalendar();
+});
+document.addEventListener('click', (e)=>{
+  const pop = document.getElementById('calendarPop');
+  const field = document.getElementById('inDate');
+  if(pop.classList.contains('show') && !pop.contains(e.target) && e.target !== field){
+    closeCalendar();
+  }
+});
+
+// ---------- events ----------
+// 防止滑鼠滾輪在數字欄位上意外改變數值：欄位取得焦點時先移開焦點再讓頁面正常捲動
+document.addEventListener('wheel', (e)=>{
+  const el = document.activeElement;
+  if(el && el.tagName === 'INPUT' && el.type === 'number'){
+    el.blur();
+  }
+}, { passive:true });
+
+document.getElementById('toggleHist').addEventListener('click', ()=>{
+  state.histCollapsed = !state.histCollapsed;
+  renderHistory();
+});
+
+document.getElementById('toggleInput').addEventListener('click', ()=>{
+  state.inputCollapsed = !state.inputCollapsed;
+  const body = document.getElementById('inputBody');
+  const btn = document.getElementById('toggleInput');
+  body.style.display = state.inputCollapsed ? 'none' : 'block';
+  btn.querySelector('.chev').classList.toggle('collapsed', state.inputCollapsed);
+  btn.title = state.inputCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('toggleLed').addEventListener('click', ()=>{
+  state.ledCollapsed = !state.ledCollapsed;
+  const body = document.getElementById('ledBody');
+  const btn = document.getElementById('toggleLed');
+  body.style.display = state.ledCollapsed ? 'none' : 'block';
+  btn.querySelector('.chev').classList.toggle('collapsed', state.ledCollapsed);
+  btn.title = state.ledCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('toggleReserve').addEventListener('click', ()=>{
+  state.reserveCollapsed = !state.reserveCollapsed;
+  const body = document.getElementById('reserveBody');
+  const btn = document.getElementById('toggleReserve');
+  body.style.display = state.reserveCollapsed ? 'none' : 'block';
+  btn.querySelector('.chev').classList.toggle('collapsed', state.reserveCollapsed);
+  btn.title = state.reserveCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('toggleOrders').addEventListener('click', ()=>{
+  state.ordersCollapsed = !state.ordersCollapsed;
+  const body = document.getElementById('orderBody');
+  const btn = document.getElementById('toggleOrders');
+  body.style.display = state.ordersCollapsed ? 'none' : 'block';
+  btn.querySelector('.chev').classList.toggle('collapsed', state.ordersCollapsed);
+  btn.title = state.ordersCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('btnExportHist').addEventListener('click', ()=>{
+  const section = (asset)=>{
+    const rows = sortedLog(asset.key);
+    let txt = `${asset.name}\n`;
+    if(rows.length === 0){
+      txt += '（尚無資料）\n';
+    } else {
+      txt += '日期        收盤價        MA5           MA20          MA60          流動現金        股數\n';
+      rows.forEach(r=>{
+        const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
+        const cashTxt = (r.cash != null) ? fmtRaw(r.cash,0) : '—';
+        const sharesTxt = (r.shares != null) ? fmtRaw(r.shares,0) : '—';
+        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${String(ma60Txt).padStart(10)}   ${String(cashTxt).padStart(12)}   ${String(sharesTxt).padStart(8)}\n`;
+      });
+    }
+    return txt;
+  };
+
+  const asset = getAsset(state.activeTab);
+  let content = section(asset);
+
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${asset.name}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ---------- import history file ----------
+function parseImportText(text){
+  const lines = text.split(/\r?\n/);
+  const result = {};
+  const nameMap = {};
+  let currentKey = null;
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line) continue;
+    if(line.startsWith('日期')) continue;
+    if(line.includes('尚無資料')) continue;
+    if(/^\d{4}-\d{2}-\d{2}\s/.test(line) || /^\d{4}-\d{2}-\d{2}$/.test(line)){
+      if(!currentKey) continue;
+      const parts = line.split(/\s+/);
+      if(parts.length < 4) continue;
+      const close = parseFloat(parts[1]);
+      const ma5 = parseFloat(parts[2]);
+      const ma20 = parseFloat(parts[3]);
+      const ma60Raw = parts[4];
+      const ma60 = (ma60Raw === undefined || ma60Raw === '—' || isNaN(parseFloat(ma60Raw))) ? null : parseFloat(ma60Raw);
+      const cashRaw = parts[5];
+      const cash = (cashRaw === undefined || cashRaw === '—' || isNaN(parseFloat(cashRaw))) ? null : parseFloat(cashRaw);
+      const sharesRaw = parts[6];
+      const shares = (sharesRaw === undefined || sharesRaw === '—' || isNaN(parseFloat(sharesRaw))) ? null : parseFloat(sharesRaw);
+      if(isNaN(close) || isNaN(ma5) || isNaN(ma20)) continue;
+      result[currentKey].push({ date: parts[0], close, ma5, ma20, ma60, cash, shares });
+      continue;
+    }
+    // 不是資料列、不是表頭列，視為標的名稱／區段標題行
+    // 相容舊格式【key：name (currency)】，也支援新格式的純標的名稱一行
+    let label = line.replace(/^【|】$/g, '');
+    let key = null, name = label;
+    const m = label.match(/^([^:：]+)[:：]\s*(.+?)(\s*\([^)]*\))?$/);
+    if(m){ key = m[1].trim(); name = m[2].trim(); }
+    const existing = state.assets.find(a=> (key && a.key===key) || a.name===name);
+    currentKey = existing ? existing.key : (key || name);
+    result[currentKey] = result[currentKey] || [];
+    nameMap[currentKey] = existing ? existing.name : name;
+  }
+  result.__names = nameMap;
+  return result;
+}
+
+function mergeImportedLog(key, importedRows){
+  const map = {};
+  (state.log[key]||[]).forEach(r=>{ map[r.date] = r; });
+  importedRows.forEach(r=>{ map[r.date] = r; });
+  const merged = Object.values(map).sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  return merged.slice(-3);
+}
+
+document.getElementById('btnImportFile').addEventListener('click', ()=>{
+  document.getElementById('inImportFile').click();
+});
+document.getElementById('inImportFile').addEventListener('change', async (e)=>{
+  const statusEl = document.getElementById('importStatus');
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const parsed = parseImportText(text);
+    const nameMap = parsed.__names || {};
+    let importedCount = 0;
+    const perKeyCount = {};
+    for(const key of Object.keys(parsed)){
+      if(key === '__names') continue;
+      if(parsed[key].length === 0) continue;
+      // 匯入的標的不在目前清單裡，自動新增一個預設設定的標的
+      if(!state.assets.some(a=>a.key===key)){
+        state.assets.push({ key, name:(nameMap[key] || key), currency:'', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10 });
+        await storageSet(KEY_ASSETS, state.assets);
+      }
+      ensureAssetData(key);
+      state.log[key] = mergeImportedLog(key, parsed[key]);
+      importedCount += parsed[key].length;
+      perKeyCount[key] = parsed[key].length;
+      await storageSet(KEY_LOG(key), state.log[key]);
+
+      const rows = sortedLog(key);
+      for(let i=rows.length-1; i>=0; i--){
+        if(rows[i].cash != null){
+          state.cash[key] = rows[i].cash;
+          await storageSet(KEY_CASH(key), rows[i].cash);
+          break;
+        }
+      }
+      for(let i=rows.length-1; i>=0; i--){
+        if(rows[i].shares != null){
+          state.shares[key] = rows[i].shares;
+          await storageSet(KEY_SHARES(key), rows[i].shares);
+          break;
+        }
+      }
+    }
+    if(importedCount === 0){
+      statusEl.innerHTML = `<span style="color:var(--red)">沒有偵測到符合格式的資料，請確認檔案內容是否為「匯出歷史紀錄」產生的格式。</span>`;
+    } else {
+      renderAssetManage();
+      renderAll();
+      document.getElementById('inCash').value = '';
+      document.getElementById('inShares').value = '';
+      const curKey = state.activeTab;
+      const curCount = perKeyCount[curKey] || 0;
+      const curName = getAsset(curKey).name;
+      if(curCount > 0){
+        statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，${curName}讀取 ${curCount} 筆資料（只保留最近3天）。</span>`;
+      } else {
+        statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，但檔案中沒有${curName}的資料（已更新其他分頁）。</span>`;
+      }
+    }
+  } catch(err){
+    console.error('import failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗，請確認檔案格式是否正確。</span>`;
+  }
+  e.target.value = '';
+});
+
+document.getElementById('histList').addEventListener('click', async (e)=>{
+  const del = e.target.closest('[data-del]');
+  if(!del) return;
+  const idx = parseInt(del.dataset.del, 10);
+  state.log[state.activeTab].splice(idx, 1);
+  await storageSet(KEY_LOG(state.activeTab), state.log[state.activeTab]);
+  renderAll();
+});
+
+document.getElementById('btnAdd').addEventListener('click', async ()=>{
+  const date = document.getElementById('inDate').value;
+  const close = parseFloat(document.getElementById('inClose').value);
+  const ma5 = parseFloat(document.getElementById('inMa5').value);
+  const ma20 = parseFloat(document.getElementById('inMa20').value);
+  const ma60Raw = document.getElementById('inMa60').value;
+  const cashRaw = document.getElementById('inCash').value;
+  const sharesRaw = document.getElementById('inShares').value;
+  if(!date || isNaN(close) || isNaN(ma5) || isNaN(ma20)){
+    alert('請完整輸入日期、收盤價、MA5、MA20');
+    return;
+  }
+  if(ma60Raw !== '' && isNaN(parseFloat(ma60Raw))){
+    alert('MA60格式錯誤');
+    return;
+  }
+  if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
+    alert('流動現金格式錯誤');
+    return;
+  }
+  if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
+    alert('股數格式錯誤');
+    return;
+  }
+  const ma60 = ma60Raw === '' ? null : parseFloat(ma60Raw);
+  const cashVal = cashRaw === '' ? null : parseFloat(cashRaw);
+  const sharesVal = sharesRaw === '' ? null : parseFloat(sharesRaw);
+  const key = state.activeTab;
+  const existingIdx = state.log[key].findIndex(r=>r.date===date);
+  if(existingIdx >= 0){
+    state.log[key][existingIdx] = {date, close, ma5, ma20, ma60, cash: cashVal, shares: sharesVal};
+  } else {
+    state.log[key].push({date, close, ma5, ma20, ma60, cash: cashVal, shares: sharesVal});
+  }
+  // 只保留最近3天的紀錄，超過的自動移除
+  state.log[key] = sortedLog(key).slice(-3);
+  await storageSet(KEY_LOG(key), state.log[key]);
+
+  // 有輸入流動現金才更新目前金額；留空則沿用原本的金額，不會被歸零
+  if(cashVal != null){
+    state.cash[key] = cashVal;
+    await storageSet(KEY_CASH(key), cashVal);
+  }
+  // 股數比照流動現金的規則：有輸入才更新，留空沿用原本數字
+  if(sharesVal != null){
+    state.shares[key] = sharesVal;
+    await storageSet(KEY_SHARES(key), sharesVal);
+  }
+
+  document.getElementById('inClose').value = '';
+  document.getElementById('inMa5').value = '';
+  document.getElementById('inMa20').value = '';
+  document.getElementById('inMa60').value = '';
+  document.getElementById('inCash').value = '';
+  document.getElementById('inShares').value = '';
+  renderAll();
+});
+
+document.getElementById('btnParams').addEventListener('click', ()=>{
+  renderParamsModal();
+  renderAssetManage();
+  document.getElementById('assetImportStatus').innerHTML = '';
+  document.getElementById('paramsBackdrop').classList.add('show');
+});
+document.getElementById('btnCloseParams').addEventListener('click', ()=>{
+  document.getElementById('paramsBackdrop').classList.remove('show');
+  document.getElementById('assetImportStatus').innerHTML = '';
+});
+document.getElementById('paramsBackdrop').addEventListener('click', (e)=>{
+  if(e.target.id === 'paramsBackdrop'){
+    document.getElementById('paramsBackdrop').classList.remove('show');
+    document.getElementById('assetImportStatus').innerHTML = '';
+  }
+});
+
+document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
+  let idx = state.assets.length + 1;
+  let newKey = 'asset' + idx;
+  while(state.assets.some(a=>a.key===newKey)){ idx++; newKey = 'asset' + idx; }
+  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10 });
+  await storageSet(KEY_ASSETS, state.assets);
+  ensureAssetData(newKey);
+  renderAssetManage();
+  renderTabs();
+});
+
+document.getElementById('btnExportAssets').addEventListener('click', ()=>{
+  const content = JSON.stringify({ params: state.params, assets: state.assets }, null, 2);
+  const blob = new Blob([content], {type:'application/json;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `參數與投資標的.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnImportAssets').addEventListener('click', ()=>{
+  document.getElementById('inImportAssets').click();
+});
+document.getElementById('inImportAssets').addEventListener('change', async (e)=>{
+  const statusEl = document.getElementById('assetImportStatus');
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    // 新格式：{ params, assets }；舊格式：純標的陣列（維持相容）
+    const assetsArr = Array.isArray(parsed) ? parsed : parsed.assets;
+    const paramsObj = Array.isArray(parsed) ? null : parsed.params;
+    if(!Array.isArray(assetsArr) || assetsArr.length === 0 || !assetsArr.every(a=>a && typeof a.key === 'string' && typeof a.name === 'string')){
+      throw new Error('format');
+    }
+    let addedCount = 0, updatedCount = 0;
+    assetsArr.forEach(imported=>{
+      const clean = {
+        key: imported.key,
+        name: imported.name || imported.key,
+        currency: imported.currency || '',
+        priceDecimals: (typeof imported.priceDecimals === 'number') ? imported.priceDecimals : 2,
+        roundTick: (typeof imported.roundTick === 'number') ? imported.roundTick : 0,
+        dcaMode: imported.dcaMode === 'amount' ? 'amount' : 'shares',
+        dcaValue: parseFloat(imported.dcaValue) || 0,
+        boostValue: parseFloat(imported.boostValue) || 0,
+        l1: parseFloat(imported.l1) || 0,
+        l2: parseFloat(imported.l2) || 0,
+      };
+      const existIdx = state.assets.findIndex(a=>a.key===clean.key);
+      if(existIdx >= 0){
+        state.assets[existIdx] = clean;
+        updatedCount++;
+      } else {
+        state.assets.push(clean);
+        addedCount++;
+      }
+      ensureAssetData(clean.key);
+    });
+    await storageSet(KEY_ASSETS, state.assets);
+
+    let paramsUpdated = false;
+    if(paramsObj && typeof paramsObj === 'object'){
+      state.params = Object.assign({}, DEFAULT_PARAMS, paramsObj);
+      await storageSet(KEY_PARAMS, state.params);
+      paramsUpdated = true;
+    }
+
+    renderParamsModal();
+    renderAssetManage();
+    renderTabs();
+    renderAll();
+    const paramsNote = paramsUpdated ? '，全域參數也一併更新' : '';
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，新增 ${addedCount} 個、更新 ${updatedCount} 個標的設定${paramsNote}。</span>`;
+  } catch(err){
+    console.error('asset import failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗，請確認檔案是否為「匯出標的設定」產生的.json格式。</span>`;
+  }
+  e.target.value = '';
+});
+
+// 沙盒環境中 window.confirm 可能被封鎖而沒有反應，改用「再次點擊確認」機制
+function armConfirmClick(el, originalText, confirmText, onConfirm){
+  let armed = false;
+  let timer = null;
+  el.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    if(!armed){
+      armed = true;
+      el.textContent = confirmText;
+      timer = setTimeout(()=>{ armed = false; el.textContent = originalText; }, 3000);
+    } else {
+      clearTimeout(timer);
+      armed = false;
+      el.textContent = originalText;
+      await onConfirm();
+    }
+  });
+}
+
+armConfirmClick(
+  document.getElementById('btnResetParams'),
+  '恢復最初原始的數值',
+  '再按一次確認恢復',
+  async ()=>{
+    state.params = {...DEFAULT_PARAMS};
+    state.assets = DEFAULT_ASSETS.map(a=>({...a}));
+    await storageSet(KEY_PARAMS, state.params);
+    await storageSet(KEY_ASSETS, state.assets);
+    if(!state.assets.some(a=>a.key===state.activeTab)){ state.activeTab = state.assets[0].key; }
+    renderParamsModal();
+    renderAssetManage();
+    renderAll();
+  }
+);
+
+armConfirmClick(
+  document.getElementById('btnReset'),
+  '清除所有資料',
+  '再按一次確認清除',
+  async ()=>{
+    state.params = {...DEFAULT_PARAMS};
+    await storageSet(KEY_PARAMS, state.params);
+    for(const a of state.assets){
+      state.log[a.key] = [];
+      state.cash[a.key] = 0;
+      state.shares[a.key] = 0;
+      await storageSet(KEY_LOG(a.key), []);
+      await storageSet(KEY_CASH(a.key), 0);
+      await storageSet(KEY_SHARES(a.key), 0);
+    }
+    renderAll();
+  }
+);
+
+// ---------- init ----------
+(async function init(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  document.getElementById('inDate').value = todayStr;
+
+  const savedParams = await storageGet(KEY_PARAMS, {});
+  state.params = Object.assign({}, DEFAULT_PARAMS, savedParams);
+
+  const savedAssets = await storageGet(KEY_ASSETS, null);
+  state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a}));
+  state.activeTab = state.assets[0].key;
+
+  for(const a of state.assets){
+    ensureAssetData(a.key);
+    state.log[a.key] = await storageGet(KEY_LOG(a.key), []);
+    state.cash[a.key] = await storageGet(KEY_CASH(a.key), 0);
+    state.shares[a.key] = await storageGet(KEY_SHARES(a.key), 0);
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
