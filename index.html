@@ -388,6 +388,12 @@
     <button class="btn btn-neutral btn-sm" id="btnAdd">新增</button>
 
     <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">或從證交所自動抓取最新收盤價與均線（僅台股上市股票）</label>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnAutoFetch">自動抓取</button>
+      <div class="footer-note" id="autoFetchStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <label style="color:var(--text);">或匯入歷史紀錄檔案</label>
       <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
       <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile">匯入</button>
@@ -490,9 +496,97 @@ const PARAM_META = [
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
 const DEFAULT_ASSETS = [
-  { key:'spot', name:'台積電 2330', currency:'元',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostValue:10000, l1:300, l2:400 },
-  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostValue:1,     l1:30,  l2:40  },
+  { key:'spot', name:'台積電 2330', currency:'元',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostValue:10000, l1:300, l2:400, stockNo:'2330' },
+  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostValue:1,     l1:30,  l2:40,  stockNo:''     },
 ];
+
+// ---------- 證交所自動抓取（僅台股上市股票） ----------
+// 注意：openapi.twse.com.tw / www.twse.com.tw 沒有開放CORS給任意網域，
+// 瀏覽器端需透過中介代理伺服器轉發請求。
+// 目前使用公開免費代理 allorigins.win，穩定性有限（可能逾時或停止服務）。
+// 若之後改用自己架設的Cloudflare Worker，只需要改這一行即可。
+const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
+// 證交所回傳日期格式為民國年，例如 "115/07/09"，轉換成西元 ISO 格式
+function twseDateToISO(twseDate){
+  const parts = String(twseDate).split('/');
+  if(parts.length !== 3) return null;
+  const year = parseInt(parts[0], 10) + 1911;
+  const month = parts[1].padStart(2, '0');
+  const day = parts[2].padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 抓單一股票、單一月份的每日收盤價
+async function fetchStockMonth(stockNo, yyyymm01){
+  const target = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?date=${yyyymm01}&stockNo=${encodeURIComponent(stockNo)}`;
+  const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+  if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
+  const json = await res.json();
+  if(json.stat !== 'OK' || !Array.isArray(json.data)) return [];
+  return json.data.map(row => ({
+    date: twseDateToISO(row[0]),
+    close: parseFloat(String(row[6]).replace(/,/g, ''))
+  })).filter(r => r.date && !isNaN(r.close));
+}
+
+// 往回抓 monthsBack 個月的資料，合併、去重、依日期排序，確保MA60有足夠天數
+async function fetchRecentCloses(stockNo, monthsBack = 4){
+  const now = new Date();
+  const calls = [];
+  for(let i = 0; i < monthsBack; i++){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yyyymm01 = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
+    calls.push(fetchStockMonth(stockNo, yyyymm01));
+  }
+  const results = await Promise.all(calls);
+  const merged = {};
+  results.flat().forEach(r => { merged[r.date] = r.close; });
+  return Object.keys(merged).sort().map(date => ({ date, close: merged[date] }));
+}
+
+function calcMA(closes, period){
+  if(closes.length < period) return null;
+  const slice = closes.slice(-period);
+  return slice.reduce((a,b) => a+b, 0) / period;
+}
+
+async function autoFetchAndFill(){
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const statusEl = document.getElementById('autoFetchStatus');
+  const btn = document.getElementById('btnAutoFetch');
+  if(!asset.stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。</span>`;
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = '抓取中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+  try{
+    const rows = await fetchRecentCloses(asset.stockNo, 4);
+    if(rows.length < 5){ throw new Error('回傳資料不足，可能是股票代號錯誤或當月無交易資料'); }
+    const closes = rows.map(r => r.close);
+    const latest = rows[rows.length - 1];
+    const ma5 = calcMA(closes, 5);
+    const ma20 = calcMA(closes, 20);
+    const ma60 = calcMA(closes, 60);
+    document.getElementById('inDate').value = latest.date;
+    document.getElementById('inClose').value = latest.close;
+    document.getElementById('inMa5').value = ma5 !== null ? ma5.toFixed(2) : '';
+    document.getElementById('inMa20').value = ma20 !== null ? ma20.toFixed(2) : '';
+    document.getElementById('inMa60').value = ma60 !== null ? ma60.toFixed(2) : '';
+    const ma60Note = ma60 === null ? '（資料不足60天，MA60留空，請自行確認）' : '';
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已帶入 ${latest.date} 收盤價與均線，請確認無誤後按「新增」。${ma60Note}</span>`;
+  } catch(err){
+    console.error('auto fetch failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（公開代理伺服器可能暫時無法使用，可稍後再試，或改為手動輸入）</span>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
 
 let state = {
   params: {...DEFAULT_PARAMS},
@@ -1073,6 +1167,7 @@ function renderAssetManage(){
         <div class="field"><label>重砲觸發：第二層(股)</label><input type="number" data-aidx="${idx}" data-afield="l2" value="${a.l2}"></div>
       </div>
       <div class="field"><label>價格取整單位（0＝不取整）</label><input type="number" data-aidx="${idx}" data-afield="roundTick" value="${a.roundTick}"></div>
+      <div class="field"><label>證交所股票代號（僅台股上市股票可自動抓取，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330"></div>
     </div>
   `).join('');
 
@@ -1411,6 +1506,8 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
   renderAll();
 });
 
+document.getElementById('btnAutoFetch').addEventListener('click', autoFetchAndFill);
+
 document.getElementById('btnAdd').addEventListener('click', async ()=>{
   const date = document.getElementById('inDate').value;
   const close = parseFloat(document.getElementById('inClose').value);
@@ -1490,7 +1587,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   let idx = state.assets.length + 1;
   let newKey = 'asset' + idx;
   while(state.assets.some(a=>a.key===newKey)){ idx++; newKey = 'asset' + idx; }
-  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10 });
+  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10, stockNo:'' });
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   renderAssetManage();
@@ -1539,6 +1636,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         boostValue: parseFloat(imported.boostValue) || 0,
         l1: parseFloat(imported.l1) || 0,
         l2: parseFloat(imported.l2) || 0,
+        stockNo: imported.stockNo || '',
       };
       const existIdx = state.assets.findIndex(a=>a.key===clean.key);
       if(existIdx >= 0){
