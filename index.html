@@ -530,12 +530,12 @@ async function fetchStockMonth(stockNo, yyyymm01){
 }
 
 // 往回抓 monthsBack 個月的資料，合併、去重、依日期排序，確保MA60有足夠天數
+// baseDate：以哪一天為基準往回抓（預設今天），確保能涵蓋使用者在日期選擇器選的那一天
 // 改用依序抓取（而非同時平行發出多個請求），避免免費代理伺服器因同時連線過多而失敗
-async function fetchRecentCloses(stockNo, monthsBack = 4){
-  const now = new Date();
+async function fetchRecentCloses(stockNo, baseDate, monthsBack = 4){
   const merged = {};
   for(let i = 0; i < monthsBack; i++){
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
     const yyyymm01 = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
     let rows = [];
     try{
@@ -565,15 +565,26 @@ async function autoFetchAndFill(){
     statusEl.innerHTML = `<span style="color:var(--red)">此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。</span>`;
     return;
   }
+  const targetDateStr = document.getElementById('inDate').value || new Date().toISOString().slice(0,10);
+  const targetDate = new Date(targetDateStr + 'T00:00:00');
+  if(isNaN(targetDate.getTime())){
+    statusEl.innerHTML = `<span style="color:var(--red)">日期格式錯誤，請先在上方選擇日期。</span>`;
+    return;
+  }
   const originalText = btn.textContent;
   btn.textContent = '抓取中...';
   btn.disabled = true;
   statusEl.innerHTML = '';
   try{
-    const rows = await fetchRecentCloses(asset.stockNo, 4);
-    if(rows.length < 5){ throw new Error('回傳資料不足，可能是股票代號錯誤或當月無交易資料'); }
-    const closes = rows.map(r => r.close);
-    const latest = rows[rows.length - 1];
+    const allRows = await fetchRecentCloses(asset.stockNo, targetDate, 4);
+    // 只取「截至選定日期當天（含）」的資料，避免用到未來資料
+    const rowsUpToTarget = allRows.filter(r => r.date <= targetDateStr);
+    if(rowsUpToTarget.length < 5){ throw new Error('選定日期附近的資料不足，可能是股票代號錯誤或該區間無交易資料'); }
+    const latest = rowsUpToTarget[rowsUpToTarget.length - 1];
+    if(latest.date !== targetDateStr){
+      statusEl.innerHTML = `<span style="color:var(--amber)">⚠️ ${targetDateStr} 非交易日或證交所尚無資料，已改抓最近一個交易日 ${latest.date} 的資料，請確認是否符合需求。</span>`;
+    }
+    const closes = rowsUpToTarget.map(r => r.close);
     const ma5 = calcMA(closes, 5);
     const ma20 = calcMA(closes, 20);
     const ma60 = calcMA(closes, 60);
@@ -583,10 +594,12 @@ async function autoFetchAndFill(){
     document.getElementById('inMa20').value = ma20 !== null ? ma20.toFixed(2) : '';
     document.getElementById('inMa60').value = ma60 !== null ? ma60.toFixed(2) : '';
     const ma60Note = ma60 === null ? '（資料不足60天，MA60留空，請自行確認）' : '';
-    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已帶入 ${latest.date} 收盤價與均線，請確認無誤後按「新增」。${ma60Note}</span>`;
+    if(latest.date === targetDateStr){
+      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已帶入 ${latest.date} 收盤價與均線，請確認無誤後按「新增」。${ma60Note}</span>`;
+    }
   } catch(err){
     console.error('auto fetch failed', err);
-    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（公開代理伺服器可能暫時無法使用，可稍後再試，或改為手動輸入）</span>`;
+    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（代理伺服器可能暫時無法使用，可稍後再試，或改為手動輸入）</span>`;
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
