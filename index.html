@@ -366,6 +366,23 @@
         <input type="number" step="1" id="inSharesNow" placeholder="0">
       </div>
     </div>
+
+    <div id="marginFieldsWrap" style="display:none;">
+      <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
+        <label style="color:var(--text);">融資部位<span style="color:var(--text-faint); font-weight:400;">（計算融資維持率，僅台股適用）</span></label>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>融資買進均價</label>
+          <input type="number" step="0.01" id="inMarginCostNow" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label>融資股數</label>
+          <input type="number" step="1" id="inMarginSharesNow" placeholder="0">
+        </div>
+      </div>
+    </div>
+
     <div class="footer-note" style="text-align:left; margin-bottom:10px;">「更新」會同時從證交所更新最近3個交易日的收盤價與均線</div>
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
@@ -472,13 +489,6 @@
       <div class="footer-note" id="assetImportStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
 
-    <div class="card-title" style="margin-top:16px; margin-bottom:10px; padding-top:14px; border-top:1px solid var(--hair);">
-      <h2 style="margin:0; font-size:14px;">資料管理</h2>
-    </div>
-    <div class="footer-note" style="text-align:left;">
-      資料僅儲存在您的裝置本機中。<span class="danger-link" id="btnReset">清除所有資料</span>
-    </div>
-
     <button class="btn btn-neutral modal-close" id="btnCloseParams" style="margin-top:16px;">完成</button>
   </div>
 </div>
@@ -489,19 +499,25 @@ const KEY_ASSETS = 'tsmos:assets';
 const KEY_LOG = k => 'tsmos:log:' + k;
 const KEY_CASH = k => 'tsmos:cash:' + k;
 const KEY_SHARES = k => 'tsmos:shares:' + k;
+const KEY_MARGIN_COST = k => 'tsmos:margincost:' + k;
+const KEY_MARGIN_SHARES = k => 'tsmos:marginshares:' + k;
 
 const DEFAULT_PARAMS = {
   tolerance: 0.005,
   exitMult: 1.08,
   layer2Mult: 0.97,
   cashTargetPct: 0.20,
+  marginRatio: 0.60,
+  marginCallRatio: 1.20,
 };
 
 const PARAM_META = [
   ['tolerance','MA20區間容忍度(上界)','pct'],
   ['exitMult','出清價位乘數','mult'],
   ['layer2Mult','第二層重砲乘數','mult'],
-  ['cashTargetPct','目標現金佔比（現金／總部位）','pct'],
+  ['cashTargetPct','目標現金佔比%（現金／總部位）','pct'],
+  ['marginRatio','融資成數%','pct'],
+  ['marginCallRatio','融資維持率警戒門檻%','pct'],
 ];
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
@@ -617,6 +633,8 @@ let state = {
   log: {},
   cash: {},
   shares: {},
+  marginCost: {},
+  marginShares: {},
   activeTab: 'spot',
   histCollapsed: false,
   inputCollapsed: false,
@@ -683,6 +701,30 @@ function getRequiredReserve(assetKey){
   return Math.round(pct * marketValue / (1 - pct));
 }
 
+// 融資防禦邊界：利用融資成數固定的特性簡化計算，維持率與融資股數無關（分子分母同乘股數會抵消）
+// 維持率% = 目前股價 ÷ (融資買進均價 × 融資成數) × 100%
+// 融資追繳價 = 融資買進均價 × 融資成數 × 維持率警戒門檻
+function getMarginStatus(assetKey){
+  const P = state.params;
+  const asset = getAsset(assetKey);
+  if(!asset.stockNo) return null; // 無股票代號（如ADR）視為無融資功能，不適用
+  const costPrice = state.marginCost[assetKey] || 0;
+  if(costPrice <= 0) return { applicable:true, hasPrice:false }; // 尚未輸入融資買進均價，視為目前無融資部位
+  const rows = sortedLog(assetKey);
+  if(rows.length === 0) return { applicable:true, hasPrice:false };
+  const today = rows[rows.length-1];
+  if(today.close == null) return { applicable:true, hasPrice:false };
+  const marginAmount = costPrice * P.marginRatio; // 融資金額（每股基準）
+  const maintenanceRatio = marginAmount > 0 ? (today.close / marginAmount) : null;
+  const callPrice = marginAmount * P.marginCallRatio;
+  const safe = maintenanceRatio != null ? (today.close > callPrice) : null;
+  return {
+    applicable: true, hasPrice: true,
+    costPrice, marginAmount, maintenanceRatio, callPrice, safe,
+    shares: state.marginShares[assetKey] || 0,
+  };
+}
+
 function computeForAsset(assetKey){
   const rows = sortedLog(assetKey);
   const n = rows.length;
@@ -699,6 +741,9 @@ function computeForAsset(assetKey){
   const cur = state.cash[assetKey] || 0;
   out.requiredReserve = requiredReserve;
   out.cashSufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
+
+  // 融資防禦邊界：只在有股票代號（台股）且有輸入融資買進均價時才適用，ADR等無融資功能標的視為不適用（不影響defenseOk）
+  out.marginStatus = getMarginStatus(assetKey);
 
   // 股價站穩MA60只需要今天的MA60就能比較，不用等到有前一天的MA60資料
   out.hasMa60Today = today.ma60 != null;
@@ -724,8 +769,9 @@ function computeForAsset(assetKey){
   }
 
   // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
-  // 動能觸發與重砲觸發都會被暫停執行。
-  out.defenseOk = out.priceDefenseOk && (out.cashSufficient === true);
+  // 動能觸發與重砲觸發都會被暫停執行。融資維持率跌破門檻時，同樣視為防禦邊界關閉。
+  out.marginSafe = (out.marginStatus && out.marginStatus.hasPrice) ? out.marginStatus.safe : true;
+  out.defenseOk = out.priceDefenseOk && (out.cashSufficient === true) && out.marginSafe;
   out.bombard = out.touch && out.ma20upFlat && out.defenseOk;
 
   if(n >= 3){
@@ -770,8 +816,13 @@ function renderHero(){
     }
   } else if(defenseOff){
     hero.className = 'hero st-defense';
-    headline.textContent = '🛡 防禦邊界關閉';
-    sub.textContent = `暫停動能觸發與重砲觸發，僅維持${dcaLabel}`;
+    if(d.marginSafe === false){
+      headline.textContent = '🛡 防禦邊界關閉：融資維持率過低';
+      sub.textContent = `暫停動能觸發與重砲觸發，僅維持${dcaLabel}，建議減碼融資部位`;
+    } else {
+      headline.textContent = '🛡 防禦邊界關閉';
+      sub.textContent = `暫停動能觸發與重砲觸發，僅維持${dcaLabel}`;
+    }
   } else if(d.bombard){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
@@ -868,6 +919,12 @@ function renderLeds(){
   const cashLedOn = cashLed.color !== 'var(--text-faint)';
   const cashLedCls = cashLed.color === 'var(--red)' ? 'red' : cashLed.color === 'var(--amber)' ? 'amber' : '';
   html += ledItem(cashLedOn, cashLed.label, cashLedCls);
+
+  // 融資維持率（僅台股標的且有輸入融資買進均價時適用）
+  const marginLed = getMarginLedState(d);
+  const marginLedOn = marginLed.color !== 'var(--text-faint)';
+  const marginLedCls = marginLed.color === 'var(--red)' ? 'red' : '';
+  html += ledItem(marginLedOn, marginLed.label, marginLedCls);
 
   // 防禦邊界（需2筆）
   { const dled = getDefenseLedState(d); html += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
@@ -1024,6 +1081,19 @@ function getDefenseLedState(d){
   return { label:'防禦邊界關閉', color:'var(--red)', on:true };
 }
 
+function getMarginLedState(d){
+  const ms = d.marginStatus;
+  if(!ms || !ms.applicable){
+    return { label:'融資防禦邊界（不適用）', color:'var(--text-faint)' };
+  }
+  if(!ms.hasPrice){
+    return { label:'融資防禦邊界（無融資部位）', color:'var(--text-faint)' };
+  }
+  return ms.safe
+    ? { label:'融資維持率安全', color:'var(--teal)' }
+    : { label:'⚠ 融資維持率過低，建議減碼融資部位', color:'var(--red)' };
+}
+
 function getCashLedState(cashStatus){
   if(cashStatus.sufficient === false){
     return { label:'流動現金不足', color:'var(--red)' };
@@ -1061,13 +1131,23 @@ function renderReserve(){
   const defenseLed = getDefenseLedState(d);
   const ma60UpLed = getMa60UpLedState(d);
   const priceMa60Led = getPriceMa60LedState(d);
+  const marginLed = getMarginLedState(d);
+
+  let marginLine = '';
+  if(d.marginStatus && d.marginStatus.hasPrice){
+    const ms = d.marginStatus;
+    const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
+    marginLine = `<br>融資買進均價：${fmt(ms.costPrice,2)}｜融資股數：${(ms.shares||0).toLocaleString()} 股` +
+      `<br>融資維持率：${pctTxt}%｜融資追繳價：${fmt(ms.callPrice,2)}`;
+  }
 
   document.getElementById('reserveHint').innerHTML =
     `目前流動現金：${st.cur.toLocaleString()} ${st.unit}<br>目前股數：${(state.shares[key]||0).toLocaleString()} 股<br>` +
-    `現金應保留：${st.requiredTxt}${bombardLine}<br>` +
+    `現金應保留：${st.requiredTxt}${bombardLine}${marginLine}<br>` +
     `<span style="color:${ma60UpLed.color}; font-weight:700;">${ma60UpLed.label}</span><br>` +
     `<span style="color:${priceMa60Led.color}; font-weight:700;">${priceMa60Led.label}</span><br>` +
     `<span style="color:${cashLed.color}; font-weight:700;">${cashLed.label}</span><br>` +
+    `<span style="color:${marginLed.color}; font-weight:700;">${marginLed.label}</span><br>` +
     `<span style="color:${defenseLed.color}; font-weight:700;">${defenseLed.label}</span>`;
 }
 
@@ -1082,6 +1162,8 @@ function renderTabs(){
       renderAll();
       document.getElementById('inCashNow').value = '';
       document.getElementById('inSharesNow').value = '';
+      document.getElementById('inMarginCostNow').value = '';
+      document.getElementById('inMarginSharesNow').value = '';
       document.getElementById('importStatus').innerHTML = '';
       document.getElementById('updateDailyStatus').innerHTML = '';
     });
@@ -1095,6 +1177,8 @@ function renderAll(){
   renderLeds();
   renderReserve();
   renderOrders();
+  const asset = getAsset(state.activeTab);
+  document.getElementById('marginFieldsWrap').style.display = asset.stockNo ? 'block' : 'none';
 }
 
 function renderParamsModal(){
@@ -1125,6 +1209,8 @@ function ensureAssetData(key){
   if(!state.log[key]) state.log[key] = [];
   if(state.cash[key] === undefined) state.cash[key] = 0;
   if(state.shares[key] === undefined) state.shares[key] = 0;
+  if(state.marginCost[key] === undefined) state.marginCost[key] = 0;
+  if(state.marginShares[key] === undefined) state.marginShares[key] = 0;
 }
 
 function renderAssetManage(){
@@ -1533,16 +1619,27 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
 
 document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   const key = state.activeTab;
+  const asset = getAsset(key);
   const statusEl = document.getElementById('updateDailyStatus');
   const btn = document.getElementById('btnUpdateDaily');
   const cashRaw = document.getElementById('inCashNow').value;
   const sharesRaw = document.getElementById('inSharesNow').value;
+  const marginCostRaw = asset.stockNo ? document.getElementById('inMarginCostNow').value : '';
+  const marginSharesRaw = asset.stockNo ? document.getElementById('inMarginSharesNow').value : '';
   if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
     statusEl.innerHTML = `<span style="color:var(--red)">現金格式錯誤。</span>`;
     return;
   }
   if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
     statusEl.innerHTML = `<span style="color:var(--red)">股數格式錯誤。</span>`;
+    return;
+  }
+  if(marginCostRaw !== '' && isNaN(parseFloat(marginCostRaw))){
+    statusEl.innerHTML = `<span style="color:var(--red)">融資買進均價格式錯誤。</span>`;
+    return;
+  }
+  if(marginSharesRaw !== '' && isNaN(parseFloat(marginSharesRaw))){
+    statusEl.innerHTML = `<span style="color:var(--red)">融資股數格式錯誤。</span>`;
     return;
   }
   const originalText = btn.textContent;
@@ -1563,12 +1660,26 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     await storageSet(KEY_SHARES(key), sharesVal);
     msgs.push('股數已更新');
   }
+  if(marginCostRaw !== ''){
+    const marginCostVal = parseFloat(marginCostRaw);
+    state.marginCost[key] = marginCostVal;
+    await storageSet(KEY_MARGIN_COST(key), marginCostVal);
+    msgs.push('融資買進均價已更新');
+  }
+  if(marginSharesRaw !== ''){
+    const marginSharesVal = parseFloat(marginSharesRaw);
+    state.marginShares[key] = marginSharesVal;
+    await storageSet(KEY_MARGIN_SHARES(key), marginSharesVal);
+    msgs.push('融資股數已更新');
+  }
 
   const fetchResult = await fetchLast3DaysCore();
   msgs.push(fetchResult.msg);
 
   document.getElementById('inCashNow').value = '';
   document.getElementById('inSharesNow').value = '';
+  document.getElementById('inMarginCostNow').value = '';
+  document.getElementById('inMarginSharesNow').value = '';
   renderAll();
   const color = fetchResult.ok ? 'var(--teal)' : 'var(--amber)';
   const icon = fetchResult.ok ? '✅' : '・';
@@ -1576,6 +1687,7 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   btn.textContent = originalText;
   btn.disabled = false;
 });
+
 
 document.getElementById('btnParams').addEventListener('click', ()=>{
   renderParamsModal();
@@ -1716,25 +1828,6 @@ armConfirmClick(
   }
 );
 
-armConfirmClick(
-  document.getElementById('btnReset'),
-  '清除所有資料',
-  '再按一次確認清除',
-  async ()=>{
-    state.params = {...DEFAULT_PARAMS};
-    await storageSet(KEY_PARAMS, state.params);
-    for(const a of state.assets){
-      state.log[a.key] = [];
-      state.cash[a.key] = 0;
-      state.shares[a.key] = 0;
-      await storageSet(KEY_LOG(a.key), []);
-      await storageSet(KEY_CASH(a.key), 0);
-      await storageSet(KEY_SHARES(a.key), 0);
-    }
-    renderAll();
-  }
-);
-
 // ---------- init ----------
 (async function init(){
   const todayStr = new Date().toISOString().slice(0,10);
@@ -1752,6 +1845,8 @@ armConfirmClick(
     state.log[a.key] = await storageGet(KEY_LOG(a.key), []);
     state.cash[a.key] = await storageGet(KEY_CASH(a.key), 0);
     state.shares[a.key] = await storageGet(KEY_SHARES(a.key), 0);
+    state.marginCost[a.key] = await storageGet(KEY_MARGIN_COST(a.key), 0);
+    state.marginShares[a.key] = await storageGet(KEY_MARGIN_SHARES(a.key), 0);
   }
 
   renderAll();
