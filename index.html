@@ -170,7 +170,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders{
+  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -181,7 +181,7 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnAdd, #btnImportFile, #btnExportHist{
+  #btnAdd, #btnImportFile, #btnExportHist, #btnRunBacktest{
     display: table; margin: 14px 0 0 auto;
   }
 
@@ -462,6 +462,20 @@
     </div>
   </div>
 
+  <!-- ============ BACKTEST ============ -->
+  <div class="card">
+    <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="收合"><span class="chev">▾</span></button></div>
+    <div id="backtestBody">
+    <div class="field">
+      <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，最長模擬1年）</span></label>
+      <input type="date" id="btStartDate">
+    </div>
+    <button class="btn btn-neutral btn-sm" id="btnRunBacktest">開始回測</button>
+    <div class="footer-note" id="backtestStatus" style="text-align:left; margin-top:6px;"></div>
+    <div id="backtestResult"></div>
+    </div>
+  </div>
+
   <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a></div>
 </div>
 
@@ -558,6 +572,31 @@ async function fetchStockMonth(stockNo, yyyymm01){
 // 往回抓 monthsBack 個月的資料，合併、去重、依日期排序，確保MA60有足夠天數
 // baseDate：以哪一天為基準往回抓（預設今天），確保能涵蓋使用者在日期選擇器選的那一天
 // 改用依序抓取（而非同時平行發出多個請求），避免免費代理伺服器因同時連線過多而失敗
+// 抓取指定日期區間（fromDate ~ toDate，含首尾月份）的每日收盤價，逐月依序抓取並停頓，避免代理過載。
+// onProgress(doneCount, totalCount) 可選，用於回測時顯示進度。
+async function fetchMonthRangeCloses(stockNo, fromDate, toDate, onProgress){
+  const months = [];
+  let cursor = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
+  const end = new Date(toDate.getFullYear(), toDate.getMonth(), 1);
+  while(cursor <= end){
+    months.push(`${cursor.getFullYear()}${String(cursor.getMonth()+1).padStart(2,'0')}01`);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  const merged = {};
+  for(let i = 0; i < months.length; i++){
+    let rows = [];
+    try{
+      rows = await fetchStockMonth(stockNo, months[i]);
+    } catch(err){
+      console.warn(`抓取 ${months[i]} 失敗，略過該月`, err);
+    }
+    rows.forEach(r => { merged[r.date] = r.close; });
+    if(onProgress) onProgress(i + 1, months.length);
+    if(i < months.length - 1){ await new Promise(resolve => setTimeout(resolve, 600)); }
+  }
+  return Object.keys(merged).sort().map(date => ({ date, close: merged[date] }));
+}
+
 async function fetchRecentCloses(stockNo, baseDate, monthsBack = 4){
   const merged = {};
   for(let i = 0; i < monthsBack; i++){
@@ -627,6 +666,176 @@ async function fetchLast3DaysCore(){
   }
 }
 
+async function runBacktest(){
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const statusEl = document.getElementById('backtestStatus');
+  const resultEl = document.getElementById('backtestResult');
+  const btn = document.getElementById('btnRunBacktest');
+  resultEl.innerHTML = '';
+
+  if(!asset.stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法回測（僅支援有設定股票代號的台股標的）。</span>`;
+    return;
+  }
+  const startStr = document.getElementById('btStartDate').value;
+  if(!startStr){
+    statusEl.innerHTML = `<span style="color:var(--red)">請選擇開始定期定額日期。</span>`;
+    return;
+  }
+  const startDate = new Date(startStr + 'T00:00:00');
+  const today = new Date();
+  if(isNaN(startDate.getTime())){
+    statusEl.innerHTML = `<span style="color:var(--red)">日期格式錯誤。</span>`;
+    return;
+  }
+  if(startDate > today){
+    statusEl.innerHTML = `<span style="color:var(--red)">開始日期不能晚於今天。</span>`;
+    return;
+  }
+
+  // 往前抓約4個月做為MA60計算的緩衝，往後抓到「開始日+1年」或「今天」（取較早者），限制模擬跨度在1年內
+  const fetchFrom = new Date(startDate.getFullYear(), startDate.getMonth() - 4, 1);
+  const oneYearLater = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
+  const fetchTo = oneYearLater < today ? oneYearLater : today;
+  const oneYearLimitStr = oneYearLater.toISOString().slice(0,10);
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
+
+  try{
+    const allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, fetchTo, (done, total) => {
+      btn.textContent = `抓取中 ${done}/${total}`;
+      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
+    });
+    if(allRows.length < 10){
+      throw new Error('回傳資料不足，可能是股票代號錯誤或該區間無交易資料');
+    }
+
+    const startStr2 = startDate.toISOString().slice(0,10);
+    const startIdx = allRows.findIndex(r => r.date >= startStr2);
+    if(startIdx === -1){
+      throw new Error('開始日期之後查無交易資料');
+    }
+    const actualStartStr = allRows[startIdx].date;
+    const dateNote = (actualStartStr !== startStr2) ? `（${startStr2}非交易日，已改用最近交易日 ${actualStartStr} 起算）` : '';
+
+    statusEl.innerHTML = `<span style="color:var(--text-dim)">模擬計算中...</span>`;
+    btn.textContent = originalText;
+
+    const closes = allRows.map(r => r.close);
+    const P = state.params;
+    const tickDec = asset.roundTick ? 0 : asset.priceDecimals;
+    const maAt = (idx, period) => {
+      if(idx + 1 < period) return null;
+      const slice = closes.slice(idx + 1 - period, idx + 1);
+      return slice.reduce((a,b)=>a+b, 0) / period;
+    };
+
+    let totalShares = 0, totalCost = 0;
+    let dcaCount = 0, momentumCount = 0, bombardCount = 0;
+    let exitInfo = null;
+    let lastSimIdx = startIdx;
+
+    for(let i = startIdx; i < allRows.length; i++){
+      const dateStr = allRows[i].date;
+      if(dateStr > oneYearLimitStr) break;
+      lastSimIdx = i;
+
+      const close = closes[i];
+      const ma5 = maAt(i, 5), ma20 = maAt(i, 20), ma60 = maAt(i, 60);
+      const ma5p = i>0 ? maAt(i-1, 5) : null;
+      const ma20p = i>0 ? maAt(i-1, 20) : null;
+      const ma60p = i>0 ? maAt(i-1, 60) : null;
+      if(ma5 == null || ma20 == null) continue;
+
+      const touch = close <= ma20 * (1 + P.tolerance);
+      const ma20upFlat = (ma20p != null) ? (ma20 >= ma20p) : false;
+      const priceAboveMa60 = (ma60 != null) ? (close >= ma60) : false;
+      const hasMa60 = (ma60 != null && ma60p != null);
+      const ma60upFlat = hasMa60 ? (ma60 >= ma60p) : false;
+      const priceDefenseOk = hasMa60 ? (ma60upFlat && priceAboveMa60) : false;
+      const defenseOk = priceDefenseOk; // 純技術面回測，不考慮現金／融資限制
+      const bombard = touch && ma20upFlat && defenseOk;
+
+      const ma5upFlat = (ma5p != null) ? (ma5 >= ma5p) : false;
+      let threeDay = false;
+      if(i >= 2){
+        const m1 = maAt(i-1, 5), m2 = maAt(i-2, 5);
+        threeDay = (m1 != null && m2 != null) && close > ma5 && closes[i-1] > m1 && closes[i-2] > m2;
+      }
+      const momentum = threeDay && ma5upFlat && defenseOk;
+      const exit = close >= ma20 * P.exitMult;
+
+      // 定期定額／定股：每個交易日固定執行
+      if(asset.dcaMode === 'amount'){ totalShares += asset.dcaValue / close; totalCost += asset.dcaValue; }
+      else { totalShares += asset.dcaValue; totalCost += asset.dcaValue * close; }
+      dcaCount++;
+
+      // 動能觸發
+      if(momentum){
+        if(asset.dcaMode === 'amount'){ totalShares += asset.boostValue / close; totalCost += asset.boostValue; }
+        else { totalShares += asset.boostValue; totalCost += asset.boostValue * close; }
+        momentumCount++;
+      }
+
+      // 重砲觸發：第一層＋第二層，恆以股數計
+      if(bombard){
+        const basePrice = Math.min(close, ma20);
+        const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
+        const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
+        totalShares += asset.l1; totalCost += asset.l1 * p1;
+        totalShares += asset.l2; totalCost += asset.l2 * p2;
+        bombardCount++;
+      }
+
+      // 出清觸發：全部賣出，模擬結束
+      if(exit && totalShares > 0){
+        const exitPrice = applyTick(ma20 * P.exitMult, asset.roundTick, 'round');
+        const proceeds = totalShares * exitPrice;
+        const profit = proceeds - totalCost;
+        const profitPct = totalCost > 0 ? (profit / totalCost * 100) : 0;
+        const holdDays = Math.round((new Date(dateStr) - new Date(actualStartStr)) / 86400000);
+        exitInfo = { exitDate: dateStr, exitPrice, totalShares, totalCost, proceeds, profit, profitPct, holdDays };
+        break;
+      }
+    }
+
+    const unit = asset.currency;
+    let html = `<div class="footer-note" style="text-align:left; margin-top:10px;">起算日：${actualStartStr}${dateNote}</div>`;
+    html += `<div class="footer-note" style="text-align:left;">模擬執行：定期定額/股 ${dcaCount}次｜動能觸發 ${momentumCount}次｜重砲觸發 ${bombardCount}次</div>`;
+    if(exitInfo){
+      html += `<div class="footer-note" style="text-align:left; margin-top:6px; color:var(--teal); font-weight:700;">✅ ${exitInfo.exitDate} 觸發出清（持有 ${exitInfo.holdDays} 天）</div>`;
+      html += `<div class="footer-note" style="text-align:left;">累積股數：${fmtRaw(exitInfo.totalShares,0)} 股｜總投入成本：${fmtRaw(exitInfo.totalCost,0)} ${unit}</div>`;
+      html += `<div class="footer-note" style="text-align:left;">出清價：${fmtRaw(exitInfo.exitPrice,tickDec)}｜出清金額：${fmtRaw(exitInfo.proceeds,0)} ${unit}</div>`;
+      const profitColor = exitInfo.profit >= 0 ? 'var(--teal)' : 'var(--red)';
+      html += `<div class="footer-note" style="text-align:left; color:${profitColor}; font-weight:700;">損益：${exitInfo.profit>=0?'+':''}${fmtRaw(exitInfo.profit,0)} ${unit}（${exitInfo.profit>=0?'+':''}${exitInfo.profitPct.toFixed(2)}%）</div>`;
+    } else {
+      const lastDate = allRows[lastSimIdx].date;
+      const lastClose = closes[lastSimIdx];
+      const markValue = totalShares * lastClose;
+      const unrealized = markValue - totalCost;
+      const unrealizedPct = totalCost > 0 ? (unrealized/totalCost*100) : 0;
+      const holdDays = Math.round((new Date(lastDate) - new Date(actualStartStr)) / 86400000);
+      html += `<div class="footer-note" style="text-align:left; margin-top:6px; color:var(--amber);">・回測期間內（至 ${lastDate}，已持有 ${holdDays} 天）尚未觸發出清</div>`;
+      html += `<div class="footer-note" style="text-align:left;">累積股數：${fmtRaw(totalShares,0)} 股｜總投入成本：${fmtRaw(totalCost,0)} ${unit}</div>`;
+      html += `<div class="footer-note" style="text-align:left;">${lastDate}收盤市值：${fmtRaw(markValue,0)} ${unit}（未實現）</div>`;
+      const upColor = unrealized >= 0 ? 'var(--teal)' : 'var(--red)';
+      html += `<div class="footer-note" style="text-align:left; color:${upColor}; font-weight:700;">未實現損益：${unrealized>=0?'+':''}${fmtRaw(unrealized,0)} ${unit}（${unrealized>=0?'+':''}${unrealizedPct.toFixed(2)}%）</div>`;
+    }
+    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※純技術面模擬，未考慮現金／融資防禦邊界限制，僅供策略參考</div>`;
+    resultEl.innerHTML = html;
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 回測完成</span>`;
+  } catch(err){
+    console.error('backtest failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">回測失敗：${err.message}</span>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 let state = {
   params: {...DEFAULT_PARAMS},
   assets: DEFAULT_ASSETS.map(a=>({...a})),
@@ -642,6 +851,7 @@ let state = {
   ledCollapsed: false,
   reserveCollapsed: false,
   ordersCollapsed: false,
+  backtestCollapsed: false,
 };
 
 function getAsset(key){
@@ -1431,6 +1641,17 @@ document.getElementById('toggleOrders').addEventListener('click', ()=>{
   btn.title = state.ordersCollapsed ? '展開' : '收合';
 });
 
+document.getElementById('toggleBacktest').addEventListener('click', ()=>{
+  state.backtestCollapsed = !state.backtestCollapsed;
+  const body = document.getElementById('backtestBody');
+  const btn = document.getElementById('toggleBacktest');
+  body.style.display = state.backtestCollapsed ? 'none' : 'block';
+  btn.querySelector('.chev').classList.toggle('collapsed', state.backtestCollapsed);
+  btn.title = state.backtestCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('btnRunBacktest').addEventListener('click', runBacktest);
+
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const section = (asset)=>{
     const rows = sortedLog(asset.key);
@@ -1832,6 +2053,7 @@ armConfirmClick(
 (async function init(){
   const todayStr = new Date().toISOString().slice(0,10);
   document.getElementById('inDate').value = todayStr;
+  document.getElementById('btStartDate').max = todayStr;
 
   const savedParams = await storageGet(KEY_PARAMS, {});
   state.params = Object.assign({}, DEFAULT_PARAMS, savedParams);
