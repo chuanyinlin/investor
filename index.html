@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0D1620">
-<title>Invest OS v1.2</title>
+<title>Invest OS v1.3</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%230D1620'/%3E%3Crect x='14' y='14' width='92' height='92' rx='16' fill='none' stroke='%2321D4B4' stroke-width='3'/%3E%3Ctext x='60' y='58' font-family='monospace' font-size='26' fill='%2321D4B4' text-anchor='middle' font-weight='700'%3EINVEST%3C/text%3E%3Ctext x='60' y='86' font-family='monospace' font-size='16' fill='%23FFB020' text-anchor='middle' letter-spacing='2'%3EOS%3C/text%3E%3C/svg%3E">
 <style>
   :root{
@@ -181,7 +181,7 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnAdd, #btnImportFile, #btnExportHist, #btnFetchHist3{
+  #btnAdd, #btnImportFile, #btnExportHist{
     display: table; margin: 14px 0 0 auto;
   }
 
@@ -334,7 +334,7 @@
   <div class="topbar">
     <div class="brand">
       <div class="wordmark">Invest<span>OS</span></div>
-      <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.2</div>
+      <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.3</div>
     </div>
     <div class="icon-btn" id="btnParams" title="參數設定">⚙︎</div>
   </div>
@@ -377,13 +377,7 @@
     </div>
     <div id="advancedInputBody" style="display:none;">
 
-    <div class="field">
-      <label style="color:var(--text);">更新證交所近3日價格／均線（不更動現金／股數）</label>
-      <button type="button" class="btn btn-neutral btn-sm" id="btnFetchHist3">更新</button>
-      <div class="footer-note" id="fetchHist3Status" style="text-align:left; margin-top:6px;"></div>
-    </div>
-
-    <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
+    <div class="field date-field">
       <label style="color:var(--text);">手動更新特定日期的價格／均線（不更動現金／股數）</label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
@@ -578,7 +572,7 @@ async function fetchLast3DaysCore(){
   const key = state.activeTab;
   const asset = getAsset(key);
   if(!asset.stockNo){
-    return { ok:false, msg:'此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。' };
+    return { ok:false, msg:'此標的無自動更新收盤價與均線功能，請至「進階」手動輸入。' };
   }
   try{
     const today = new Date();
@@ -615,23 +609,6 @@ async function fetchLast3DaysCore(){
     console.error('fetch last 3 days failed', err);
     return { ok:false, msg:`本次未更新到最新資料（${err.message}），現有判定仍基於先前的歷史紀錄` };
   }
-}
-
-// 進階區塊：只更新價格／均線，不動現金／股數
-async function fetchLast3DaysAndSave(){
-  const statusEl = document.getElementById('fetchHist3Status');
-  const btn = document.getElementById('btnFetchHist3');
-  const originalText = btn.textContent;
-  btn.textContent = '抓取中...';
-  btn.disabled = true;
-  statusEl.innerHTML = '';
-  const result = await fetchLast3DaysCore();
-  renderAll();
-  statusEl.innerHTML = result.ok
-    ? `<span style="color:var(--teal)">✅ ${result.msg}</span>`
-    : `<span style="color:var(--amber)">・${result.msg}</span>`;
-  btn.textContent = originalText;
-  btn.disabled = false;
 }
 
 let state = {
@@ -831,7 +808,7 @@ function renderHistory(){
 
   const rowsAsc = sortedLog(key);
   if(rowsAsc.length === 0){
-    list.innerHTML = '<div class="empty-hint">還沒有紀錄。<br>請先在上方按「抓取近3日」，或於「進階」手動輸入，開始追蹤。</div>';
+    list.innerHTML = '<div class="empty-hint">還沒有紀錄。<br>請先在上方按「更新」，或於「進階」手動輸入，開始追蹤。</div>';
     return;
   }
 
@@ -1106,6 +1083,7 @@ function renderTabs(){
       document.getElementById('inCashNow').value = '';
       document.getElementById('inSharesNow').value = '';
       document.getElementById('importStatus').innerHTML = '';
+      document.getElementById('updateDailyStatus').innerHTML = '';
     });
   });
 }
@@ -1516,7 +1494,6 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
   renderAll();
 });
 
-document.getElementById('btnFetchHist3').addEventListener('click', fetchLast3DaysAndSave);
 
 document.getElementById('btnAdd').addEventListener('click', async ()=>{
   const date = document.getElementById('inDate').value;
