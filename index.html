@@ -737,6 +737,7 @@ async function runBacktest(){
     let dcaCount = 0, momentumCount = 0, bombardCount = 0;
     let exitInfo = null;
     let lastSimIdx = startIdx;
+    const recentDays = []; // 保留最近幾天的均線快照，供人工核對觸發是否合理
 
     for(let i = startIdx; i < allRows.length; i++){
       const dateStr = allRows[i].date;
@@ -767,6 +768,9 @@ async function runBacktest(){
       }
       const momentum = threeDay && ma5upFlat && defenseOk;
       const exit = close >= ma20 * P.exitMult;
+
+      recentDays.push({ date: dateStr, close, ma5, ma20, ma60, touch, bombard, momentum, exit, defenseOk });
+      if(recentDays.length > 5) recentDays.shift();
 
       // 定期定額／定股：每個交易日固定執行
       if(asset.dcaMode === 'amount'){ totalShares += asset.dcaValue / close; totalCost += asset.dcaValue; }
@@ -825,6 +829,21 @@ async function runBacktest(){
       html += `<div class="footer-note" style="text-align:left; color:${upColor}; font-weight:700;">未實現損益：${unrealized>=0?'+':''}${fmtRaw(unrealized,0)} ${unit}（${unrealized>=0?'+':''}${unrealizedPct.toFixed(2)}%）</div>`;
     }
     html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※純技術面模擬，未考慮現金／融資防禦邊界限制，僅供策略參考</div>`;
+
+    // 附上最近幾天的均線快照，方便人工核對觸發是否合理
+    if(recentDays.length > 0){
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">最近 ${recentDays.length} 天均線數值（供核對）：</div>`;
+      recentDays.forEach(d=>{
+        const ma60Txt = d.ma60 != null ? fmtRaw(d.ma60,2) : '—';
+        const tags = [];
+        if(d.bombard) tags.push('重砲');
+        if(d.momentum) tags.push('動能');
+        if(d.exit) tags.push('出清');
+        const tagTxt = tags.length ? `［${tags.join('／')}］` : '';
+        html += `<div class="footer-note" style="text-align:left;">${d.date}：收盤${fmtRaw(d.close,2)}｜MA5 ${fmtRaw(d.ma5,2)}｜MA20 ${fmtRaw(d.ma20,2)}｜MA60 ${ma60Txt} ${tagTxt}</div>`;
+      });
+    }
+
     resultEl.innerHTML = html;
     statusEl.innerHTML = `<span style="color:var(--teal)">✅ 回測完成</span>`;
   } catch(err){
