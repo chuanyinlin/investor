@@ -181,11 +181,8 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnAdd, #btnAutoFetch, #btnImportFile, #btnExportHist, #btnFetchHist3{
-    display: table; margin: 14px auto 0;
-  }
-  #btnAdd, #btnAutoFetch, #btnImportFile, #btnExportHist, #btnFetchHist3{
-    display: table; margin: 14px auto 0;
+  #btnAdd, #btnImportFile, #btnExportHist, #btnFetchHist3{
+    display: table; margin: 14px 0 0 auto;
   }
 
   /* ---------- History list ---------- */
@@ -355,14 +352,9 @@
     <div class="card-title"><h3>資料輸入</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="收合"><span class="chev">▾</span></button></div>
     <div id="inputBody">
 
-    <!-- 日常操作：每天會用到的兩件事 -->
-    <div class="field" style="margin-bottom:14px;">
-      <button type="button" class="btn btn-primary btn-sm" id="btnFetchHist3" style="width:100%;">抓取近3日</button>
-      <div class="footer-note" id="fetchHist3Status" style="text-align:left; margin-top:6px;"></div>
-    </div>
-
-    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">目前現金／目前股數<span style="color:var(--text-faint); font-weight:400;">（用來判定防禦邊界，只保留最新一筆，不逐日記錄）</span></label>
+    <!-- 日常操作：每天真正需要輸入的東西，跟自動抓價一起送出 -->
+    <div class="field">
+      <label style="color:var(--text);">目前現金／股數<span style="color:var(--text-faint); font-weight:400;">（計算現金佔總部位%）</span></label>
     </div>
     <div class="grid2">
       <div class="field">
@@ -374,18 +366,25 @@
         <input type="number" step="1" id="inSharesNow" placeholder="0">
       </div>
     </div>
-    <button class="btn btn-neutral btn-sm" id="btnUpdateCashShares">更新</button>
-    <div class="footer-note" id="updateCashSharesStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="footer-note" style="text-align:left; margin-bottom:10px;">「更新」會同時從證交所更新最近3個交易日的收盤價與均線</div>
+    <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
+    <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
     <!-- 進階/例外處理：收合，平常不會用到 -->
     <div class="card-title" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);">
-      <h3 style="font-size:13px;">進階／例外處理</h3>
+      <h3 style="font-size:13px;">進階</h3>
       <button class="btn btn-primary btn-sm" id="toggleAdvancedInput" title="展開"><span class="chev collapsed">▾</span></button>
     </div>
     <div id="advancedInputBody" style="display:none;">
 
-    <div class="field date-field">
-      <label>日期 <span style="color:var(--text-faint); font-weight:400;">（選擇需要從證交所抓取收盤價與均線指數的日期）</span></label>
+    <div class="field">
+      <label style="color:var(--text);">更新證交所近3日價格／均線（不更動現金／股數）</label>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnFetchHist3">更新</button>
+      <div class="footer-note" id="fetchHist3Status" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">手動更新特定日期的價格／均線（不更動現金／股數）</label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
@@ -398,14 +397,6 @@
       </div>
     </div>
 
-    <div class="field" style="margin-bottom:14px;">
-      <button type="button" class="btn btn-neutral btn-sm" id="btnAutoFetch">抓取</button>
-      <div class="footer-note" id="autoFetchStatus" style="text-align:left; margin-top:6px;"></div>
-    </div>
-
-    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text-faint); font-size:11px;">（ADR或非台股標的請手動輸入）</label>
-    </div>
     <div class="grid2">
       <div class="field"><label>收盤價</label><input type="number" step="0.01" id="inClose" placeholder="0.00"></div>
       <div class="field"><label>MA5</label><input type="number" step="0.01" id="inMa5" placeholder="0.00"></div>
@@ -414,10 +405,10 @@
       <div class="field"><label>MA20</label><input type="number" step="0.01" id="inMa20" placeholder="0.00"></div>
       <div class="field"><label>MA60</label><input type="number" step="0.01" id="inMa60" placeholder="0.00"></div>
     </div>
-    <button class="btn btn-neutral btn-sm" id="btnAdd">新增</button>
+    <button class="btn btn-neutral btn-sm" id="btnAdd">更新</button>
 
     <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">或匯入歷史紀錄檔案</label>
+      <label style="color:var(--text);">匯入歷史紀錄檔案</label>
       <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
       <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile">匯入</button>
       <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
@@ -509,14 +500,14 @@ const DEFAULT_PARAMS = {
   tolerance: 0.005,
   exitMult: 1.08,
   layer2Mult: 0.97,
-  reserveMult: 40,
+  cashTargetPct: 0.20,
 };
 
 const PARAM_META = [
   ['tolerance','MA20區間容忍度(上界)','pct'],
   ['exitMult','出清價位乘數','mult'],
   ['layer2Mult','第二層重砲乘數','mult'],
-  ['reserveMult','保留金倍數','int'],
+  ['cashTargetPct','目標現金佔比（現金／總部位）','pct'],
 ];
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
@@ -581,69 +572,14 @@ function calcMA(closes, period){
   return slice.reduce((a,b) => a+b, 0) / period;
 }
 
-async function autoFetchAndFill(){
+// 核心抓取邏輯：抓最近3個交易日、算MA、寫進歷史紀錄，回傳結果不直接碰UI，
+// 讓「只更新價格」跟「現金/股數+價格一起更新」兩個按鈕可以共用
+async function fetchLast3DaysCore(){
   const key = state.activeTab;
   const asset = getAsset(key);
-  const statusEl = document.getElementById('autoFetchStatus');
-  const btn = document.getElementById('btnAutoFetch');
   if(!asset.stockNo){
-    statusEl.innerHTML = `<span style="color:var(--red)">此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。</span>`;
-    return;
+    return { ok:false, msg:'此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。' };
   }
-  const targetDateStr = document.getElementById('inDate').value || new Date().toISOString().slice(0,10);
-  const targetDate = new Date(targetDateStr + 'T00:00:00');
-  if(isNaN(targetDate.getTime())){
-    statusEl.innerHTML = `<span style="color:var(--red)">日期格式錯誤，請先在上方選擇日期。</span>`;
-    return;
-  }
-  const originalText = btn.textContent;
-  btn.textContent = '抓取中...';
-  btn.disabled = true;
-  statusEl.innerHTML = '';
-  try{
-    const allRows = await fetchRecentCloses(asset.stockNo, targetDate, 4);
-    // 只取「截至選定日期當天（含）」的資料，避免用到未來資料
-    const rowsUpToTarget = allRows.filter(r => r.date <= targetDateStr);
-    if(rowsUpToTarget.length < 5){ throw new Error('選定日期附近的資料不足，可能是股票代號錯誤或該區間無交易資料'); }
-    const latest = rowsUpToTarget[rowsUpToTarget.length - 1];
-    if(latest.date !== targetDateStr){
-      statusEl.innerHTML = `<span style="color:var(--amber)">⚠️ ${targetDateStr} 非交易日或證交所尚無資料，已改抓最近一個交易日 ${latest.date} 的資料，請確認是否符合需求。</span>`;
-    }
-    const closes = rowsUpToTarget.map(r => r.close);
-    const ma5 = calcMA(closes, 5);
-    const ma20 = calcMA(closes, 20);
-    const ma60 = calcMA(closes, 60);
-    document.getElementById('inDate').value = latest.date;
-    document.getElementById('inClose').value = latest.close;
-    document.getElementById('inMa5').value = ma5 !== null ? ma5.toFixed(2) : '';
-    document.getElementById('inMa20').value = ma20 !== null ? ma20.toFixed(2) : '';
-    document.getElementById('inMa60').value = ma60 !== null ? ma60.toFixed(2) : '';
-    const ma60Note = ma60 === null ? '（資料不足60天，MA60留空，請自行確認）' : '';
-    if(latest.date === targetDateStr){
-      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已帶入 ${latest.date} 收盤價與均線，請確認無誤後按「新增」。${ma60Note}</span>`;
-    }
-  } catch(err){
-    console.error('auto fetch failed', err);
-    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（代理伺服器可能暫時無法使用，可稍後再試，或改為手動輸入）</span>`;
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
-}
-
-async function fetchLast3DaysAndSave(){
-  const key = state.activeTab;
-  const asset = getAsset(key);
-  const statusEl = document.getElementById('fetchHist3Status');
-  const btn = document.getElementById('btnFetchHist3');
-  if(!asset.stockNo){
-    statusEl.innerHTML = `<span style="color:var(--red)">此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。</span>`;
-    return;
-  }
-  const originalText = btn.textContent;
-  btn.textContent = '抓取中...';
-  btn.disabled = true;
-  statusEl.innerHTML = '';
   try{
     const today = new Date();
     const allRows = await fetchRecentCloses(asset.stockNo, today, 4);
@@ -663,7 +599,6 @@ async function fetchLast3DaysAndSave(){
         close: target.close,
         ma5, ma20, ma60,
         cash: existingIdx >= 0 ? state.log[key][existingIdx].cash : null,
-        shares: existingIdx >= 0 ? state.log[key][existingIdx].shares : null,
       };
       if(existingIdx >= 0){
         state.log[key][existingIdx] = entry;
@@ -674,16 +609,29 @@ async function fetchLast3DaysAndSave(){
     // 只保留最近3天的紀錄，跟手動新增走同一套規則
     state.log[key] = sortedLog(key).slice(-3);
     await storageSet(KEY_LOG(key), state.log[key]);
-    renderAll();
     const dateList = last3.map(r => r.date).join('、');
-    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已寫入歷史紀錄：${dateList}</span>`;
+    return { ok:true, msg:`已寫入歷史紀錄：${dateList}` };
   } catch(err){
     console.error('fetch last 3 days failed', err);
-    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（代理伺服器可能暫時無法使用，可稍後再試）</span>`;
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
+    return { ok:false, msg:`本次未更新到最新資料（${err.message}），現有判定仍基於先前的歷史紀錄` };
   }
+}
+
+// 進階區塊：只更新價格／均線，不動現金／股數
+async function fetchLast3DaysAndSave(){
+  const statusEl = document.getElementById('fetchHist3Status');
+  const btn = document.getElementById('btnFetchHist3');
+  const originalText = btn.textContent;
+  btn.textContent = '抓取中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+  const result = await fetchLast3DaysCore();
+  renderAll();
+  statusEl.innerHTML = result.ok
+    ? `<span style="color:var(--teal)">✅ ${result.msg}</span>`
+    : `<span style="color:var(--amber)">・${result.msg}</span>`;
+  btn.textContent = originalText;
+  btn.disabled = false;
 }
 
 let state = {
@@ -741,17 +689,21 @@ function sortedLog(assetKey){
 }
 
 // 計算應保留金額，直接讀取歷史紀錄原始資料，不呼叫computeForAsset，避免與防禦邊界判定互相循環呼叫
+// 現金應保留金額 = 目標現金佔比% 換算出的等值金額，
+// 公式推導：cash / (cash + 市值) >= targetPct  =>  cash >= targetPct * 市值 / (1 - targetPct)
+// 市值 = 目前股數 × 今日收盤價，因此需要股數與今日收盤價才能計算
 function getRequiredReserve(assetKey){
   const P = state.params;
-  const asset = getAsset(assetKey);
-  if(asset.dcaMode === 'amount'){
-    return P.reserveMult * asset.dcaValue;
-  }
   const rows = sortedLog(assetKey);
   if(rows.length === 0) return null;
   const today = rows[rows.length-1];
-  if(today.ma60 == null) return null;
-  return Math.round(P.reserveMult * today.ma60);
+  if(today.close == null) return null;
+  const shares = state.shares[assetKey] || 0;
+  const marketValue = shares * today.close;
+  const pct = P.cashTargetPct;
+  if(pct <= 0) return 0;
+  if(pct >= 1) return null; // 參數不合理（100%以上），無法換算等值金額
+  return Math.round(pct * marketValue / (1 - pct));
 }
 
 function computeForAsset(assetKey){
@@ -873,57 +825,20 @@ function renderHistory(){
   const list = document.getElementById('histList');
   const body = document.getElementById('histBody');
   const key = state.activeTab;
-  const asset = getAsset(key);
   { const btnH = document.getElementById('toggleHist'); btnH.querySelector('.chev').classList.toggle('collapsed', state.histCollapsed); btnH.title = state.histCollapsed ? '展開' : '收合'; }
   if(state.histCollapsed){ body.style.display = 'none'; return; }
   body.style.display = 'block';
 
   const rowsAsc = sortedLog(key);
   if(rowsAsc.length === 0){
-    list.innerHTML = '<div class="empty-hint">還沒有紀錄。<br>請先在上方按「抓取近3日」，或於「進階／例外處理」手動輸入，開始追蹤。</div>';
+    list.innerHTML = '<div class="empty-hint">還沒有紀錄。<br>請先在上方按「抓取近3日」，或於「進階」手動輸入，開始追蹤。</div>';
     return;
   }
 
-  // 由舊到新依序帶入每日流動現金與股數，若當天沒有輸入則沿用前一筆有資料的數值
-  let carryCash = null;
-  let carryShares = null;
-  const withCash = rowsAsc.map(r=>{
-    let cashCarried = false;
-    let effectiveCash = r.cash;
-    if(effectiveCash == null){
-      effectiveCash = carryCash;
-      cashCarried = true;
-    } else {
-      carryCash = effectiveCash;
-    }
-    if(effectiveCash == null){
-      effectiveCash = state.cash[key];
-      cashCarried = true;
-    }
-
-    let sharesCarried = false;
-    let effectiveShares = r.shares;
-    if(effectiveShares == null){
-      effectiveShares = carryShares;
-      sharesCarried = true;
-    } else {
-      carryShares = effectiveShares;
-    }
-    if(effectiveShares == null){
-      effectiveShares = state.shares[key];
-      sharesCarried = true;
-    }
-
-    return { ...r, effectiveCash, cashCarried, effectiveShares, sharesCarried };
-  });
-
-  const rows = [...withCash].reverse();
+  const rows = [...rowsAsc].reverse();
   list.innerHTML = rows.map((r)=>{
     const realIdx = state.log[key].findIndex(x=>x.date===r.date && x.close===r.close && x.ma5===r.ma5 && x.ma20===r.ma20);
     const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
-    const unit = asset.currency;
-    const cashTxt = (r.effectiveCash != null) ? `${fmtRaw(r.effectiveCash,0)} ${unit}${r.cashCarried?'（沿用）':''}` : '—';
-    const sharesTxt = (r.effectiveShares != null) ? `${fmtRaw(r.effectiveShares,0)} 股${r.sharesCarried?'（沿用）':''}` : '—';
     return `<div class="hist-entry">
       <div class="hist-entry-head">
         <div class="hist-entry-date">${r.date}</div>
@@ -936,10 +851,6 @@ function renderHistory(){
       <div class="hist-grid2">
         <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20,2)}</div></div>
         <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
-      </div>
-      <div class="hist-grid2">
-        <div><div class="hist-stat-label">現金</div><div class="hist-stat-value">${cashTxt}</div></div>
-        <div><div class="hist-stat-label">股數</div><div class="hist-stat-value">${sharesTxt}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -1064,7 +975,7 @@ function renderOrders(){
   html += orderRow(!!d.bombard, '重砲觸發：第一層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l1Detail);
   html += orderRow(!!d.bombard, '重砲觸發：第二層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l2Detail);
 
-  // 出清：直接顯示目前記錄的股數池全部（只需要1筆資料即可試算）
+  // 出清：直接顯示目前記錄的股數池全部
   let exitDetail = '';
   if(d.ready1){
     const exitPrice = applyTick(d.today.ma20 * P.exitMult, asset.roundTick, 'round');
@@ -1080,13 +991,14 @@ function getCashStatus(key){
   const asset = getAsset(key);
   const d = computeForAsset(key);
   const requiredReserve = getRequiredReserve(key);
+  const shares = state.shares[key] || 0;
+  const marketValue = (d.today && d.today.close != null) ? shares * d.today.close : null;
+  const pctTxt = (P.cashTargetPct*100).toFixed(0);
   let requiredTxt = '';
-  if(asset.dcaMode === 'amount'){
-    requiredTxt = `${P.reserveMult} × 定期定額(${asset.dcaValue.toLocaleString()}) = ${requiredReserve.toLocaleString()} ${asset.currency}`;
-  } else if(requiredReserve != null && d.today){
-    requiredTxt = `${P.reserveMult} × MA60(${fmt(d.today.ma60,2)}) ≈ ${requiredReserve.toLocaleString()} ${asset.currency}`;
+  if(requiredReserve != null && marketValue != null){
+    requiredTxt = `目標現金佔比 ${pctTxt}% × 股票市值(${marketValue.toLocaleString(undefined,{maximumFractionDigits:0})}) → 應保留 ${requiredReserve.toLocaleString()} ${asset.currency}`;
   } else {
-    requiredTxt = `${P.reserveMult} × MA60 —（尚無MA60資料）`;
+    requiredTxt = `目標現金佔比 ${pctTxt}% —（尚無收盤價或股數資料）`;
   }
   const cur = state.cash[key] || 0;
   const unit = asset.currency;
@@ -1153,8 +1065,6 @@ function renderReserve(){
   const key = state.activeTab;
 
   document.getElementById('reserveTitle').textContent = '防禦邊界';
-  document.getElementById('cashLabel').textContent = '現金';
-  document.getElementById('sharesLabel').textContent = '股數';
 
   const d = computeForAsset(key);
   if(!d.ready1){
@@ -1167,7 +1077,7 @@ function renderReserve(){
   let bombardLine = '';
   if(st.bombardTriggered){
     const available = (st.requiredReserve != null) ? (st.cur - st.requiredReserve) : null;
-    const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（缺少MA60資料）';
+    const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（尚無收盤價或股數資料）';
     bombardLine = `<br>可動用資金（流動現金－應保留金額）：${availableTxt}<br>重砲觸發：第一層所需金額：${st.bombardCostTxt}<br>重砲觸發：第二層所需金額：${st.layer2CostTxt}`;
   }
   const cashLed = getCashLedState(st);
@@ -1176,7 +1086,8 @@ function renderReserve(){
   const priceMa60Led = getPriceMa60LedState(d);
 
   document.getElementById('reserveHint').innerHTML =
-    `現金應保留：${st.requiredTxt}<br>目前流動現金：${st.cur.toLocaleString()} ${st.unit}${bombardLine}<br>` +
+    `目前流動現金：${st.cur.toLocaleString()} ${st.unit}<br>目前股數：${(state.shares[key]||0).toLocaleString()} 股<br>` +
+    `現金應保留：${st.requiredTxt}${bombardLine}<br>` +
     `<span style="color:${ma60UpLed.color}; font-weight:700;">${ma60UpLed.label}</span><br>` +
     `<span style="color:${priceMa60Led.color}; font-weight:700;">${priceMa60Led.label}</span><br>` +
     `<span style="color:${cashLed.color}; font-weight:700;">${cashLed.label}</span><br>` +
@@ -1463,12 +1374,10 @@ document.getElementById('btnExportHist').addEventListener('click', ()=>{
     if(rows.length === 0){
       txt += '（尚無資料）\n';
     } else {
-      txt += '日期        收盤價        MA5           MA20          MA60          流動現金        股數\n';
+      txt += '日期        收盤價        MA5           MA20          MA60\n';
       rows.forEach(r=>{
         const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
-        const cashTxt = (r.cash != null) ? fmtRaw(r.cash,0) : '—';
-        const sharesTxt = (r.shares != null) ? fmtRaw(r.shares,0) : '—';
-        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${String(ma60Txt).padStart(10)}   ${String(cashTxt).padStart(12)}   ${String(sharesTxt).padStart(8)}\n`;
+        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${String(ma60Txt).padStart(10)}\n`;
       });
     }
     return txt;
@@ -1574,13 +1483,6 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
           break;
         }
       }
-      for(let i=rows.length-1; i>=0; i--){
-        if(rows[i].shares != null){
-          state.shares[key] = rows[i].shares;
-          await storageSet(KEY_SHARES(key), rows[i].shares);
-          break;
-        }
-      }
     }
     if(importedCount === 0){
       statusEl.innerHTML = `<span style="color:var(--red)">沒有偵測到符合格式的資料，請確認檔案內容是否為「匯出歷史紀錄」產生的格式。</span>`;
@@ -1614,7 +1516,6 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
   renderAll();
 });
 
-document.getElementById('btnAutoFetch').addEventListener('click', autoFetchAndFill);
 document.getElementById('btnFetchHist3').addEventListener('click', fetchLast3DaysAndSave);
 
 document.getElementById('btnAdd').addEventListener('click', async ()=>{
@@ -1634,14 +1535,13 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
   const ma60 = ma60Raw === '' ? null : parseFloat(ma60Raw);
   const key = state.activeTab;
   const existingIdx = state.log[key].findIndex(r=>r.date===date);
-  // 現金/股數不再透過這裡寫入歷史紀錄，改由「目前現金／目前股數」區塊獨立更新；
-  // 若該日期原本就有紀錄，保留原本的cash/shares欄位（歷史足跡顯示用），不因這次操作被清空
+  // 現金不再透過這裡寫入歷史紀錄，改由「目前現金」區塊獨立更新；
+  // 若該日期原本就有紀錄，保留原本的cash欄位，不因這次操作被清空
   const prevCash = existingIdx >= 0 ? state.log[key][existingIdx].cash : null;
-  const prevShares = existingIdx >= 0 ? state.log[key][existingIdx].shares : null;
   if(existingIdx >= 0){
-    state.log[key][existingIdx] = {date, close, ma5, ma20, ma60, cash: prevCash, shares: prevShares};
+    state.log[key][existingIdx] = {date, close, ma5, ma20, ma60, cash: prevCash};
   } else {
-    state.log[key].push({date, close, ma5, ma20, ma60, cash: prevCash, shares: prevShares});
+    state.log[key].push({date, close, ma5, ma20, ma60, cash: prevCash});
   }
   // 只保留最近3天的紀錄，超過的自動移除
   state.log[key] = sortedLog(key).slice(-3);
@@ -1654,15 +1554,12 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
   renderAll();
 });
 
-document.getElementById('btnUpdateCashShares').addEventListener('click', async ()=>{
+document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   const key = state.activeTab;
-  const statusEl = document.getElementById('updateCashSharesStatus');
+  const statusEl = document.getElementById('updateDailyStatus');
+  const btn = document.getElementById('btnUpdateDaily');
   const cashRaw = document.getElementById('inCashNow').value;
   const sharesRaw = document.getElementById('inSharesNow').value;
-  if(cashRaw === '' && sharesRaw === ''){
-    statusEl.innerHTML = `<span style="color:var(--red)">請至少輸入現金或股數其中一項。</span>`;
-    return;
-  }
   if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
     statusEl.innerHTML = `<span style="color:var(--red)">現金格式錯誤。</span>`;
     return;
@@ -1671,20 +1568,36 @@ document.getElementById('btnUpdateCashShares').addEventListener('click', async (
     statusEl.innerHTML = `<span style="color:var(--red)">股數格式錯誤。</span>`;
     return;
   }
+  const originalText = btn.textContent;
+  btn.textContent = '更新中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+
+  const msgs = [];
   if(cashRaw !== ''){
     const cashVal = parseFloat(cashRaw);
     state.cash[key] = cashVal;
     await storageSet(KEY_CASH(key), cashVal);
+    msgs.push('現金已更新');
   }
   if(sharesRaw !== ''){
     const sharesVal = parseFloat(sharesRaw);
     state.shares[key] = sharesVal;
     await storageSet(KEY_SHARES(key), sharesVal);
+    msgs.push('股數已更新');
   }
+
+  const fetchResult = await fetchLast3DaysCore();
+  msgs.push(fetchResult.msg);
+
   document.getElementById('inCashNow').value = '';
   document.getElementById('inSharesNow').value = '';
   renderAll();
-  statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已更新目前現金／股數。</span>`;
+  const color = fetchResult.ok ? 'var(--teal)' : 'var(--amber)';
+  const icon = fetchResult.ok ? '✅' : '・';
+  statusEl.innerHTML = `<span style="color:${color}">${icon} ${msgs.join('；')}</span>`;
+  btn.textContent = originalText;
+  btn.disabled = false;
 });
 
 document.getElementById('btnParams').addEventListener('click', ()=>{
