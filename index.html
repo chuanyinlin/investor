@@ -483,15 +483,30 @@
     <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="backtestBody" style="display:none;">
     <div class="field">
-      <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，最長模擬1年）</span></label>
+      <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，一路模擬到今天）</span></label>
       <input type="date" id="btStartDate">
     </div>
-    <div class="grid2">
-      <button class="btn btn-neutral btn-sm" id="btnRunBacktest" style="margin-top:0;">開始回測</button>
-      <button class="btn btn-neutral btn-sm" id="btnExportBtData" style="margin-top:0;">匯出歷史資料</button>
+    <div class="field">
+      <label style="color:var(--text);">起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，出清/時間停損的現金會回到同一個資金池）</span></label>
+      <input type="number" step="10000" id="btStartCapital" placeholder="5000000">
     </div>
-    <div class="footer-note" style="text-align:left; margin-top:6px;">「匯出歷史資料」會從開始日期往前抓約4個月（算MA用），一路抓到今天，存成.txt檔（不執行模擬），可直接貼給Claude做進一步分析</div>
+
+    <div class="field">
+      <label style="color:var(--text);">歷史資料<span style="color:var(--text-faint); font-weight:400;">（先匯入之前匯出的.txt檔，回測就不用每次重新連線抓取，速度快很多）</span></label>
+      <input type="file" id="btImportFile" accept=".txt,text/plain" style="display:none;">
+    </div>
+    <div class="grid2">
+      <button type="button" class="btn btn-neutral btn-sm" id="btnBtImportFile" style="margin-top:0;">匯入歷史資料</button>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnExportBtData" style="margin-top:0;">匯出歷史資料</button>
+    </div>
+    <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="footer-note" style="text-align:left;"><span id="btnBtClearImport" style="color:var(--text-faint); text-decoration:underline; cursor:pointer;">清除已匯入資料</span></div>
     <div class="footer-note" id="btExportStatus" style="text-align:left; margin-top:6px;"></div>
+
+    <button class="btn btn-neutral btn-sm" id="btnRunBacktest" style="width:100%; margin-top:14px;">開始回測</button>
+    <div class="footer-note" style="text-align:left; margin-top:6px;">回測會模擬：定期定額(市價單，今天成交)／動能・重砲・出清・時間停損(限價單，掛前一天算出的價位，今天最高/最低價要觸及才成交)，並套用目前參數設定裡的所有數值</div>
+    <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
+
     <div class="footer-note" id="backtestStatus" style="text-align:left; margin-top:6px;"></div>
     <div id="backtestResult"></div>
     </div>
@@ -540,14 +555,14 @@ const KEY_AVG_COST = k => 'tsmos:avgcost:' + k;
 const KEY_POSITION_START = k => 'tsmos:positionstart:' + k;
 
 const DEFAULT_PARAMS = {
-  tolerance: 0.005,
-  exitMult: 1.10,
+  tolerance: 0.010,
+  exitMult: 1.12,
   layer2Mult: 0.97,
-  cashTargetPct: 0.20,
+  cashTargetPct: 0.10,
   marginRatio: 0.60,
   marginCallRatio: 1.20,
-  costExitMult: 1.02,
-  timeStopDays: 240,
+  costExitMult: 1.10,
+  timeStopDays: 120,
   partialExitFrac: 0.30,
 };
 
@@ -700,9 +715,33 @@ async function fetchLast3DaysCore(){
   }
 }
 
+// 回測用的本地匯入資料，key為asset.key，避免每次回測都要重新連線抓取
+let btImportedData = {};
+
+// 解析「匯出歷史資料」產生的.txt檔案，還原成跟fetchMonthRangeCloses一樣的資料結構
+function parseBacktestImportFile(text){
+  const lines = text.split(/\r?\n/);
+  const rows = [];
+  for(const line of lines){
+    const parts = line.trim().split(/\s+/);
+    if(parts.length < 6) continue;
+    const dateMatch = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]);
+    if(!dateMatch) continue; // 跳過標題行、資產名稱行
+    const open = parseFloat(parts[1]);
+    const close = parseFloat(parts[2]);
+    const high = parseFloat(parts[3]);
+    const low = parseFloat(parts[4]);
+    const volume = parseFloat(String(parts[5]).replace(/,/g, ''));
+    if(isNaN(close)) continue;
+    rows.push({ date: parts[0], open, close, high, low, volume });
+  }
+  return rows.sort((a,b) => a.date < b.date ? -1 : 1);
+}
+
 async function runBacktest(){
   const key = state.activeTab;
   const asset = getAsset(key);
+  const P = state.params;
   const statusEl = document.getElementById('backtestStatus');
   const resultEl = document.getElementById('backtestResult');
   const btn = document.getElementById('btnRunBacktest');
@@ -727,24 +766,41 @@ async function runBacktest(){
     statusEl.innerHTML = `<span style="color:var(--red)">開始日期不能晚於今天。</span>`;
     return;
   }
+  const capRaw = document.getElementById('btStartCapital').value;
+  const START_CAPITAL = capRaw !== '' ? parseFloat(capRaw) : 5000000;
+  if(isNaN(START_CAPITAL) || START_CAPITAL <= 0){
+    statusEl.innerHTML = `<span style="color:var(--red)">起始本金格式錯誤。</span>`;
+    return;
+  }
 
-  // 往前抓約4個月做為MA60計算的緩衝，往後抓到「開始日+1年」或「今天」（取較早者），限制模擬跨度在1年內
+  // 往前抓約4個月做為MA60計算的緩衝，一路抓到今天（不限制模擬跨度，跨度越長抓取時間越久）
   const fetchFrom = new Date(startDate.getFullYear(), startDate.getMonth() - 4, 1);
-  const oneYearLater = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
-  const fetchTo = oneYearLater < today ? oneYearLater : today;
-  const oneYearLimitStr = oneYearLater.toISOString().slice(0,10);
+  const fetchFromStr = fetchFrom.toISOString().slice(0,10);
 
   const originalText = btn.textContent;
   btn.disabled = true;
-  statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
 
   try{
-    const allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, fetchTo, (done, total) => {
-      btn.textContent = `抓取中 ${done}/${total}`;
-      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
-    });
+    let allRows;
+    const imported = btImportedData[key];
+    if(imported && imported.length > 0 && imported[0].date <= fetchFromStr){
+      // 已有匯入資料，且涵蓋所需的起始緩衝區間，直接使用，不連線抓取
+      allRows = imported;
+      statusEl.innerHTML = `<span style="color:var(--text-dim)">使用已匯入的本地資料（${imported[0].date} ~ ${imported[imported.length-1].date}），模擬計算中...</span>`;
+    } else {
+      if(imported && imported.length > 0){
+        statusEl.innerHTML = `<span style="color:var(--amber)">・已匯入資料的起始日期不夠早（需涵蓋 ${fetchFromStr} 之前），改為連線抓取...</span>`;
+        await new Promise(r => setTimeout(r, 600));
+      } else {
+        statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
+      }
+      allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, today, (done, total) => {
+        btn.textContent = `抓取中 ${done}/${total}`;
+        statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
+      });
+    }
     if(allRows.length < 10){
-      throw new Error('回傳資料不足，可能是股票代號錯誤或該區間無交易資料');
+      throw new Error('資料不足，可能是股票代號錯誤、匯入檔案格式不對，或該區間無交易資料');
     }
 
     const startStr2 = startDate.toISOString().slice(0,10);
@@ -759,112 +815,146 @@ async function runBacktest(){
     btn.textContent = originalText;
 
     const closes = allRows.map(r => r.close);
-    const P = state.params;
     const tickDec = asset.roundTick ? 0 : asset.priceDecimals;
     const maAt = (idx, period) => {
       if(idx + 1 < period) return null;
       const slice = closes.slice(idx + 1 - period, idx + 1);
       return slice.reduce((a,b)=>a+b, 0) / period;
     };
+    // 至少需要 startIdx 前面有2筆資料才能算前一天/前兩天的訊號
+    const simStart = Math.max(startIdx, 3);
 
+    let cash = START_CAPITAL;
     let totalShares = 0, totalCost = 0;
-    let dcaCount = 0, momentumCount = 0, bombardCount = 0;
-    let exitInfo = null;
-    let lastSimIdx = startIdx;
-    const recentDays = []; // 保留最近幾天的均線快照，供人工核對觸發是否合理
+    let dcaExec=0, dcaSkip=0, momExec=0, momSkip=0, b1Exec=0, b1Skip=0, b2Exec=0, b2Skip=0;
+    let exitExec=0, exitSkip=0, tsExec=0, tsSkip=0;
+    let lastTsCheck = new Date(allRows[simStart].date + 'T00:00:00');
+    const cashHistory = [];
+    const recentDays = [];
 
-    for(let i = startIdx; i < allRows.length; i++){
-      const dateStr = allRows[i].date;
-      if(dateStr > oneYearLimitStr) break;
-      lastSimIdx = i;
+    for(let i = simStart; i < allRows.length; i++){
+      const today_ = allRows[i], yest = allRows[i-1], yest2 = allRows[i-2];
+      const closeY = yest.close, ma5Y = maAt(i-1,5), ma20Y = maAt(i-1,20), ma60Y = maAt(i-1,60);
+      const ma5Y2 = maAt(i-2,5), ma20Y2 = maAt(i-2,20), ma60Y2 = maAt(i-2,60);
+      if(ma5Y == null || ma20Y == null) continue;
 
-      const close = closes[i];
-      const ma5 = maAt(i, 5), ma20 = maAt(i, 20), ma60 = maAt(i, 60);
-      const ma5p = i>0 ? maAt(i-1, 5) : null;
-      const ma20p = i>0 ? maAt(i-1, 20) : null;
-      const ma60p = i>0 ? maAt(i-1, 60) : null;
-      if(ma5 == null || ma20 == null) continue;
-
-      const touch = close <= ma20 * (1 + P.tolerance);
-      const ma20upFlat = (ma20p != null) ? (ma20 >= ma20p) : false;
-      const priceAboveMa60 = (ma60 != null) ? (close >= ma60) : false;
-      const hasMa60 = (ma60 != null && ma60p != null);
-      const ma60upFlat = hasMa60 ? (ma60 >= ma60p) : false;
+      const touch = closeY <= ma20Y * (1 + P.tolerance);
+      const ma20upFlat = (ma20Y2 != null) ? (ma20Y >= ma20Y2) : false;
+      const priceAboveMa60 = (ma60Y != null) ? (closeY >= ma60Y) : false;
+      const hasMa60 = (ma60Y != null && ma60Y2 != null);
+      const ma60upFlat = hasMa60 ? (ma60Y >= ma60Y2) : false;
       const priceDefenseOk = hasMa60 ? (ma60upFlat && priceAboveMa60) : false;
-      const defenseOk = priceDefenseOk; // 純技術面回測，不考慮現金／融資限制
+
+      // 現金佔比%防禦邊界：市值用昨天收盤價計算
+      const marketValue = totalShares * closeY;
+      const requiredReserve = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (P.cashTargetPct * marketValue / (1 - P.cashTargetPct)) : 0;
+      const cashSufficient = cash >= requiredReserve;
+      const defenseOk = priceDefenseOk && cashSufficient;
       const bombard = touch && ma20upFlat && defenseOk;
 
-      const ma5upFlat = (ma5p != null) ? (ma5 >= ma5p) : false;
+      const ma5upFlat = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
       let threeDay = false;
-      if(i >= 2){
-        const m1 = maAt(i-1, 5), m2 = maAt(i-2, 5);
-        threeDay = (m1 != null && m2 != null) && close > ma5 && closes[i-1] > m1 && closes[i-2] > m2;
+      if(i >= 3){
+        const m1 = maAt(i-2,5), m2 = maAt(i-3,5);
+        threeDay = (m1 != null && m2 != null) && closeY > ma5Y && yest2.close > m1 && allRows[i-3].close > m2;
       }
       const momentum = threeDay && ma5upFlat && defenseOk;
-      const exit = close >= ma20 * P.exitMult;
+      const closeT = today_.close;
 
-      recentDays.push({ date: dateStr, close, ma5, ma20, ma60, touch, bombard, momentum, exit, defenseOk });
-      if(recentDays.length > 5) recentDays.shift();
-
-      // 定期定額／定股：每個交易日固定執行
-      if(asset.dcaMode === 'amount'){ totalShares += asset.dcaValue / close; totalCost += asset.dcaValue; }
-      else { totalShares += asset.dcaValue; totalCost += asset.dcaValue * close; }
-      dcaCount++;
-
-      // 動能觸發
-      if(momentum){
-        if(asset.dcaMode === 'amount'){ totalShares += asset.boostValue / close; totalCost += asset.boostValue; }
-        else { totalShares += asset.boostValue; totalCost += asset.boostValue * close; }
-        momentumCount++;
+      // 定期定額／定股：市價單，今天成交，系統自動扣款不需要人工判斷
+      if(asset.dcaMode === 'amount'){
+        if(cash >= asset.dcaValue){ totalShares += asset.dcaValue/closeT; totalCost += asset.dcaValue; cash -= asset.dcaValue; dcaExec++; }
+        else dcaSkip++;
+      } else {
+        const cost = asset.dcaValue * closeT;
+        if(cash >= cost){ totalShares += asset.dcaValue; totalCost += cost; cash -= cost; dcaExec++; }
+        else dcaSkip++;
       }
 
-      // 重砲觸發：第一層＋第二層，恆以股數計
+      // 動能觸發：限價單，掛昨天收盤價，今天最低價要跌到這個價位以下才成交
+      if(momentum){
+        const limitPrice = applyTick(closeY, asset.roundTick, 'round');
+        if(today_.low != null && today_.low <= limitPrice){
+          if(asset.dcaMode === 'amount'){
+            if(cash >= asset.boostValue){ totalShares += asset.boostValue/limitPrice; totalCost += asset.boostValue; cash -= asset.boostValue; momExec++; }
+            else momSkip++;
+          } else {
+            const cost = asset.boostValue * limitPrice;
+            if(cash >= cost){ totalShares += asset.boostValue; totalCost += cost; cash -= cost; momExec++; }
+            else momSkip++;
+          }
+        } else momSkip++;
+      }
+
+      // 重砲第一/二層：限價單，掛用昨天收盤/MA20算出的價位，今天最低價要觸及才成交
       if(bombard){
-        const basePrice = Math.min(close, ma20);
+        const basePrice = Math.min(closeY, ma20Y);
         const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
         const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
-        totalShares += asset.l1; totalCost += asset.l1 * p1;
-        totalShares += asset.l2; totalCost += asset.l2 * p2;
-        bombardCount++;
+        if(today_.low != null && today_.low <= p1){
+          const cost1 = asset.l1 * p1;
+          if(cash >= cost1){ totalShares += asset.l1; totalCost += cost1; cash -= cost1; b1Exec++; } else b1Skip++;
+        } else b1Skip++;
+        if(today_.low != null && today_.low <= p2){
+          const cost2 = asset.l2 * p2;
+          if(cash >= cost2){ totalShares += asset.l2; totalCost += cost2; cash -= cost2; b2Exec++; } else b2Skip++;
+        } else b2Skip++;
       }
 
-      // 出清觸發：全部賣出，模擬結束
-      if(exit && totalShares > 0){
-        const exitPrice = applyTick(ma20 * P.exitMult, asset.roundTick, 'round');
-        const proceeds = totalShares * exitPrice;
-        const profit = proceeds - totalCost;
-        const profitPct = totalCost > 0 ? (profit / totalCost * 100) : 0;
-        const holdDays = Math.round((new Date(dateStr) - new Date(actualStartStr)) / 86400000);
-        exitInfo = { exitDate: dateStr, exitPrice, totalShares, totalCost, proceeds, profit, profitPct, holdDays };
-        break;
+      // 出清觸發：限價賣單，掛用昨天資料算出的出清價位，今天最高價要觸及才成交，分批出清
+      const avgCost = totalShares > 0 ? (totalCost / totalShares) : null;
+      const ma20ExitPrice = ma20Y * P.exitMult;
+      const costExitPrice = (avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
+      const thresholdY = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
+      const exitSignal = closeY >= thresholdY && totalShares > 0;
+      const curDate = new Date(today_.date + 'T00:00:00');
+      const timeStopTrig = ((curDate - lastTsCheck) / 86400000 >= P.timeStopDays) && totalShares > 0;
+
+      let exitFlag = false, tsFlag = false;
+      if(exitSignal){
+        const sellLimitPrice = applyTick(thresholdY, asset.roundTick, 'round');
+        if(today_.high != null && today_.high >= sellLimitPrice){
+          const sellShares = totalShares * P.partialExitFrac;
+          const sellCost = totalCost * P.partialExitFrac;
+          cash += sellShares * sellLimitPrice; totalShares -= sellShares; totalCost -= sellCost;
+          lastTsCheck = curDate; exitExec++; exitFlag = true;
+        } else exitSkip++;
+      } else if(timeStopTrig){
+        const sellLimitPrice = applyTick(closeY, asset.roundTick, 'round');
+        if(today_.high != null && today_.high >= sellLimitPrice){
+          const sellShares = totalShares * P.partialExitFrac;
+          const sellCost = totalCost * P.partialExitFrac;
+          cash += sellShares * sellLimitPrice; totalShares -= sellShares; totalCost -= sellCost;
+          lastTsCheck = curDate; tsExec++; tsFlag = true;
+        } else tsSkip++;
       }
+
+      cashHistory.push(cash);
+      recentDays.push({ date: today_.date, close: closeT, ma5: maAt(i,5), ma20: maAt(i,20), ma60: maAt(i,60), bombard, momentum, exit: exitFlag, timeStop: tsFlag });
+      if(recentDays.length > 5) recentDays.shift();
     }
 
+    const lastClose = closes[closes.length - 1];
+    const lastDate = allRows[allRows.length - 1].date;
+    const finalShareValue = totalShares * lastClose;
+    const finalWealth = cash + finalShareValue;
+    const profit = finalWealth - START_CAPITAL;
+    const profitPct = profit / START_CAPITAL * 100;
+    const nn = cashHistory.length;
+    const zeroPct = nn > 0 ? (cashHistory.filter(c => c < 1000).length / nn * 100) : 0;
+    const sortedCash = [...cashHistory].sort((a,b) => a-b);
+    const medianCash = nn > 0 ? sortedCash[Math.floor(nn/2)] : 0;
     const unit = asset.currency;
-    let html = `<div class="footer-note" style="text-align:left; margin-top:10px;">起算日：${actualStartStr}${dateNote}</div>`;
-    html += `<div class="footer-note" style="text-align:left;">模擬執行：定期定額/股 ${dcaCount}次｜動能觸發 ${momentumCount}次｜重砲觸發 ${bombardCount}次</div>`;
-    if(exitInfo){
-      html += `<div class="footer-note" style="text-align:left; margin-top:6px; color:var(--teal); font-weight:700;">✅ ${exitInfo.exitDate} 觸發出清（持有 ${exitInfo.holdDays} 天）</div>`;
-      html += `<div class="footer-note" style="text-align:left;">累積股數：${fmtRaw(exitInfo.totalShares,0)} 股｜總投入成本：${fmtRaw(exitInfo.totalCost,0)} ${unit}</div>`;
-      html += `<div class="footer-note" style="text-align:left;">出清價：${fmtRaw(exitInfo.exitPrice,tickDec)}｜出清金額：${fmtRaw(exitInfo.proceeds,0)} ${unit}</div>`;
-      const profitColor = exitInfo.profit >= 0 ? 'var(--teal)' : 'var(--red)';
-      html += `<div class="footer-note" style="text-align:left; color:${profitColor}; font-weight:700;">損益：${exitInfo.profit>=0?'+':''}${fmtRaw(exitInfo.profit,0)} ${unit}（${exitInfo.profit>=0?'+':''}${exitInfo.profitPct.toFixed(2)}%）</div>`;
-    } else {
-      const lastDate = allRows[lastSimIdx].date;
-      const lastClose = closes[lastSimIdx];
-      const markValue = totalShares * lastClose;
-      const unrealized = markValue - totalCost;
-      const unrealizedPct = totalCost > 0 ? (unrealized/totalCost*100) : 0;
-      const holdDays = Math.round((new Date(lastDate) - new Date(actualStartStr)) / 86400000);
-      html += `<div class="footer-note" style="text-align:left; margin-top:6px; color:var(--amber);">・回測期間內（至 ${lastDate}，已持有 ${holdDays} 天）尚未觸發出清</div>`;
-      html += `<div class="footer-note" style="text-align:left;">累積股數：${fmtRaw(totalShares,0)} 股｜總投入成本：${fmtRaw(totalCost,0)} ${unit}</div>`;
-      html += `<div class="footer-note" style="text-align:left;">${lastDate}收盤市值：${fmtRaw(markValue,0)} ${unit}（未實現）</div>`;
-      const upColor = unrealized >= 0 ? 'var(--teal)' : 'var(--red)';
-      html += `<div class="footer-note" style="text-align:left; color:${upColor}; font-weight:700;">未實現損益：${unrealized>=0?'+':''}${fmtRaw(unrealized,0)} ${unit}（${unrealized>=0?'+':''}${unrealizedPct.toFixed(2)}%）</div>`;
-    }
-    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※純技術面模擬，未考慮現金／融資防禦邊界限制，僅供策略參考</div>`;
 
-    // 附上最近幾天的均線快照，方便人工核對觸發是否合理
+    let html = `<div class="footer-note" style="text-align:left; margin-top:10px;">起算日：${actualStartStr}${dateNote}｜起始本金：${fmtRaw(START_CAPITAL,0)} ${unit}｜模擬至：${lastDate}</div>`;
+    html += `<div class="footer-note" style="text-align:left;">定期定額：${dcaExec}執行/${dcaSkip}跳過｜動能：${momExec}執行/${momSkip}未成交｜重砲L1：${b1Exec}執行/${b1Skip}未成交｜重砲L2：${b2Exec}執行/${b2Skip}未成交</div>`;
+    html += `<div class="footer-note" style="text-align:left;">出清：${exitExec}成交/${exitSkip}未觸及｜時間停損：${tsExec}成交/${tsSkip}未觸及</div>`;
+    html += `<div class="footer-note" style="text-align:left; margin-top:6px;">期末現金：${fmtRaw(cash,0)} ${unit}｜期末持股：${fmtRaw(totalShares,0)} 股（市值 ${fmtRaw(finalShareValue,0)} ${unit}）</div>`;
+    const profitColor = profit >= 0 ? 'var(--teal)' : 'var(--red)';
+    html += `<div class="footer-note" style="text-align:left; color:${profitColor}; font-weight:700;">期末總資產：${fmtRaw(finalWealth,0)} ${unit}｜損益：${profit>=0?'+':''}${fmtRaw(profit,0)} ${unit}（${profit>=0?'+':''}${profitPct.toFixed(2)}%）</div>`;
+    html += `<div class="footer-note" style="text-align:left; margin-top:6px;">現金流動性：現金<1000元天數比例 ${zeroPct.toFixed(1)}%｜現金水位中位數 ${fmtRaw(medianCash,0)} ${unit}（占本金 ${(medianCash/START_CAPITAL*100).toFixed(1)}%）</div>`;
+    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／重砲／出清／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交），現金為封閉式循環（不再外部注資，出清/時間停損現金回到同一資金池），僅供策略參考</div>`;
+
     if(recentDays.length > 0){
       html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">最近 ${recentDays.length} 天均線數值（供核對）：</div>`;
       recentDays.forEach(d=>{
@@ -873,6 +963,7 @@ async function runBacktest(){
         if(d.bombard) tags.push('重砲');
         if(d.momentum) tags.push('動能');
         if(d.exit) tags.push('出清');
+        if(d.timeStop) tags.push('時間停損');
         const tagTxt = tags.length ? `［${tags.join('／')}］` : '';
         html += `<div class="footer-note" style="text-align:left;">${d.date}：收盤${fmtRaw(d.close,2)}｜MA5 ${fmtRaw(d.ma5,2)}｜MA20 ${fmtRaw(d.ma20,2)}｜MA60 ${ma60Txt} ${tagTxt}</div>`;
       });
@@ -1840,6 +1931,43 @@ document.getElementById('toggleBacktest').addEventListener('click', ()=>{
 
 document.getElementById('btnRunBacktest').addEventListener('click', runBacktest);
 document.getElementById('btnExportBtData').addEventListener('click', exportBacktestHistory);
+
+document.getElementById('btnBtImportFile').addEventListener('click', ()=>{
+  document.getElementById('btImportFile').click();
+});
+
+document.getElementById('btImportFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('btImportStatus');
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const rows = parseBacktestImportFile(evt.target.result);
+      if(rows.length === 0){
+        statusEl.innerHTML = `<span style="color:var(--red)">沒有偵測到符合格式的資料，請確認是否為「匯出歷史資料」產生的.txt檔。</span>`;
+        return;
+      }
+      const key = state.activeTab;
+      btImportedData[key] = rows;
+      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已匯入 ${rows[0].date} ~ ${rows[rows.length-1].date}，共 ${rows.length} 筆資料，下次回測會優先使用這份本地資料。</span>`;
+    } catch(err){
+      console.error('parse backtest import failed', err);
+      statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗：${err.message}</span>`;
+    }
+    e.target.value = '';
+  };
+  reader.onerror = ()=>{
+    statusEl.innerHTML = `<span style="color:var(--red)">檔案讀取失敗。</span>`;
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+document.getElementById('btnBtClearImport').addEventListener('click', ()=>{
+  const key = state.activeTab;
+  delete btImportedData[key];
+  document.getElementById('btImportStatus').innerHTML = `<span style="color:var(--text-faint);">已清除本地資料，下次回測會重新連線抓取。</span>`;
+});
 
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const section = (asset)=>{
