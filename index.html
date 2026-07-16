@@ -503,9 +503,8 @@ const DEFAULT_ASSETS = [
 // ---------- 證交所自動抓取（僅台股上市股票） ----------
 // 注意：openapi.twse.com.tw / www.twse.com.tw 沒有開放CORS給任意網域，
 // 瀏覽器端需透過中介代理伺服器轉發請求。
-// 目前使用公開免費代理 allorigins.win，穩定性有限（可能逾時或停止服務）。
-// 若之後改用自己架設的Cloudflare Worker，只需要改這一行即可。
-const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+// 使用自己架設的Cloudflare Worker（穩定、不受第三方免費服務狀況影響）。
+const CORS_PROXY = "https://investos-proxy.chuanyinlin.workers.dev/?url=";
 
 // 證交所回傳日期格式為民國年，例如 "115/07/09"，轉換成西元 ISO 格式
 function twseDateToISO(twseDate){
@@ -531,17 +530,23 @@ async function fetchStockMonth(stockNo, yyyymm01){
 }
 
 // 往回抓 monthsBack 個月的資料，合併、去重、依日期排序，確保MA60有足夠天數
+// 改用依序抓取（而非同時平行發出多個請求），避免免費代理伺服器因同時連線過多而失敗
 async function fetchRecentCloses(stockNo, monthsBack = 4){
   const now = new Date();
-  const calls = [];
+  const merged = {};
   for(let i = 0; i < monthsBack; i++){
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const yyyymm01 = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;
-    calls.push(fetchStockMonth(stockNo, yyyymm01));
+    let rows = [];
+    try{
+      rows = await fetchStockMonth(stockNo, yyyymm01);
+    } catch(err){
+      console.warn(`抓取 ${yyyymm01} 失敗，略過該月`, err);
+    }
+    rows.forEach(r => { merged[r.date] = r.close; });
+    // 每次請求之間停頓一下，減少對免費代理的瞬間負載
+    if(i < monthsBack - 1){ await new Promise(resolve => setTimeout(resolve, 600)); }
   }
-  const results = await Promise.all(calls);
-  const merged = {};
-  results.flat().forEach(r => { merged[r.date] = r.close; });
   return Object.keys(merged).sort().map(date => ({ date, close: merged[date] }));
 }
 
