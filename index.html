@@ -349,8 +349,8 @@
 
   <!-- ============ INPUT CARD ============ -->
   <div class="card">
-    <div class="card-title"><h3>資料輸入</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="收合"><span class="chev">▾</span></button></div>
-    <div id="inputBody">
+    <div class="card-title"><h3>資料輸入</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="inputBody" style="display:none;">
 
     <!-- 日常操作：每天真正需要輸入的東西，跟自動抓價一起送出 -->
     <div class="field">
@@ -431,8 +431,8 @@
 
   <!-- ============ HISTORY CARD ============ -->
   <div class="card">
-    <div class="card-title"><h3>歷史紀錄</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="收合"><span class="chev">▾</span></button></div>
-    <div id="histBody">
+    <div class="card-title"><h3>歷史紀錄</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="histBody" style="display:none;">
     <div id="histList"></div>
     <button class="btn btn-neutral btn-sm" id="btnExportHist">匯出</button>
     </div>
@@ -440,32 +440,32 @@
 
   <!-- ============ LED PANEL ============ -->
   <div class="card">
-    <div class="card-title"><h3>判定結果</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="收合"><span class="chev">▾</span></button></div>
-    <div id="ledBody">
+    <div class="card-title"><h3>判定結果</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="ledBody" style="display:none;">
     <div class="led-grid" id="ledGrid"></div>
     </div>
   </div>
 
   <!-- ============ RESERVE FUND CARD ============ -->
   <div class="card">
-    <div class="card-title"><h3 id="reserveTitle">防禦邊界</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="收合"><span class="chev">▾</span></button></div>
-    <div id="reserveBody">
+    <div class="card-title"><h3 id="reserveTitle">防禦邊界</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="reserveBody" style="display:none;">
     <div class="footer-note" id="reserveHint" style="text-align:left; margin-top:2px;"></div>
     </div>
   </div>
 
   <!-- ============ ORDER CHECKLIST ============ -->
   <div class="card">
-    <div class="card-title"><h3>委託清單</h3><button class="btn btn-primary btn-sm" id="toggleOrders" title="收合"><span class="chev">▾</span></button></div>
-    <div id="orderBody">
+    <div class="card-title"><h3>委託清單</h3><button class="btn btn-primary btn-sm" id="toggleOrders" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="orderBody" style="display:none;">
     <div id="orderList"></div>
     </div>
   </div>
 
   <!-- ============ BACKTEST ============ -->
   <div class="card">
-    <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="收合"><span class="chev">▾</span></button></div>
-    <div id="backtestBody">
+    <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="backtestBody" style="display:none;">
     <div class="field">
       <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，最長模擬1年）</span></label>
       <input type="date" id="btStartDate">
@@ -864,13 +864,13 @@ let state = {
   marginCost: {},
   marginShares: {},
   activeTab: 'spot',
-  histCollapsed: false,
-  inputCollapsed: false,
+  histCollapsed: true,
+  inputCollapsed: true,
   advancedInputCollapsed: true,
-  ledCollapsed: false,
-  reserveCollapsed: false,
-  ordersCollapsed: false,
-  backtestCollapsed: false,
+  ledCollapsed: true,
+  reserveCollapsed: true,
+  ordersCollapsed: true,
+  backtestCollapsed: true,
 };
 
 function getAsset(key){
