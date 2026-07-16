@@ -548,7 +548,7 @@ const DEFAULT_PARAMS = {
   marginCallRatio: 1.20,
   costExitMult: 1.02,
   timeStopDays: 180,
-  timeStopFrac: 0.30,
+  partialExitFrac: 0.30,
 };
 
 const PARAM_META = [
@@ -560,7 +560,7 @@ const PARAM_META = [
   ['marginCallRatio','融資維持率警戒門檻%','pct'],
   ['costExitMult','出清成本乘數（與MA20出清價取高者）','mult'],
   ['timeStopDays','時間停損天數（超過未出清則分批停損）','int'],
-  ['timeStopFrac','時間停損每次出清比例%','pct'],
+  ['partialExitFrac','分批出清比例%（出清觸發／時間停損共用）','pct'],
 ];
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
@@ -1176,7 +1176,7 @@ function renderHero(){
       hero.className = 'hero st-exit';
       headline.textContent = '💰 出清觸發';
       const srcTxt = d.exitThresholdSource === 'cost' ? '成本乘數' : 'MA20×出清乘數';
-      sub.textContent = `股價達出清價位（依${srcTxt}計算：${fmt(d.exitThreshold,2)}），不受防禦邊界影響`;
+      sub.textContent = `股價達出清價位（依${srcTxt}計算：${fmt(d.exitThreshold,2)}），分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`;
     }
   } else if(defenseOff){
     hero.className = 'hero st-defense';
@@ -1302,14 +1302,14 @@ function renderLeds(){
   if(d.exit && (state.shares[key]||0) <= 0){
     resultHtml += ledItem(true, '出清觸發，但目前股數為0', 'amber');
   } else {
-    resultHtml += ledItem(d.exit, '出清觸發', d.exit?'red':'');
+    resultHtml += ledItem(d.exit, `出清觸發，分批${(P.partialExitFrac*100).toFixed(0)}%`, d.exit?'red':'');
   }
 
   let tsLabel;
   if(d.timeStopTriggered === undefined){
     tsLabel = '時間停損（尚未設定建倉起始日）';
   } else if(d.timeStopTriggered){
-    tsLabel = `⚠ 時間停損觸發（已持有${d.holdDays}天），建議分批出清${(P.timeStopFrac*100).toFixed(0)}%`;
+    tsLabel = `⚠ 時間停損觸發（已持有${d.holdDays}天），建議分批出清${(P.partialExitFrac*100).toFixed(0)}%`;
   } else {
     tsLabel = `時間停損未觸發（已持有${d.holdDays}天／門檻${P.timeStopDays}天）`;
   }
@@ -1371,26 +1371,27 @@ function renderOrders(){
   html += orderRow(!!d.bombard, '重砲觸發：第一層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l1Detail);
   html += orderRow(!!d.bombard, '重砲觸發：第二層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l2Detail);
 
-  // 出清：直接顯示目前記錄的股數池全部
+  // 出清：分批出清（每次依分批出清比例%執行，非全部出清）
   let exitDetail = '';
   if(d.ready1){
     const exitPrice = applyTick(d.exitThreshold, asset.roundTick, 'round');
-    exitDetail = `${fmtRaw(state.shares[key]||0,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
+    const exitShares = Math.round((state.shares[key]||0) * P.partialExitFrac);
+    exitDetail = `${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}（分批${(P.partialExitFrac*100).toFixed(0)}%）`;
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
-    ? '股價達（MA20×出清乘數 與 持股成本×成本乘數）取高者，不受防禦邊界影響'
-    : '股價大於MA20×出清乘數，不受防禦邊界影響';
+    ? `股價達（MA20×出清乘數 與 持股成本×成本乘數）取高者，分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`
+    : `股價大於MA20×出清乘數，分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`;
   html += orderRow(!!d.exit, '出清觸發', exitCondTxt, exitDetail);
 
   // 時間停損：建倉起始日起算超過設定天數仍未出清，建議分批出場
-  const tsShares = Math.round((state.shares[key]||0) * P.timeStopFrac);
+  const tsShares = Math.round((state.shares[key]||0) * P.partialExitFrac);
   let tsCondTxt, tsDetail;
   if(d.timeStopTriggered === undefined){
     tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（尚未設定建倉起始日，無法計算）`;
     tsDetail = '';
   } else {
     tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（已持有${d.holdDays}天）`;
-    tsDetail = d.timeStopTriggered ? `${fmtRaw(tsShares,0)} 股 ＠市價（分批${(P.timeStopFrac*100).toFixed(0)}%）` : '';
+    tsDetail = d.timeStopTriggered ? `${fmtRaw(tsShares,0)} 股 ＠市價（分批${(P.partialExitFrac*100).toFixed(0)}%）` : '';
   }
   html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
 
