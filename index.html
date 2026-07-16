@@ -208,7 +208,9 @@
   }
 
   /* ---------- LED annunciator panel ---------- */
-  .led-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:9px; }
+  .led-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:9px; align-items:start; }
+  .led-col{ display:flex; flex-direction:column; gap:9px; }
+  .led-col-title{ font-size:10.5px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase; margin-bottom:-2px; }
   .led{
     display:flex; align-items:center; gap:9px;
     background: var(--panel-3); border:1px solid var(--hair);
@@ -367,6 +369,20 @@
       </div>
     </div>
 
+    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">持股成本／建倉起始日<span style="color:var(--text-faint); font-weight:400;">（計算出清基準與時間停損）</span></label>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>平均持股成本</label>
+        <input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00">
+      </div>
+      <div class="field">
+        <label>建倉起始日</label>
+        <input type="date" id="inPositionStartNow">
+      </div>
+    </div>
+
     <div id="marginFieldsWrap" style="display:none;">
       <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
         <label style="color:var(--text);">融資部位<span style="color:var(--text-faint); font-weight:400;">（計算融資維持率，僅台股適用）</span></label>
@@ -440,7 +456,7 @@
 
   <!-- ============ LED PANEL ============ -->
   <div class="card">
-    <div class="card-title"><h3>判定結果</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div class="card-title"><h3>訊號判定</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="ledBody" style="display:none;">
     <div class="led-grid" id="ledGrid"></div>
     </div>
@@ -520,6 +536,8 @@ const KEY_CASH = k => 'tsmos:cash:' + k;
 const KEY_SHARES = k => 'tsmos:shares:' + k;
 const KEY_MARGIN_COST = k => 'tsmos:margincost:' + k;
 const KEY_MARGIN_SHARES = k => 'tsmos:marginshares:' + k;
+const KEY_AVG_COST = k => 'tsmos:avgcost:' + k;
+const KEY_POSITION_START = k => 'tsmos:positionstart:' + k;
 
 const DEFAULT_PARAMS = {
   tolerance: 0.005,
@@ -528,6 +546,9 @@ const DEFAULT_PARAMS = {
   cashTargetPct: 0.20,
   marginRatio: 0.60,
   marginCallRatio: 1.20,
+  costExitMult: 1.02,
+  timeStopDays: 180,
+  timeStopFrac: 0.30,
 };
 
 const PARAM_META = [
@@ -537,6 +558,9 @@ const PARAM_META = [
   ['cashTargetPct','目標現金佔比%（現金／總部位）','pct'],
   ['marginRatio','融資成數%','pct'],
   ['marginCallRatio','融資維持率警戒門檻%','pct'],
+  ['costExitMult','出清成本乘數（與MA20出清價取高者）','mult'],
+  ['timeStopDays','時間停損天數（超過未出清則分批停損）','int'],
+  ['timeStopFrac','時間停損每次出清比例%','pct'],
 ];
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
@@ -953,6 +977,8 @@ let state = {
   shares: {},
   marginCost: {},
   marginShares: {},
+  avgCost: {},
+  positionStart: {},
   activeTab: 'spot',
   histCollapsed: true,
   inputCollapsed: true,
@@ -1055,7 +1081,25 @@ function computeForAsset(assetKey){
 
   // 下面這些判定只需要「今天」的資料就能算，資料只有1筆也能判定
   out.touch = today.close <= today.ma20 * (1 + P.tolerance);
-  out.exit = today.close >= today.ma20 * P.exitMult; // 出清不受防禦邊界影響
+  // 出清價位：MA20×出清乘數 與 平均持股成本×成本乘數，兩者取高者；沒有輸入持股成本時退回原本純技術面基準
+  const avgCost = state.avgCost[assetKey] || 0;
+  const ma20ExitPrice = today.ma20 * P.exitMult;
+  const costExitPrice = avgCost > 0 ? avgCost * P.costExitMult : null;
+  out.exitThreshold = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
+  out.exitThresholdSource = (costExitPrice != null && costExitPrice > ma20ExitPrice) ? 'cost' : 'ma20';
+  out.exit = today.close >= out.exitThreshold; // 出清不受防禦邊界影響
+
+  // 時間停損：從建倉起始日算起，超過設定天數仍未出清，建議分批停損
+  const posStart = state.positionStart[assetKey];
+  if(posStart && (state.shares[assetKey]||0) > 0){
+    const startD = new Date(posStart + 'T00:00:00');
+    const todayD = new Date(today.date + 'T00:00:00');
+    if(!isNaN(startD.getTime())){
+      out.holdDays = Math.round((todayD - startD) / 86400000);
+      out.timeStopTriggered = out.holdDays >= P.timeStopDays;
+    }
+  }
+
   const requiredReserve = getRequiredReserve(assetKey);
   const cur = state.cash[assetKey] || 0;
   out.requiredReserve = requiredReserve;
@@ -1131,7 +1175,8 @@ function renderHero(){
     } else {
       hero.className = 'hero st-exit';
       headline.textContent = '💰 出清觸發';
-      sub.textContent = `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
+      const srcTxt = d.exitThresholdSource === 'cost' ? '成本乘數' : 'MA20×出清乘數';
+      sub.textContent = `股價達出清價位（依${srcTxt}計算：${fmt(d.exitThreshold,2)}），不受防禦邊界影響`;
     }
   } else if(defenseOff){
     hero.className = 'hero st-defense';
@@ -1220,61 +1265,59 @@ function renderLeds(){
     grid.innerHTML = `<div class="empty-hint" style="grid-column:1/-1;">尚無資料，請先在上方輸入今天的資料。</div>`;
     return;
   }
-  let html = '';
+  let noticeHtml = '';
   if(d.ready2 && !d.hasMa60){
-    html += `<div class="empty-hint" style="grid-column:1/-1;">尚未輸入MA60資料，防禦邊界暫以「未確認」處理，動能觸發與重砲觸發將暫停。</div>`;
+    noticeHtml = `<div class="empty-hint" style="grid-column:1/-1;">尚未輸入MA60資料，防禦邊界暫以「未確認」處理，動能觸發與重砲觸發將暫停。</div>`;
   }
   const need = (minN, label) => ledItem(false, `${label}（需${minN}筆，目前${n}筆）`, '');
 
-  // MA60持平或向上（需2筆）
-  { const mled = getMa60UpLedState(d); html += ledItem(mled.on, mled.label, mled.color==='var(--red)'?'red':''); }
+  let condHtml = '';   // 左欄：判定的條件
+  let resultHtml = ''; // 右欄：判定的結果
 
-  // 價格站穩MA60（1筆即可，只需要今天的MA60）
-  { const pled = getPriceMa60LedState(d); html += ledItem(pled.on, pled.label, pled.color==='var(--red)'?'red':''); }
+  // ---- 條件 ----
+  { const mled = getMa60UpLedState(d); condHtml += ledItem(mled.on, mled.label, mled.color==='var(--red)'?'red':''); }
+  { const pled = getPriceMa60LedState(d); condHtml += ledItem(pled.on, pled.label, pled.color==='var(--red)'?'red':''); }
 
-  // 流動現金（1筆即可，但需算得出應保留金額）
   const cashStatus = getCashStatus(key);
   const cashLed = getCashLedState(cashStatus);
   const cashLedOn = cashLed.color !== 'var(--text-faint)';
   const cashLedCls = cashLed.color === 'var(--red)' ? 'red' : cashLed.color === 'var(--amber)' ? 'amber' : '';
-  html += ledItem(cashLedOn, cashLed.label, cashLedCls);
+  condHtml += ledItem(cashLedOn, cashLed.label, cashLedCls);
 
-  // 融資維持率（僅台股標的且有輸入融資買進均價時適用）
   const marginLed = getMarginLedState(d);
   const marginLedOn = marginLed.color !== 'var(--text-faint)';
   const marginLedCls = marginLed.color === 'var(--red)' ? 'red' : '';
-  html += ledItem(marginLedOn, marginLed.label, marginLedCls);
+  condHtml += ledItem(marginLedOn, marginLed.label, marginLedCls);
 
-  // 防禦邊界（需2筆）
-  { const dled = getDefenseLedState(d); html += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
+  condHtml += d.ready2 ? ledItem(d.ma5upFlat, 'MA5持平或向上') : need(2, 'MA5持平或向上');
+  condHtml += d.ready2 ? ledItem(d.ma20upFlat, 'MA20持平或向上') : need(2, 'MA20持平或向上');
+  condHtml += d.ready ? ledItem(d.threeDay, '連續三日股價大於MA5') : need(3, '連續三日股價大於MA5');
+  condHtml += ledItem(d.touch, `股價小於MA20×${(1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'')}`);
+  condHtml += ledItem(d.exit, `股價達出清價位（${fmt(d.exitThreshold,2)}）`);
 
-  // MA5持平或向上（需2筆）
-  html += d.ready2 ? ledItem(d.ma5upFlat, 'MA5持平或向上') : need(2, 'MA5持平或向上');
-
-  // MA20持平或向上（需2筆）
-  html += d.ready2 ? ledItem(d.ma20upFlat, 'MA20持平或向上') : need(2, 'MA20持平或向上');
-
-  // 連續三日股價大於MA5（需3筆）
-  html += d.ready ? ledItem(d.threeDay, '連續三日股價大於MA5') : need(3, '連續三日股價大於MA5');
-
-  // 動能觸發（需3筆）
-  html += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
-
-  // 股價小於MA20×容忍度（1筆即可）
-  html += ledItem(d.touch, `股價小於MA20×${(1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'')}`);
-
-  // 重砲觸發（需2筆）
-  html += d.ready2 ? ledItem(d.bombard, '重砲觸發') : need(2, '重砲觸發');
-
-  // 出清相關（1筆即可）
-  html += ledItem(d.exit, `股價大於MA20×${P.exitMult}`);
+  // ---- 結果 ----
+  { const dled = getDefenseLedState(d); resultHtml += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
+  resultHtml += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
+  resultHtml += d.ready2 ? ledItem(d.bombard, '重砲觸發') : need(2, '重砲觸發');
   if(d.exit && (state.shares[key]||0) <= 0){
-    html += ledItem(true, '出清觸發，但目前股數為0', 'amber');
+    resultHtml += ledItem(true, '出清觸發，但目前股數為0', 'amber');
   } else {
-    html += ledItem(d.exit, '出清觸發', d.exit?'red':'');
+    resultHtml += ledItem(d.exit, '出清觸發', d.exit?'red':'');
   }
 
-  grid.innerHTML = html;
+  let tsLabel;
+  if(d.timeStopTriggered === undefined){
+    tsLabel = '時間停損（尚未設定建倉起始日）';
+  } else if(d.timeStopTriggered){
+    tsLabel = `⚠ 時間停損觸發（已持有${d.holdDays}天），建議分批出清${(P.timeStopFrac*100).toFixed(0)}%`;
+  } else {
+    tsLabel = `時間停損未觸發（已持有${d.holdDays}天／門檻${P.timeStopDays}天）`;
+  }
+  resultHtml += ledItem(!!d.timeStopTriggered, tsLabel, d.timeStopTriggered?'amber':'');
+
+  grid.innerHTML = noticeHtml +
+    `<div class="led-col"><div class="led-col-title">條件</div>${condHtml}</div>` +
+    `<div class="led-col"><div class="led-col-title">結果</div>${resultHtml}</div>`;
 }
 
 function orderRow(active, name, cond, detail){
@@ -1331,10 +1374,25 @@ function renderOrders(){
   // 出清：直接顯示目前記錄的股數池全部
   let exitDetail = '';
   if(d.ready1){
-    const exitPrice = applyTick(d.today.ma20 * P.exitMult, asset.roundTick, 'round');
+    const exitPrice = applyTick(d.exitThreshold, asset.roundTick, 'round');
     exitDetail = `${fmtRaw(state.shares[key]||0,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
   }
-  html += orderRow(!!d.exit, '出清觸發', '股價大於MA20×出清乘數，不受防禦邊界影響', exitDetail);
+  const exitCondTxt = (d.exitThresholdSource === 'cost')
+    ? '股價達（MA20×出清乘數 與 持股成本×成本乘數）取高者，不受防禦邊界影響'
+    : '股價大於MA20×出清乘數，不受防禦邊界影響';
+  html += orderRow(!!d.exit, '出清觸發', exitCondTxt, exitDetail);
+
+  // 時間停損：建倉起始日起算超過設定天數仍未出清，建議分批出場
+  const tsShares = Math.round((state.shares[key]||0) * P.timeStopFrac);
+  let tsCondTxt, tsDetail;
+  if(d.timeStopTriggered === undefined){
+    tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（尚未設定建倉起始日，無法計算）`;
+    tsDetail = '';
+  } else {
+    tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（已持有${d.holdDays}天）`;
+    tsDetail = d.timeStopTriggered ? `${fmtRaw(tsShares,0)} 股 ＠市價（分批${(P.timeStopFrac*100).toFixed(0)}%）` : '';
+  }
+  html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
 
   list.innerHTML = html;
 }
@@ -1460,9 +1518,16 @@ function renderReserve(){
       `<br>融資維持率：${pctTxt}%｜融資追繳價：${fmt(ms.callPrice,2)}`;
   }
 
+  const avgCostVal = state.avgCost[key] || 0;
+  const srcTxt = d.exitThresholdSource === 'cost' ? '（依成本乘數）' : '（依MA20出清乘數）';
+  let costLine = `<br>平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}｜出清價位：${fmt(d.exitThreshold,2)}${srcTxt}`;
+  if(d.holdDays !== undefined){
+    costLine += `<br>建倉起始日：${state.positionStart[key]}｜已持有：${d.holdDays}天（時間停損門檻${state.params.timeStopDays}天）`;
+  }
+
   document.getElementById('reserveHint').innerHTML =
     `目前流動現金：${st.cur.toLocaleString()} ${st.unit}<br>目前股數：${(state.shares[key]||0).toLocaleString()} 股<br>` +
-    `現金應保留：${st.requiredTxt}${bombardLine}${marginLine}<br>` +
+    `現金應保留：${st.requiredTxt}${bombardLine}${marginLine}${costLine}<br>` +
     `<span style="color:${ma60UpLed.color}; font-weight:700;">${ma60UpLed.label}</span><br>` +
     `<span style="color:${priceMa60Led.color}; font-weight:700;">${priceMa60Led.label}</span><br>` +
     `<span style="color:${cashLed.color}; font-weight:700;">${cashLed.label}</span><br>` +
@@ -1481,6 +1546,8 @@ function renderTabs(){
       renderAll();
       document.getElementById('inCashNow').value = '';
       document.getElementById('inSharesNow').value = '';
+      document.getElementById('inAvgCostNow').value = '';
+      document.getElementById('inPositionStartNow').value = '';
       document.getElementById('inMarginCostNow').value = '';
       document.getElementById('inMarginSharesNow').value = '';
       document.getElementById('importStatus').innerHTML = '';
@@ -1530,6 +1597,8 @@ function ensureAssetData(key){
   if(state.shares[key] === undefined) state.shares[key] = 0;
   if(state.marginCost[key] === undefined) state.marginCost[key] = 0;
   if(state.marginShares[key] === undefined) state.marginShares[key] = 0;
+  if(state.avgCost[key] === undefined) state.avgCost[key] = 0;
+  if(state.positionStart[key] === undefined) state.positionStart[key] = '';
 }
 
 function renderAssetManage(){
@@ -1955,6 +2024,8 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnUpdateDaily');
   const cashRaw = document.getElementById('inCashNow').value;
   const sharesRaw = document.getElementById('inSharesNow').value;
+  const avgCostRaw = document.getElementById('inAvgCostNow').value;
+  const positionStartRaw = document.getElementById('inPositionStartNow').value;
   const marginCostRaw = asset.stockNo ? document.getElementById('inMarginCostNow').value : '';
   const marginSharesRaw = asset.stockNo ? document.getElementById('inMarginSharesNow').value : '';
   if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
@@ -1963,6 +2034,10 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   }
   if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
     statusEl.innerHTML = `<span style="color:var(--red)">股數格式錯誤。</span>`;
+    return;
+  }
+  if(avgCostRaw !== '' && isNaN(parseFloat(avgCostRaw))){
+    statusEl.innerHTML = `<span style="color:var(--red)">平均持股成本格式錯誤。</span>`;
     return;
   }
   if(marginCostRaw !== '' && isNaN(parseFloat(marginCostRaw))){
@@ -1991,6 +2066,17 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     await storageSet(KEY_SHARES(key), sharesVal);
     msgs.push('股數已更新');
   }
+  if(avgCostRaw !== ''){
+    const avgCostVal = parseFloat(avgCostRaw);
+    state.avgCost[key] = avgCostVal;
+    await storageSet(KEY_AVG_COST(key), avgCostVal);
+    msgs.push('持股成本已更新');
+  }
+  if(positionStartRaw !== ''){
+    state.positionStart[key] = positionStartRaw;
+    await storageSet(KEY_POSITION_START(key), positionStartRaw);
+    msgs.push('建倉起始日已更新');
+  }
   if(marginCostRaw !== ''){
     const marginCostVal = parseFloat(marginCostRaw);
     state.marginCost[key] = marginCostVal;
@@ -2009,6 +2095,8 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 
   document.getElementById('inCashNow').value = '';
   document.getElementById('inSharesNow').value = '';
+  document.getElementById('inAvgCostNow').value = '';
+  document.getElementById('inPositionStartNow').value = '';
   document.getElementById('inMarginCostNow').value = '';
   document.getElementById('inMarginSharesNow').value = '';
   renderAll();
@@ -2179,6 +2267,8 @@ armConfirmClick(
     state.shares[a.key] = await storageGet(KEY_SHARES(a.key), 0);
     state.marginCost[a.key] = await storageGet(KEY_MARGIN_COST(a.key), 0);
     state.marginShares[a.key] = await storageGet(KEY_MARGIN_SHARES(a.key), 0);
+    state.avgCost[a.key] = await storageGet(KEY_AVG_COST(a.key), 0);
+    state.positionStart[a.key] = await storageGet(KEY_POSITION_START(a.key), '');
   }
 
   renderAll();
