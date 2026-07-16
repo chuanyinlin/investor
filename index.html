@@ -181,7 +181,7 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnAdd, #btnImportFile, #btnExportHist, #btnRunBacktest{
+  #btnAdd, #btnImportFile, #btnExportHist{
     display: table; margin: 14px 0 0 auto;
   }
 
@@ -470,7 +470,12 @@
       <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，最長模擬1年）</span></label>
       <input type="date" id="btStartDate">
     </div>
-    <button class="btn btn-neutral btn-sm" id="btnRunBacktest">開始回測</button>
+    <div class="grid2">
+      <button class="btn btn-neutral btn-sm" id="btnRunBacktest" style="margin-top:0;">開始回測</button>
+      <button class="btn btn-neutral btn-sm" id="btnExportBtData" style="margin-top:0;">匯出歷史資料</button>
+    </div>
+    <div class="footer-note" style="text-align:left; margin-top:6px;">「匯出歷史資料」會從開始日期往前抓約4個月（算MA用），一路抓到今天，存成.txt檔（不執行模擬），可直接貼給Claude做進一步分析</div>
+    <div class="footer-note" id="btExportStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" id="backtestStatus" style="text-align:left; margin-top:6px;"></div>
     <div id="backtestResult"></div>
     </div>
@@ -849,6 +854,91 @@ async function runBacktest(){
   } catch(err){
     console.error('backtest failed', err);
     statusEl.innerHTML = `<span style="color:var(--red)">回測失敗：${err.message}</span>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+// 匯出歷史資料（不執行模擬）：從開始日期往前抓約4個月做MA緩衝，一路抓到今天，
+// 輸出成跟「歷史紀錄」匯出一樣的.txt格式，方便直接提供給Claude做外部分析
+async function exportBacktestHistory(){
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const statusEl = document.getElementById('btExportStatus');
+  const btn = document.getElementById('btnExportBtData');
+
+  if(!asset.stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法匯出（僅支援有設定股票代號的台股標的）。</span>`;
+    return;
+  }
+  const startStr = document.getElementById('btStartDate').value;
+  if(!startStr){
+    statusEl.innerHTML = `<span style="color:var(--red)">請選擇開始日期。</span>`;
+    return;
+  }
+  const startDate = new Date(startStr + 'T00:00:00');
+  const today = new Date();
+  if(isNaN(startDate.getTime())){
+    statusEl.innerHTML = `<span style="color:var(--red)">日期格式錯誤。</span>`;
+    return;
+  }
+  if(startDate > today){
+    statusEl.innerHTML = `<span style="color:var(--red)">開始日期不能晚於今天。</span>`;
+    return;
+  }
+
+  const fetchFrom = new Date(startDate.getFullYear(), startDate.getMonth() - 4, 1);
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
+
+  try{
+    const allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, today, (done, total) => {
+      btn.textContent = `抓取中 ${done}/${total}`;
+      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
+    });
+    if(allRows.length < 10){
+      throw new Error('回傳資料不足，可能是股票代號錯誤或該區間無交易資料');
+    }
+
+    const startStr2 = startDate.toISOString().slice(0,10);
+    const startIdx = allRows.findIndex(r => r.date >= startStr2);
+    if(startIdx === -1){
+      throw new Error('開始日期之後查無交易資料');
+    }
+
+    const closes = allRows.map(r => r.close);
+    const maAt = (idx, period) => {
+      if(idx + 1 < period) return null;
+      const slice = closes.slice(idx + 1 - period, idx + 1);
+      return slice.reduce((a,b)=>a+b, 0) / period;
+    };
+
+    let txt = `${asset.name}\n`;
+    txt += '日期        收盤價        MA5           MA20          MA60\n';
+    for(let i = startIdx; i < allRows.length; i++){
+      const ma5 = maAt(i,5), ma20 = maAt(i,20), ma60 = maAt(i,60);
+      const ma60Txt = ma60 != null ? fmtRaw(ma60,2) : '—';
+      const ma20Txt = ma20 != null ? fmtRaw(ma20,2) : '—';
+      const ma5Txt = ma5 != null ? fmtRaw(ma5,2) : '—';
+      txt += `${allRows[i].date}   ${fmtRaw(closes[i],2).padStart(10)}   ${String(ma5Txt).padStart(10)}   ${String(ma20Txt).padStart(10)}   ${String(ma60Txt).padStart(10)}\n`;
+    }
+
+    const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${asset.name}_回測資料_${allRows[startIdx].date}~${allRows[allRows.length-1].date}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已匯出 ${allRows[startIdx].date} ~ ${allRows[allRows.length-1].date}，共 ${allRows.length - startIdx} 筆資料</span>`;
+  } catch(err){
+    console.error('export backtest history failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">匯出失敗：${err.message}</span>`;
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
@@ -1670,6 +1760,7 @@ document.getElementById('toggleBacktest').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnRunBacktest').addEventListener('click', runBacktest);
+document.getElementById('btnExportBtData').addEventListener('click', exportBacktestHistory);
 
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const section = (asset)=>{
