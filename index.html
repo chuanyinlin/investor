@@ -181,10 +181,10 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnAdd, #btnImportFile, #btnExportHist{
+  #btnAdd, #btnAutoFetch, #btnImportFile, #btnExportHist, #btnFetchHist3{
     display: table; margin: 14px auto 0;
   }
-  #btnAdd, #btnImportFile, #btnExportHist{
+  #btnAdd, #btnAutoFetch, #btnImportFile, #btnExportHist, #btnFetchHist3{
     display: table; margin: 14px auto 0;
   }
 
@@ -369,7 +369,7 @@
     </div>
 
     <div class="field" style="margin-bottom:14px;">
-      <button type="button" class="btn btn-primary btn-sm" id="btnAutoFetch" style="width:100%;">從證交所自動抓取收盤價與均線</button>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnAutoFetch">抓取</button>
       <div class="footer-note" id="autoFetchStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
 
@@ -401,6 +401,12 @@
       <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
       <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile">匯入</button>
       <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">或從證交所抓取最近3個交易日的歷史紀錄</label>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnFetchHist3">抓取近3日</button>
+      <div class="footer-note" id="fetchHist3Status" style="text-align:left; margin-top:6px;"></div>
     </div>
     </div>
   </div>
@@ -603,6 +609,61 @@ async function autoFetchAndFill(){
   } catch(err){
     console.error('auto fetch failed', err);
     statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（代理伺服器可能暫時無法使用，可稍後再試，或改為手動輸入）</span>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+async function fetchLast3DaysAndSave(){
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const statusEl = document.getElementById('fetchHist3Status');
+  const btn = document.getElementById('btnFetchHist3');
+  if(!asset.stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的尚未設定股票代號，請先到「投資標的管理」設定（僅適用台股上市股票）。</span>`;
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = '抓取中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+  try{
+    const today = new Date();
+    const allRows = await fetchRecentCloses(asset.stockNo, today, 4);
+    if(allRows.length < 8){ throw new Error('回傳資料不足，可能是股票代號錯誤或近期無交易資料'); }
+    // 取最近3個交易日，每一天的MA都只用「截至該日（含）」的資料計算，避免用到未來資料
+    const last3 = allRows.slice(-3);
+    const closes = allRows.map(r => r.close);
+    last3.forEach(target => {
+      const idx = allRows.findIndex(r => r.date === target.date);
+      const closesUpTo = closes.slice(0, idx + 1);
+      const ma5 = calcMA(closesUpTo, 5);
+      const ma20 = calcMA(closesUpTo, 20);
+      const ma60 = calcMA(closesUpTo, 60);
+      const existingIdx = state.log[key].findIndex(r => r.date === target.date);
+      const entry = {
+        date: target.date,
+        close: target.close,
+        ma5, ma20, ma60,
+        cash: existingIdx >= 0 ? state.log[key][existingIdx].cash : null,
+        shares: existingIdx >= 0 ? state.log[key][existingIdx].shares : null,
+      };
+      if(existingIdx >= 0){
+        state.log[key][existingIdx] = entry;
+      } else {
+        state.log[key].push(entry);
+      }
+    });
+    // 只保留最近3天的紀錄，跟手動新增走同一套規則
+    state.log[key] = sortedLog(key).slice(-3);
+    await storageSet(KEY_LOG(key), state.log[key]);
+    renderAll();
+    const dateList = last3.map(r => r.date).join('、');
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已寫入歷史紀錄：${dateList}</span>`;
+  } catch(err){
+    console.error('fetch last 3 days failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">抓取失敗：${err.message}（代理伺服器可能暫時無法使用，可稍後再試）</span>`;
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
@@ -1528,6 +1589,7 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
 });
 
 document.getElementById('btnAutoFetch').addEventListener('click', autoFetchAndFill);
+document.getElementById('btnFetchHist3').addEventListener('click', fetchLast3DaysAndSave);
 
 document.getElementById('btnAdd').addEventListener('click', async ()=>{
   const date = document.getElementById('inDate').value;
