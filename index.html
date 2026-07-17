@@ -232,16 +232,8 @@
     padding:11px 0; border-bottom:1px solid var(--hair);
   }
   .order:last-child{ border-bottom:none; }
-  .order .dot{
-    width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0;
-    background: var(--led-off);
-  }
-  .order.active .dot{ background: var(--teal); box-shadow: 0 0 6px 1px rgba(34,211,174,0.7); }
-  .order .name{ font-size:13.5px; font-weight:600; }
-  .order.active .name{ color: var(--text); }
-  .order:not(.active) .name{ color: var(--text-faint); }
+  .order .name{ font-size:13.5px; font-weight:600; color: var(--text); }
   .order .detail{ font-size:12px; color:var(--text-dim); margin-top:2px; font-family:var(--font-mono); }
-  .order:not(.active) .detail{ color: var(--text-faint); }
   .order .cond{ font-size:10.5px; color:var(--text-faint); margin-top:2px; }
 
   /* ---------- Params modal ---------- */
@@ -356,11 +348,11 @@
 
     <!-- 日常操作：每天真正需要輸入的東西，跟自動抓價一起送出 -->
     <div class="field">
-      <label style="color:var(--text);">目前現金／股數<span style="color:var(--text-faint); font-weight:400;">（計算現金佔總部位%）</span></label>
+      <label style="color:var(--text);">目前流動現金／股數<span style="color:var(--text-faint); font-weight:400;">（計算流動現金佔總部位%）</span></label>
     </div>
     <div class="grid2">
       <div class="field">
-        <label id="cashLabel">現金</label>
+        <label id="cashLabel">流動現金</label>
         <input type="number" step="1" id="inCashNow" placeholder="0">
       </div>
       <div class="field">
@@ -411,7 +403,7 @@
     <div id="advancedInputBody" style="display:none;">
 
     <div class="field date-field">
-      <label style="color:var(--text);">手動更新特定日期的價格／均線（不更動現金／股數）</label>
+      <label style="color:var(--text);">手動更新特定日期的價格／均線（不更動流動現金／股數）</label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
@@ -487,7 +479,7 @@
       <input type="date" id="btStartDate">
     </div>
     <div class="field">
-      <label style="color:var(--text);">起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，出清/時間停損的現金會回到同一個資金池）</span></label>
+      <label style="color:var(--text);">起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，出清/時間停損的流動現金會回到同一個資金池）</span></label>
       <input type="number" step="10000" id="btStartCapital" placeholder="5000000">
     </div>
 
@@ -570,7 +562,7 @@ const PARAM_META = [
   ['tolerance','MA20區間容忍度(上界)','pct'],
   ['exitMult','出清價位乘數','mult'],
   ['layer2Mult','第二層重砲乘數','mult'],
-  ['cashTargetPct','目標現金佔比%（現金／總部位）','pct'],
+  ['cashTargetPct','目標流動現金佔比%（流動現金／總部位）','pct'],
   ['marginRatio','融資成數%','pct'],
   ['marginCallRatio','融資維持率警戒門檻%','pct'],
   ['costExitMult','出清成本乘數（與MA20出清價取高者）','mult'],
@@ -580,8 +572,8 @@ const PARAM_META = [
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
 const DEFAULT_ASSETS = [
-  { key:'spot', name:'台積電 2330', currency:'元',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostValue:10000, l1:300, l2:400, stockNo:'2330' },
-  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostValue:1,     l1:30,  l2:40,  stockNo:''     },
+  { key:'spot', name:'台積電 2330', currency:'元',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, l1Pct:0.08, l2Pct:0.10, stockNo:'2330' },
+  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.08, l2Pct:0.10, stockNo:''     },
 ];
 
 // ---------- 證交所自動抓取（僅台股上市股票） ----------
@@ -874,30 +866,33 @@ async function runBacktest(){
       // 動能觸發：限價單，掛昨天收盤價，今天最低價要跌到這個價位以下才成交
       if(momentum){
         const limitPrice = applyTick(closeY, asset.roundTick, 'round');
+        const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
         if(today_.low != null && today_.low <= limitPrice){
           if(asset.dcaMode === 'amount'){
-            if(cash >= asset.boostValue){ totalShares += asset.boostValue/limitPrice; totalCost += asset.boostValue; cash -= asset.boostValue; momExec++; }
+            if(cash >= boostAmt){ totalShares += boostAmt/limitPrice; totalCost += boostAmt; cash -= boostAmt; momExec++; }
             else momSkip++;
           } else {
-            const cost = asset.boostValue * limitPrice;
-            if(cash >= cost){ totalShares += asset.boostValue; totalCost += cost; cash -= cost; momExec++; }
+            const cost = boostAmt * limitPrice;
+            if(cash >= cost){ totalShares += boostAmt; totalCost += cost; cash -= cost; momExec++; }
             else momSkip++;
           }
         } else momSkip++;
       }
 
       // 重砲第一/二層：限價單，掛用昨天收盤/MA20算出的價位，今天最低價要觸及才成交
+      // 股數＝目前現金×比例%÷限價；兩層用同一個現金快照計算比例，不互相影響
       if(bombard){
         const basePrice = Math.min(closeY, ma20Y);
         const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
         const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
-        if(today_.low != null && today_.low <= p1){
-          const cost1 = asset.l1 * p1;
-          if(cash >= cost1){ totalShares += asset.l1; totalCost += cost1; cash -= cost1; b1Exec++; } else b1Skip++;
+        const cashSnapshot = cash;
+        const cost1 = cashSnapshot * asset.l1Pct;
+        const cost2 = cashSnapshot * asset.l2Pct;
+        if(today_.low != null && today_.low <= p1 && cash >= cost1){
+          totalShares += cost1 / p1; totalCost += cost1; cash -= cost1; b1Exec++;
         } else b1Skip++;
-        if(today_.low != null && today_.low <= p2){
-          const cost2 = asset.l2 * p2;
-          if(cash >= cost2){ totalShares += asset.l2; totalCost += cost2; cash -= cost2; b2Exec++; } else b2Skip++;
+        if(today_.low != null && today_.low <= p2 && cash >= cost2){
+          totalShares += cost2 / p2; totalCost += cost2; cash -= cost2; b2Exec++;
         } else b2Skip++;
       }
 
@@ -1278,6 +1273,16 @@ function renderHero(){
       const srcTxt = d.exitThresholdSource === 'cost' ? '成本乘數' : 'MA20×出清乘數';
       sub.textContent = `股價達出清價位（依${srcTxt}計算：${fmt(d.exitThreshold,2)}），分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`;
     }
+  } else if(d.timeStopTriggered){
+    if((state.shares[key]||0) <= 0){
+      hero.className = 'hero st-warn';
+      headline.textContent = '⚠ 時間停損觸發，但目前股數為0';
+      sub.textContent = `目前股數池為0，沒有部位可以分批停損`;
+    } else {
+      hero.className = 'hero st-exit';
+      headline.textContent = '⏰ 時間停損觸發';
+      sub.textContent = `已持有${d.holdDays}天，超過門檻${P.timeStopDays}天仍未出清，建議分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`;
+    }
   } else if(defenseOff){
     hero.className = 'hero st-defense';
     if(d.marginSafe === false){
@@ -1291,12 +1296,12 @@ function renderHero(){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
       hero.className = 'hero st-warn';
-      headline.textContent = '💥 重砲觸發：現金不足支付重砲';
-      sub.textContent = `股價小於MA20×${touchMult}，但現金不足支付第一層重砲`;
+      headline.textContent = '💥 重砲觸發：流動現金不足支付重砲';
+      sub.textContent = `股價小於MA20×${touchMult}，但流動現金不足支付第一層重砲`;
     } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
       hero.className = 'hero st-warn';
-      headline.textContent = '💥 重砲觸發：現金不足支付重砲第二層';
-      sub.textContent = `股價小於MA20×${touchMult}，但現金不足支付第二層重砲`;
+      headline.textContent = '💥 重砲觸發：流動現金不足支付重砲第二層';
+      sub.textContent = `股價小於MA20×${touchMult}，但流動現金不足支付第二層重砲`;
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '💥 重砲觸發';
@@ -1393,7 +1398,7 @@ function renderLeds(){
   condHtml += d.ready2 ? ledItem(d.ma20upFlat, 'MA20持平或向上') : need(2, 'MA20持平或向上');
   condHtml += d.ready ? ledItem(d.threeDay, '連續三日股價大於MA5') : need(3, '連續三日股價大於MA5');
   condHtml += ledItem(d.touch, `股價小於MA20×${(1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'')}`);
-  condHtml += ledItem(d.exit, `股價達出清價位（${fmt(d.exitThreshold,2)}）`);
+  condHtml += ledItem(d.exit, `股價達出清價位`);
 
   // ---- 結果 ----
   { const dled = getDefenseLedState(d); resultHtml += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
@@ -1402,16 +1407,14 @@ function renderLeds(){
   if(d.exit && (state.shares[key]||0) <= 0){
     resultHtml += ledItem(true, '出清觸發，但目前股數為0', 'amber');
   } else {
-    resultHtml += ledItem(d.exit, `出清觸發，分批${(P.partialExitFrac*100).toFixed(0)}%`, d.exit?'red':'');
+    resultHtml += ledItem(d.exit, `出清觸發`, d.exit?'red':'');
   }
 
   let tsLabel;
   if(d.timeStopTriggered === undefined){
     tsLabel = '時間停損（尚未設定建倉起始日）';
-  } else if(d.timeStopTriggered){
-    tsLabel = `⚠ 時間停損觸發（已持有${d.holdDays}天），建議分批出清${(P.partialExitFrac*100).toFixed(0)}%`;
   } else {
-    tsLabel = `時間停損未觸發（已持有${d.holdDays}天／門檻${P.timeStopDays}天）`;
+    tsLabel = `時間停損觸發`;
   }
   resultHtml += ledItem(!!d.timeStopTriggered, tsLabel, d.timeStopTriggered?'amber':'');
 
@@ -1422,7 +1425,6 @@ function renderLeds(){
 
 function orderRow(active, name, cond, detail){
   return `<div class="order ${active?'active':''}">
-    <div class="dot"></div>
     <div style="flex:1">
       <div class="name">${name}</div>
       <div class="cond">${cond}</div>
@@ -1437,6 +1439,7 @@ function renderOrders(){
   const asset = getAsset(key);
   const d = computeForAsset(key);
   const list = document.getElementById('orderList');
+  const tickDec = asset.roundTick ? 0 : asset.priceDecimals;
   let html = '';
 
   // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價
@@ -1449,49 +1452,64 @@ function renderOrders(){
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   html += orderRow(true, dcaLabel, '恆常執行，不受防禦邊界影響', dcaDetail);
 
-  // 動能觸發
+  // 動能觸發：限價單，掛在最近一次收盤價（隔天下單用），需要精確股價與股數，不寫「市價」
   let boostDetail = '';
-  if(d.ready){
-    boostDetail = asset.dcaMode === 'amount'
-      ? `${asset.boostValue.toLocaleString()} ${asset.currency} ＠市價`
-      : `${asset.boostValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}`;
+  if(d.ready && d.today){
+    const boostPrice = applyTick(d.today.close, asset.roundTick, 'round');
+    const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
+    if(asset.dcaMode === 'amount'){
+      const boostShares = boostPrice > 0 ? Math.floor(boostAmt / boostPrice) : 0;
+      boostDetail = `${fmtRaw(boostShares,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+    } else {
+      boostDetail = `${fmtRaw(boostAmt,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+    }
   }
   html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且連續三日股價大於MA5 且防禦邊界安全', boostDetail);
 
-  // 重砲觸發：第一層 / 第二層（只需要2筆資料即可試算）
-  const tickDec = asset.roundTick ? 0 : asset.priceDecimals;
+  // 重砲觸發：第一層 / 第二層（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
   let l1Detail = '', l2Detail = '';
   if(d.ready2){
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
-    l1Detail = `${asset.l1} 股 ＠${fmtRaw(p1, tickDec)}`;
-    l2Detail = `${asset.l2} 股 ＠${fmtRaw(p2, tickDec)}`;
+    const cashNow = state.cash[key] || 0;
+    const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
+    const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
+    const note1 = shares1 <= 0 ? '（流動現金不足）' : '';
+    const note2 = shares2 <= 0 ? '（流動現金不足）' : '';
+    l1Detail = `${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
+    l2Detail = `${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
   }
-  html += orderRow(!!d.bombard, '重砲觸發：第一層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l1Detail);
-  html += orderRow(!!d.bombard, '重砲觸發：第二層', '股價小於MA20區間 且持平或向上 且防禦邊界安全', l2Detail);
+  const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  html += orderRow(!!d.bombard, '重砲觸發：第一層', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
+  html += orderRow(!!d.bombard, '重砲觸發：第二層', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
 
   // 出清：分批出清（每次依分批出清比例%執行，非全部出清）
   let exitDetail = '';
   if(d.ready1){
     const exitPrice = applyTick(d.exitThreshold, asset.roundTick, 'round');
     const exitShares = Math.round((state.shares[key]||0) * P.partialExitFrac);
-    exitDetail = `${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}（分批${(P.partialExitFrac*100).toFixed(0)}%）`;
+    exitDetail = `${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
-    ? `股價達（MA20×出清乘數 與 持股成本×成本乘數）取高者，分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`
-    : `股價大於MA20×出清乘數，分批出清${(P.partialExitFrac*100).toFixed(0)}%，不受防禦邊界影響`;
+    ? `股價達（MA20×${P.exitMult} 與 持股成本×${P.costExitMult}）取高者，不受防禦邊界影響`
+    : `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
   html += orderRow(!!d.exit, '出清觸發', exitCondTxt, exitDetail);
 
-  // 時間停損：建倉起始日起算超過設定天數仍未出清，建議分批出場
+  // 時間停損：建倉起始日起算超過設定天數仍未出清，建議分批出場，限價掛在最近一次收盤價
   const tsShares = Math.round((state.shares[key]||0) * P.partialExitFrac);
   let tsCondTxt, tsDetail;
   if(d.timeStopTriggered === undefined){
     tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（尚未設定建倉起始日，無法計算）`;
     tsDetail = '';
   } else {
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損（已持有${d.holdDays}天）`;
-    tsDetail = d.timeStopTriggered ? `${fmtRaw(tsShares,0)} 股 ＠市價（分批${(P.partialExitFrac*100).toFixed(0)}%）` : '';
+    tsCondTxt = `持有超過${P.timeStopDays}天仍未出清，建議分批停損`;
+    if(d.timeStopTriggered && d.today){
+      const tsPrice = applyTick(d.today.close, asset.roundTick, 'round');
+      tsDetail = `${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec)}`;
+    } else {
+      tsDetail = '';
+    }
   }
   html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
 
@@ -1508,9 +1526,9 @@ function getCashStatus(key){
   const pctTxt = (P.cashTargetPct*100).toFixed(0);
   let requiredTxt = '';
   if(requiredReserve != null && marketValue != null){
-    requiredTxt = `目標現金佔比 ${pctTxt}% × 股票市值(${marketValue.toLocaleString(undefined,{maximumFractionDigits:0})}) → 應保留 ${requiredReserve.toLocaleString()} ${asset.currency}`;
+    requiredTxt = `目標流動現金佔比 ${pctTxt}% × 股票市值(${marketValue.toLocaleString(undefined,{maximumFractionDigits:0})}) → 應保留 ${requiredReserve.toLocaleString()} ${asset.currency}`;
   } else {
-    requiredTxt = `目標現金佔比 ${pctTxt}% —（尚無收盤價或股數資料）`;
+    requiredTxt = `目標流動現金佔比 ${pctTxt}% —（尚無收盤價或股數資料）`;
   }
   const cur = state.cash[key] || 0;
   const unit = asset.currency;
@@ -1524,10 +1542,10 @@ function getCashStatus(key){
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
-    bombardCost = asset.l1 * p1;
-    layer2Cost = asset.l2 * p2;
-    bombardCostTxt = `${bombardCost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}`;
-    layer2CostTxt = `${layer2Cost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}`;
+    bombardCost = cur * asset.l1Pct;
+    layer2Cost = cur * asset.l2Pct;
+    bombardCostTxt = `${bombardCost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}（流動現金${(asset.l1Pct*100).toFixed(0)}%）`;
+    layer2CostTxt = `${layer2Cost.toLocaleString(undefined,{maximumFractionDigits: asset.roundTick?0:asset.priceDecimals})} ${unit}（流動現金${(asset.l2Pct*100).toFixed(0)}%）`;
     // 可動用資金＝流動現金 - 應保留金額（現金池保留部分不計入可用於重砲的資金）
     bombardSufficient = (requiredReserve == null) ? null : ((cur - requiredReserve) >= bombardCost);
     // 兩層都觸發時會同時掛單，所以要檢查現金夠不夠同時支付第一層＋第二層
@@ -1576,13 +1594,13 @@ function getCashLedState(cashStatus){
   if(cashStatus.sufficient === false){
     return { label:'流動現金不足', color:'var(--red)' };
   } else if(cashStatus.sufficient === true && cashStatus.bombardTriggered && cashStatus.bombardSufficient === false){
-    return { label:'現金不足支付重砲', color:'var(--amber)' };
+    return { label:'流動現金不足支付重砲', color:'var(--amber)' };
   } else if(cashStatus.sufficient === true && cashStatus.bombardTriggered && cashStatus.bombardSufficientBoth === false){
-    return { label:'現金不足支付重砲第二層', color:'var(--amber)' };
+    return { label:'流動現金不足支付重砲第二層', color:'var(--amber)' };
   } else if(cashStatus.sufficient === true){
     return { label:'流動現金充足', color:'var(--teal)' };
   } else {
-    return { label:'缺少現金相關資料，無法判斷', color:'var(--text-faint)' };
+    return { label:'缺少流動現金相關資料，無法判斷', color:'var(--text-faint)' };
   }
 }
 
@@ -1723,11 +1741,11 @@ function renderAssetManage(){
       </div>
       <div class="grid2">
         <div class="field"><label>定期定額/股</label><input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}"></div>
-        <div class="field"><label>動能觸發加額</label><input type="number" data-aidx="${idx}" data-afield="boostValue" value="${a.boostValue}"></div>
+        <div class="field"><label>動能觸發加額（定期定額倍數）</label><input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>重砲觸發：第一層(股)</label><input type="number" data-aidx="${idx}" data-afield="l1" value="${a.l1}"></div>
-        <div class="field"><label>重砲觸發：第二層(股)</label><input type="number" data-aidx="${idx}" data-afield="l2" value="${a.l2}"></div>
+        <div class="field"><label>重砲觸發：第一層（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}"></div>
+        <div class="field"><label>重砲觸發：第二層（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
       </div>
       <div class="field"><label>價格取整單位（0＝不取整）</label><input type="number" data-aidx="${idx}" data-afield="roundTick" value="${a.roundTick}"></div>
       <div class="field"><label>證交所股票代號（僅台股上市股票可自動抓取，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330"></div>
@@ -1739,7 +1757,8 @@ function renderAssetManage(){
       const idx = parseInt(e.target.dataset.aidx, 10);
       const field = e.target.dataset.afield;
       let v = e.target.value;
-      if(['dcaValue','boostValue','l1','l2','roundTick'].includes(field)) v = parseFloat(v) || 0;
+      if(['dcaValue','boostMult','roundTick'].includes(field)) v = parseFloat(v) || 0;
+      if(['l1Pct','l2Pct'].includes(field)) v = (parseFloat(v) || 0) / 100;
       state.assets[idx][field] = v;
       await storageSet(KEY_ASSETS, state.assets);
       renderTabs();
@@ -2068,7 +2087,7 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
       if(parsed[key].length === 0) continue;
       // 匯入的標的不在目前清單裡，自動新增一個預設設定的標的
       if(!state.assets.some(a=>a.key===key)){
-        state.assets.push({ key, name:(nameMap[key] || key), currency:'', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10 });
+        state.assets.push({ key, name:(nameMap[key] || key), currency:'', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.08, l2Pct:0.10 });
         await storageSet(KEY_ASSETS, state.assets);
       }
       ensureAssetData(key);
@@ -2167,7 +2186,7 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   const marginCostRaw = asset.stockNo ? document.getElementById('inMarginCostNow').value : '';
   const marginSharesRaw = asset.stockNo ? document.getElementById('inMarginSharesNow').value : '';
   if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">現金格式錯誤。</span>`;
+    statusEl.innerHTML = `<span style="color:var(--red)">流動現金格式錯誤。</span>`;
     return;
   }
   if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
@@ -2196,7 +2215,7 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     const cashVal = parseFloat(cashRaw);
     state.cash[key] = cashVal;
     await storageSet(KEY_CASH(key), cashVal);
-    msgs.push('現金已更新');
+    msgs.push('流動現金已更新');
   }
   if(sharesRaw !== ''){
     const sharesVal = parseFloat(sharesRaw);
@@ -2267,7 +2286,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   let idx = state.assets.length + 1;
   let newKey = 'asset' + idx;
   while(state.assets.some(a=>a.key===newKey)){ idx++; newKey = 'asset' + idx; }
-  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostValue:1, l1:10, l2:10, stockNo:'' });
+  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.08, l2Pct:0.10, stockNo:'' });
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   renderAssetManage();
@@ -2313,9 +2332,9 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         roundTick: (typeof imported.roundTick === 'number') ? imported.roundTick : 0,
         dcaMode: imported.dcaMode === 'amount' ? 'amount' : 'shares',
         dcaValue: parseFloat(imported.dcaValue) || 0,
-        boostValue: parseFloat(imported.boostValue) || 0,
-        l1: parseFloat(imported.l1) || 0,
-        l2: parseFloat(imported.l2) || 0,
+        boostMult: parseFloat(imported.boostMult) || 1.0,
+        l1Pct: parseFloat(imported.l1Pct) || 0.08,
+        l2Pct: parseFloat(imported.l2Pct) || 0.10,
         stockNo: imported.stockNo || '',
       };
       const existIdx = state.assets.findIndex(a=>a.key===clean.key);
@@ -2396,6 +2415,12 @@ armConfirmClick(
 
   const savedAssets = await storageGet(KEY_ASSETS, null);
   state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a}));
+  // 相容舊版資產設定：如果是更新前存的資料，沒有l1Pct/l2Pct（可能還是舊的固定股數l1/l2）或boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN
+  state.assets.forEach(a=>{
+    if(typeof a.l1Pct !== 'number' || isNaN(a.l1Pct)) a.l1Pct = 0.08;
+    if(typeof a.l2Pct !== 'number' || isNaN(a.l2Pct)) a.l2Pct = 0.10;
+    if(typeof a.boostMult !== 'number' || isNaN(a.boostMult)) a.boostMult = 1.0;
+  });
   state.activeTab = state.assets[0].key;
 
   for(const a of state.assets){
