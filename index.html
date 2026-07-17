@@ -295,7 +295,7 @@
 
   /* ---------- Calendar popover ---------- */
   .field.date-field{ position:relative; }
-  #inDate, #inPositionStartNow, #btStartDate{ cursor:pointer; }
+  #inDate, #inPositionStartNow, #btStartDate, #btEndDate{ cursor:pointer; }
   .calendar-pop{
     position:absolute; top:calc(100% + 6px); left:0; right:0;
     background: var(--panel-2); border:1px solid var(--hair-strong);
@@ -410,9 +410,11 @@
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
+          <div class="cal-nav" id="calPrevYear" title="上一年">«</div>
           <div class="cal-nav" id="calPrev">‹</div>
           <div class="cal-title" id="calTitle"></div>
           <div class="cal-nav" id="calNext">›</div>
+          <div class="cal-nav" id="calNextYear" title="下一年">»</div>
         </div>
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-foot"><span class="cal-today-btn" id="calToday">今天</span></div>
@@ -478,8 +480,12 @@
     <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="backtestBody" style="display:none;">
     <div class="field date-field">
-      <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，一路模擬到今天）</span></label>
+      <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測）</span></label>
       <input type="text" id="btStartDate" readonly placeholder="YYYY-MM-DD">
+    </div>
+    <div class="field date-field">
+      <label style="color:var(--text);">結束日期<span style="color:var(--text-faint); font-weight:400;">（留空＝模擬到今天，填了就只跑到這天，可測試特定歷史區間）</span></label>
+      <input type="text" id="btEndDate" readonly placeholder="YYYY-MM-DD（可留空）">
     </div>
     <div class="field">
       <label style="color:var(--text);">起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，出清/時間停損的流動現金會回到同一個資金池）</span></label>
@@ -761,6 +767,19 @@ async function runBacktest(){
     statusEl.innerHTML = `<span style="color:var(--red)">開始日期不能晚於今天。</span>`;
     return;
   }
+  const endStr = document.getElementById('btEndDate').value;
+  let endDate = null;
+  if(endStr !== ''){
+    endDate = new Date(endStr + 'T00:00:00');
+    if(isNaN(endDate.getTime())){
+      statusEl.innerHTML = `<span style="color:var(--red)">結束日期格式錯誤。</span>`;
+      return;
+    }
+    if(endDate < startDate){
+      statusEl.innerHTML = `<span style="color:var(--red)">結束日期不能早於開始日期。</span>`;
+      return;
+    }
+  }
   const capRaw = document.getElementById('btStartCapital').value;
   const START_CAPITAL = capRaw !== '' ? parseFloat(capRaw) : 5000000;
   if(isNaN(START_CAPITAL) || START_CAPITAL <= 0){
@@ -768,9 +787,10 @@ async function runBacktest(){
     return;
   }
 
-  // 往前抓約4個月做為MA60計算的緩衝，一路抓到今天（不限制模擬跨度，跨度越長抓取時間越久）
+  // 往前抓約4個月做為MA60計算的緩衝，抓到「結束日期」（如果有填）或今天（不限制模擬跨度，跨度越長抓取時間越久）
   const fetchFrom = new Date(startDate.getFullYear(), startDate.getMonth() - 4, 1);
   const fetchFromStr = fetchFrom.toISOString().slice(0,10);
+  const fetchTo = endDate && endDate < today ? endDate : today;
 
   const originalText = btn.textContent;
   btn.disabled = true;
@@ -789,13 +809,22 @@ async function runBacktest(){
       } else {
         statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
       }
-      allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, today, (done, total) => {
+      allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, fetchTo, (done, total) => {
         btn.textContent = `抓取中 ${done}/${total}`;
         statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
       });
     }
     if(allRows.length < 10){
       throw new Error('資料不足，可能是股票代號錯誤、匯入檔案格式不對，或該區間無交易資料');
+    }
+
+    // 如果有填結束日期，把資料裁到那天為止（不管資料是連線抓的還是匯入的都適用）
+    if(endDate){
+      const endStr2 = endDate.toISOString().slice(0,10);
+      allRows = allRows.filter(r => r.date <= endStr2);
+      if(allRows.length < 10){
+        throw new Error('開始日期到結束日期之間的資料不足，請確認區間夠長（至少涵蓋MA60所需的緩衝天數）');
+      }
     }
 
     const startStr2 = startDate.toISOString().slice(0,10);
@@ -824,7 +853,7 @@ async function runBacktest(){
     let exitExec=0, exitSkip=0, tsExec=0, tsSkip=0;
     let lastTsCheck = new Date(allRows[simStart].date + 'T00:00:00');
     const cashHistory = [];
-    const recentDays = [];
+    const exitEvents = [];
 
     for(let i = simStart; i < allRows.length; i++){
       const today_ = allRows[i], yest = allRows[i-1], yest2 = allRows[i-2];
@@ -856,20 +885,22 @@ async function runBacktest(){
       const closeT = today_.close;
 
       // 定期定額／定股：市價單，今天成交，系統自動扣款不需要人工判斷
-      if(asset.dcaMode === 'amount'){
-        if(cash >= asset.dcaValue){ totalShares += asset.dcaValue/closeT; totalCost += asset.dcaValue; cash -= asset.dcaValue; dcaExec++; }
-        else dcaSkip++;
-      } else {
-        const cost = asset.dcaValue * closeT;
-        if(cash >= cost){ totalShares += asset.dcaValue; totalCost += cost; cash -= cost; dcaExec++; }
-        else dcaSkip++;
-      }
+      if(asset.dcaValue > 0){
+        if(asset.dcaMode === 'amount'){
+          if(cash >= asset.dcaValue){ totalShares += asset.dcaValue/closeT; totalCost += asset.dcaValue; cash -= asset.dcaValue; dcaExec++; }
+          else dcaSkip++;
+        } else {
+          const cost = asset.dcaValue * closeT;
+          if(cash >= cost){ totalShares += asset.dcaValue; totalCost += cost; cash -= cost; dcaExec++; }
+          else dcaSkip++;
+        }
+      } else dcaSkip++;
 
       // 動能觸發：限價單，掛昨天收盤價，今天最低價要跌到這個價位以下才成交
       if(momentum){
         const limitPrice = applyTick(closeY, getEffectiveTick(asset, closeY), 'round');
         const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
-        if(today_.low != null && today_.low <= limitPrice){
+        if(today_.low != null && today_.low <= limitPrice && boostAmt > 0){
           if(asset.dcaMode === 'amount'){
             if(cash >= boostAmt){ totalShares += boostAmt/limitPrice; totalCost += boostAmt; cash -= boostAmt; momExec++; }
             else momSkip++;
@@ -890,10 +921,10 @@ async function runBacktest(){
         const cashSnapshot = cash;
         const cost1 = cashSnapshot * asset.l1Pct;
         const cost2 = cashSnapshot * asset.l2Pct;
-        if(today_.low != null && today_.low <= p1 && cash >= cost1){
+        if(today_.low != null && today_.low <= p1 && cost1 > 0 && cash >= cost1){
           totalShares += cost1 / p1; totalCost += cost1; cash -= cost1; b1Exec++;
         } else b1Skip++;
-        if(today_.low != null && today_.low <= p2 && cash >= cost2){
+        if(today_.low != null && today_.low <= p2 && cost2 > 0 && cash >= cost2){
           totalShares += cost2 / p2; totalCost += cost2; cash -= cost2; b2Exec++;
         } else b2Skip++;
       }
@@ -913,22 +944,24 @@ async function runBacktest(){
         if(today_.high != null && today_.high >= sellLimitPrice){
           const sellShares = totalShares * P.partialExitFrac;
           const sellCost = totalCost * P.partialExitFrac;
-          cash += sellShares * sellLimitPrice; totalShares -= sellShares; totalCost -= sellCost;
+          const proceeds = sellShares * sellLimitPrice;
+          cash += proceeds; totalShares -= sellShares; totalCost -= sellCost;
           lastTsCheck = curDate; exitExec++; exitFlag = true;
+          exitEvents.push({ date: today_.date, type: '出清', price: sellLimitPrice, shares: sellShares, proceeds, cost: sellCost, profit: proceeds - sellCost });
         } else exitSkip++;
       } else if(timeStopTrig){
         const sellLimitPrice = applyTick(closeY, getEffectiveTick(asset, closeY), 'round');
         if(today_.high != null && today_.high >= sellLimitPrice){
           const sellShares = totalShares * P.partialExitFrac;
           const sellCost = totalCost * P.partialExitFrac;
-          cash += sellShares * sellLimitPrice; totalShares -= sellShares; totalCost -= sellCost;
+          const proceeds = sellShares * sellLimitPrice;
+          cash += proceeds; totalShares -= sellShares; totalCost -= sellCost;
           lastTsCheck = curDate; tsExec++; tsFlag = true;
+          exitEvents.push({ date: today_.date, type: '時間停損', price: sellLimitPrice, shares: sellShares, proceeds, cost: sellCost, profit: proceeds - sellCost });
         } else tsSkip++;
       }
 
       cashHistory.push(cash);
-      recentDays.push({ date: today_.date, close: closeT, ma5: maAt(i,5), ma20: maAt(i,20), ma60: maAt(i,60), bombard, momentum, exit: exitFlag, timeStop: tsFlag });
-      if(recentDays.length > 5) recentDays.shift();
     }
 
     const lastClose = closes[closes.length - 1];
@@ -952,18 +985,14 @@ async function runBacktest(){
     html += `<div class="footer-note" style="text-align:left; margin-top:6px;">現金流動性：現金<1000元天數比例 ${zeroPct.toFixed(1)}%｜現金水位中位數 ${fmtRaw(medianCash,0)} ${unit}（占本金 ${(medianCash/START_CAPITAL*100).toFixed(1)}%）</div>`;
     html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／重砲／出清／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交），現金為封閉式循環（不再外部注資，出清/時間停損現金回到同一資金池），僅供策略參考</div>`;
 
-    if(recentDays.length > 0){
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">最近 ${recentDays.length} 天均線數值（供核對）：</div>`;
-      recentDays.forEach(d=>{
-        const ma60Txt = d.ma60 != null ? fmtRaw(d.ma60,2) : '—';
-        const tags = [];
-        if(d.bombard) tags.push('重砲');
-        if(d.momentum) tags.push('動能');
-        if(d.exit) tags.push('出清');
-        if(d.timeStop) tags.push('時間停損');
-        const tagTxt = tags.length ? `［${tags.join('／')}］` : '';
-        html += `<div class="footer-note" style="text-align:left;">${d.date}：收盤${fmtRaw(d.close,2)}｜MA5 ${fmtRaw(d.ma5,2)}｜MA20 ${fmtRaw(d.ma20,2)}｜MA60 ${ma60Txt} ${tagTxt}</div>`;
+    if(exitEvents.length > 0){
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">出清／時間停損明細（共${exitEvents.length}筆）：</div>`;
+      exitEvents.forEach(ev=>{
+        const profitColor2 = ev.profit >= 0 ? 'var(--teal)' : 'var(--red)';
+        html += `<div class="footer-note" style="text-align:left;">${ev.date}［${ev.type}］${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}｜<span style="color:${profitColor2};">損益${ev.profit>=0?'+':''}${fmtRaw(ev.profit,0)} ${unit}</span></div>`;
       });
+    } else {
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何出清或時間停損成交紀錄。</div>`;
     }
 
     resultEl.innerHTML = html;
@@ -1702,7 +1731,6 @@ function renderTabs(){
   row.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       state.activeTab = t.dataset.tab;
-      renderAll();
       document.getElementById('inCashNow').value = '';
       document.getElementById('inSharesNow').value = '';
       document.getElementById('inAvgCostNow').value = '';
@@ -1711,6 +1739,11 @@ function renderTabs(){
       document.getElementById('inMarginSharesNow').value = '';
       document.getElementById('importStatus').innerHTML = '';
       document.getElementById('updateDailyStatus').innerHTML = '';
+      document.getElementById('backtestResult').innerHTML = '';
+      document.getElementById('backtestStatus').innerHTML = '';
+      document.getElementById('btExportStatus').innerHTML = '';
+      document.getElementById('btImportStatus').innerHTML = '';
+      renderAll(); // 放在清空之後，讓renderAll()（含回測可用性檢查）套用到乾淨的畫面上
     });
   });
 }
@@ -1736,9 +1769,10 @@ function renderBacktestAvailability(){
   const btnExport = document.getElementById('btnExportBtData');
   const btnImport = document.getElementById('btnBtImportFile');
   const inStartDate = document.getElementById('btStartDate');
+  const inEndDate = document.getElementById('btEndDate');
   const inStartCapital = document.getElementById('btStartCapital');
   const clearLink = document.getElementById('btnBtClearImport');
-  [btnRun, btnExport, btnImport, inStartDate, inStartCapital].forEach(el=>{
+  [btnRun, btnExport, btnImport, inStartDate, inEndDate, inStartCapital].forEach(el=>{
     if(el) el.disabled = !supported;
   });
   if(clearLink) clearLink.classList.toggle('link-disabled', !supported);
@@ -1924,7 +1958,7 @@ function closeCalendar(){
   document.getElementById('calendarPop').classList.remove('show');
 }
 
-['inDate','inPositionStartNow','btStartDate'].forEach(id=>{
+['inDate','inPositionStartNow','btStartDate','btEndDate'].forEach(id=>{
   const el = document.getElementById(id);
   if(el){
     el.addEventListener('click', (e)=>{
@@ -1932,6 +1966,14 @@ function closeCalendar(){
       openCalendar(id);
     });
   }
+});
+document.getElementById('calPrevYear').addEventListener('click', ()=>{
+  calState.viewYear--;
+  renderCalendar();
+});
+document.getElementById('calNextYear').addEventListener('click', ()=>{
+  calState.viewYear++;
+  renderCalendar();
 });
 document.getElementById('calPrev').addEventListener('click', ()=>{
   calState.viewMonth--; if(calState.viewMonth<0){ calState.viewMonth=11; calState.viewYear--; }
@@ -2408,17 +2450,17 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
     }
     let addedCount = 0, updatedCount = 0;
     assetsArr.forEach(imported=>{
+      const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
       const clean = {
         key: imported.key,
         name: imported.name || imported.key,
         currency: imported.currency || '',
-        priceDecimals: (typeof imported.priceDecimals === 'number') ? imported.priceDecimals : 2,
-        roundTick: (typeof imported.roundTick === 'number') ? imported.roundTick : 0,
+        priceDecimals: numOr(imported.priceDecimals, 2),
         dcaMode: imported.dcaMode === 'amount' ? 'amount' : 'shares',
-        dcaValue: parseFloat(imported.dcaValue) || 0,
-        boostMult: parseFloat(imported.boostMult) || 1.0,
-        l1Pct: parseFloat(imported.l1Pct) || 0.08,
-        l2Pct: parseFloat(imported.l2Pct) || 0.10,
+        dcaValue: numOr(imported.dcaValue, 0),
+        boostMult: numOr(imported.boostMult, 1.0),
+        l1Pct: numOr(imported.l1Pct, 0.08),
+        l2Pct: numOr(imported.l2Pct, 0.10),
         stockNo: imported.stockNo || '',
       };
       const existIdx = state.assets.findIndex(a=>a.key===clean.key);
@@ -2504,6 +2546,9 @@ armConfirmClick(
     if(typeof a.l2Pct !== 'number' || isNaN(a.l2Pct)) a.l2Pct = 0.10;
     if(typeof a.boostMult !== 'number' || isNaN(a.boostMult)) a.boostMult = 1.0;
     if(a.currency === '元') a.currency = '台幣';
+    // 清掉改版前的舊欄位，避免匯出檔案裡累積死資料
+    delete a.roundTick;
+    delete a.boostValue;
   });
   state.activeTab = state.assets[0].key;
 
