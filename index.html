@@ -292,7 +292,7 @@
 
   /* ---------- Calendar popover ---------- */
   .field.date-field{ position:relative; }
-  #inDate{ cursor:pointer; }
+  #inDate, #inPositionStartNow, #btStartDate{ cursor:pointer; }
   .calendar-pop{
     position:absolute; top:calc(100% + 6px); left:0; right:0;
     background: var(--panel-2); border:1px solid var(--hair-strong);
@@ -369,9 +369,9 @@
         <label>平均持股成本</label>
         <input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00">
       </div>
-      <div class="field">
+      <div class="field date-field">
         <label>建倉起始日</label>
-        <input type="date" id="inPositionStartNow">
+        <input type="text" id="inPositionStartNow" readonly placeholder="YYYY-MM-DD">
       </div>
     </div>
 
@@ -474,9 +474,9 @@
   <div class="card">
     <div class="card-title"><h3>回測</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="backtestBody" style="display:none;">
-    <div class="field">
+    <div class="field date-field">
       <label style="color:var(--text);">開始定期定額日期<span style="color:var(--text-faint); font-weight:400;">（僅台股標的可回測，一路模擬到今天）</span></label>
-      <input type="date" id="btStartDate">
+      <input type="text" id="btStartDate" readonly placeholder="YYYY-MM-DD">
     </div>
     <div class="field">
       <label style="color:var(--text);">起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，出清/時間停損的流動現金會回到同一個資金池）</span></label>
@@ -1457,7 +1457,9 @@ function renderOrders(){
   if(d.ready && d.today){
     const boostPrice = applyTick(d.today.close, asset.roundTick, 'round');
     const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
-    if(asset.dcaMode === 'amount'){
+    if(!d.momentum){
+      boostDetail = `0 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+    } else if(asset.dcaMode === 'amount'){
       const boostShares = boostPrice > 0 ? Math.floor(boostAmt / boostPrice) : 0;
       boostDetail = `${fmtRaw(boostShares,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
     } else {
@@ -1467,18 +1469,25 @@ function renderOrders(){
   html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且連續三日股價大於MA5 且防禦邊界安全', boostDetail);
 
   // 重砲觸發：第一層 / 第二層（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
+  // 股數計算只看「防禦邊界是否安全」，不受股價/MA20趨勢條件影響——因為預約掛單本來就是預先算好，
+  // 當天股價是否真的觸及無法預知；只有防禦邊界關閉時，才代表現在不該掛單，股數歸零
   let l1Detail = '', l2Detail = '';
   if(d.ready2){
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, asset.roundTick, 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, asset.roundTick, 'ceil');
-    const cashNow = state.cash[key] || 0;
-    const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
-    const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
-    const note1 = shares1 <= 0 ? '（流動現金不足）' : '';
-    const note2 = shares2 <= 0 ? '（流動現金不足）' : '';
-    l1Detail = `${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
-    l2Detail = `${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
+    if(!d.defenseOk){
+      l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}`;
+      l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}`;
+    } else {
+      const cashNow = state.cash[key] || 0;
+      const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
+      const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
+      const note1 = shares1 <= 0 ? '（流動現金不足）' : '';
+      const note2 = shares2 <= 0 ? '（流動現金不足）' : '';
+      l1Detail = `${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
+      l2Detail = `${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
+    }
   }
   const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
   html += orderRow(!!d.bombard, '重砲觸發：第一層', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
@@ -1523,12 +1532,11 @@ function getCashStatus(key){
   const requiredReserve = getRequiredReserve(key);
   const shares = state.shares[key] || 0;
   const marketValue = (d.today && d.today.close != null) ? shares * d.today.close : null;
-  const pctTxt = (P.cashTargetPct*100).toFixed(0);
   let requiredTxt = '';
   if(requiredReserve != null && marketValue != null){
-    requiredTxt = `目標流動現金佔比 ${pctTxt}% × 股票市值(${marketValue.toLocaleString(undefined,{maximumFractionDigits:0})}) → 應保留 ${requiredReserve.toLocaleString()} ${asset.currency}`;
+    requiredTxt = `${requiredReserve.toLocaleString()} ${asset.currency}`;
   } else {
-    requiredTxt = `目標流動現金佔比 ${pctTxt}% —（尚無收盤價或股數資料）`;
+    requiredTxt = `—（尚無收盤價或股數資料）`;
   }
   const cur = state.cash[key] || 0;
   const unit = asset.currency;
@@ -1634,19 +1642,24 @@ function renderReserve(){
     const ms = d.marginStatus;
     const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
     marginLine = `<br>融資買進均價：${fmt(ms.costPrice,2)}｜融資股數：${(ms.shares||0).toLocaleString()} 股` +
-      `<br>融資維持率：${pctTxt}%｜融資追繳價：${fmt(ms.callPrice,2)}`;
+      `<br><span style="color:var(--text); font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmt(ms.callPrice,2)}</span>`;
   }
 
   const avgCostVal = state.avgCost[key] || 0;
-  const srcTxt = d.exitThresholdSource === 'cost' ? '（依成本乘數）' : '（依MA20出清乘數）';
-  let costLine = `<br>平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}｜出清價位：${fmt(d.exitThreshold,2)}${srcTxt}`;
+  let costLine = `<br>平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}`;
+  let exitLine = `→ 出清價位：${fmt(d.exitThreshold,2)}`;
   if(d.holdDays !== undefined){
-    costLine += `<br>建倉起始日：${state.positionStart[key]}｜已持有：${d.holdDays}天（時間停損門檻${state.params.timeStopDays}天）`;
+    costLine += `｜建倉起始日：${state.positionStart[key]}`;
+    exitLine += `｜已持有：${d.holdDays}天`;
   }
+  exitLine = `<span style="color:var(--text); font-weight:700;">${exitLine}</span>`;
+  costLine += `<br>${exitLine}`;
 
   document.getElementById('reserveHint').innerHTML =
-    `目前流動現金：${st.cur.toLocaleString()} ${st.unit}<br>目前股數：${(state.shares[key]||0).toLocaleString()} 股<br>` +
-    `現金應保留：${st.requiredTxt}${bombardLine}${marginLine}${costLine}<br>` +
+    `目前流動現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股<br>` +
+    `<span style="color:var(--text); font-weight:700;">→ 現金應保留：${st.requiredTxt}</span>${bombardLine}<br>` +
+    `${costLine.replace(/^<br>/,'')}${marginLine}<br>` +
+    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
     `<span style="color:${ma60UpLed.color}; font-weight:700;">${ma60UpLed.label}</span><br>` +
     `<span style="color:${priceMa60Led.color}; font-weight:700;">${priceMa60Led.label}</span><br>` +
     `<span style="color:${cashLed.color}; font-weight:700;">${cashLed.label}</span><br>` +
@@ -1800,8 +1813,8 @@ function renderAssetManage(){
   });
 }
 
-// ---------- custom calendar popover ----------
-let calState = { viewYear:0, viewMonth:0, selected:'' };
+// ---------- custom calendar popover（可重複使用，共用同一個彈出元件，依觸發欄位動態移動位置） ----------
+let calState = { viewYear:0, viewMonth:0, selected:'', targetId:'inDate' };
 
 function pad2(n){ return String(n).padStart(2,'0'); }
 function toDateStr(y,m,d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
@@ -1835,20 +1848,31 @@ function renderCalendar(){
   document.getElementById('calGrid').innerHTML = html;
 }
 
-function openCalendar(){
-  const cur = document.getElementById('inDate').value || new Date().toISOString().slice(0,10);
+function openCalendar(targetId){
+  calState.targetId = targetId;
+  const targetInput = document.getElementById(targetId);
+  const cur = targetInput.value || new Date().toISOString().slice(0,10);
   const [y,m] = cur.split('-').map(Number);
   calState.viewYear = y; calState.viewMonth = m-1; calState.selected = cur;
+  // 把共用的日曆彈窗移到目前這個欄位所在的.date-field容器裡，維持相對定位正確
+  const wrapper = targetInput.closest('.date-field');
+  const pop = document.getElementById('calendarPop');
+  if(wrapper && pop.parentElement !== wrapper){ wrapper.appendChild(pop); }
   renderCalendar();
-  document.getElementById('calendarPop').classList.add('show');
+  pop.classList.add('show');
 }
 function closeCalendar(){
   document.getElementById('calendarPop').classList.remove('show');
 }
 
-document.getElementById('inDate').addEventListener('click', (e)=>{
-  e.stopPropagation();
-  openCalendar();
+['inDate','inPositionStartNow','btStartDate'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el){
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openCalendar(id);
+    });
+  }
 });
 document.getElementById('calPrev').addEventListener('click', ()=>{
   calState.viewMonth--; if(calState.viewMonth<0){ calState.viewMonth=11; calState.viewYear--; }
@@ -1861,24 +1885,25 @@ document.getElementById('calNext').addEventListener('click', ()=>{
 document.getElementById('calGrid').addEventListener('click', (e)=>{
   const cell = e.target.closest('[data-date]');
   if(!cell) return;
-  document.getElementById('inDate').value = cell.dataset.date;
+  document.getElementById(calState.targetId).value = cell.dataset.date;
   calState.selected = cell.dataset.date;
   closeCalendar();
 });
 document.getElementById('calToday').addEventListener('click', ()=>{
   const t = new Date().toISOString().slice(0,10);
-  document.getElementById('inDate').value = t;
+  document.getElementById(calState.targetId).value = t;
   const [y,m] = t.split('-').map(Number);
   calState.viewYear = y; calState.viewMonth = m-1; calState.selected = t;
   renderCalendar();
 });
 document.addEventListener('click', (e)=>{
   const pop = document.getElementById('calendarPop');
-  const field = document.getElementById('inDate');
+  const field = document.getElementById(calState.targetId);
   if(pop.classList.contains('show') && !pop.contains(e.target) && e.target !== field){
     closeCalendar();
   }
 });
+
 
 // ---------- events ----------
 // 防止滑鼠滾輪在數字欄位上意外改變數值：欄位取得焦點時先移開焦點再讓頁面正常捲動
@@ -2408,7 +2433,6 @@ armConfirmClick(
 (async function init(){
   const todayStr = new Date().toISOString().slice(0,10);
   document.getElementById('inDate').value = todayStr;
-  document.getElementById('btStartDate').max = todayStr;
 
   const savedParams = await storageGet(KEY_PARAMS, {});
   state.params = Object.assign({}, DEFAULT_PARAMS, savedParams);
