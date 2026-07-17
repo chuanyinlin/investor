@@ -590,7 +590,7 @@ const PARAM_META = [
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位
 const DEFAULT_ASSETS = [
   { key:'spot', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'2330' },
-  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:''     },
+  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', yahooSymbol:'TSM' },
 ];
 
 // ---------- 證交所自動抓取（僅台股上市股票） ----------
@@ -679,18 +679,68 @@ function calcMA(closes, period){
   return slice.reduce((a,b) => a+b, 0) / period;
 }
 
+// ---------- Yahoo Finance 抓取（給沒有台股代號的標的，例如ADR用，透過同一個CORS代理） ----------
+async function fetchYahooRange(symbol, fromDate, toDate){
+  const period1 = Math.floor(fromDate.getTime() / 1000);
+  const period2 = Math.floor(toDate.getTime() / 1000) + 86400; // 含結束日當天
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d`;
+  const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+  if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
+  const json = await res.json();
+  const result = json && json.chart && json.chart.result && json.chart.result[0];
+  if(!result || !Array.isArray(result.timestamp)) return [];
+  const ts = result.timestamp;
+  const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
+  if(!quote) return [];
+  const rows = [];
+  for(let i = 0; i < ts.length; i++){
+    const close = quote.close ? quote.close[i] : null;
+    if(close == null || isNaN(close)) continue; // 跳過無交易資料的當天（null）
+    const date = new Date(ts[i] * 1000).toISOString().slice(0, 10);
+    rows.push({
+      date,
+      open: quote.open ? quote.open[i] : close,
+      high: quote.high ? quote.high[i] : close,
+      low: quote.low ? quote.low[i] : close,
+      close,
+      volume: quote.volume ? quote.volume[i] : null,
+    });
+  }
+  return rows;
+}
+
+// 是否支援自動抓取（有台股代號，或有設定Yahoo Finance代號，兩者擇一即可）
+function assetSupportsAutoFetch(asset){
+  return !!(asset.stockNo || asset.yahooSymbol);
+}
+
+// 統一的抓取入口：依標的設定，自動走台股（證交所）或美股（Yahoo Finance）路線，回傳格式一致
+async function fetchAssetRange(asset, fromDate, toDate, onProgress){
+  if(asset.stockNo){
+    return await fetchMonthRangeCloses(asset.stockNo, fromDate, toDate, onProgress);
+  }
+  if(asset.yahooSymbol){
+    if(onProgress) onProgress(0, 1);
+    const rows = await fetchYahooRange(asset.yahooSymbol, fromDate, toDate);
+    if(onProgress) onProgress(1, 1);
+    return rows;
+  }
+  return [];
+}
+
 // 核心抓取邏輯：抓最近3個交易日、算MA、寫進歷史紀錄，回傳結果不直接碰UI，
 // 讓「只更新價格」跟「現金/股數+價格一起更新」兩個按鈕可以共用
 async function fetchLast3DaysCore(){
   const key = state.activeTab;
   const asset = getAsset(key);
-  if(!asset.stockNo){
+  if(!assetSupportsAutoFetch(asset)){
     return { ok:false, msg:'此標的無自動更新收盤價與均線功能，請至「進階」手動輸入。' };
   }
   try{
     const today = new Date();
-    const allRows = await fetchRecentCloses(asset.stockNo, today, 4);
-    if(allRows.length < 8){ throw new Error('回傳資料不足，可能是股票代號錯誤或近期無交易資料'); }
+    const fromDate = new Date(today.getFullYear(), today.getMonth() - 4, 1);
+    const allRows = await fetchAssetRange(asset, fromDate, today);
+    if(allRows.length < 8){ throw new Error('回傳資料不足，可能是股票代號/Yahoo代號錯誤或近期無交易資料'); }
     // 取最近3個交易日，每一天的MA都只用「截至該日（含）」的資料計算，避免用到未來資料
     const last3 = allRows.slice(-3);
     const closes = allRows.map(r => r.close);
@@ -756,8 +806,8 @@ async function runBacktest(){
   const btn = document.getElementById('btnRunBacktest');
   resultEl.innerHTML = '';
 
-  if(!asset.stockNo){
-    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法回測（僅支援有設定股票代號的台股標的）。</span>`;
+  if(!assetSupportsAutoFetch(asset)){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法回測（需設定股票代號或Yahoo Finance代號）。</span>`;
     return;
   }
   const startStr = document.getElementById('btStartDate').value;
@@ -823,9 +873,9 @@ async function runBacktest(){
       } else {
         statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
       }
-      allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, fetchTo, (done, total) => {
+      allRows = await fetchAssetRange(asset, fetchFrom, fetchTo, (done, total) => {
         btn.textContent = `抓取中 ${done}/${total}`;
-        statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
+        statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}）</span>`;
       });
     }
     if(allRows.length < 10){
@@ -1055,8 +1105,8 @@ async function exportBacktestHistory(){
   const statusEl = document.getElementById('btExportStatus');
   const btn = document.getElementById('btnExportBtData');
 
-  if(!asset.stockNo){
-    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法匯出（僅支援有設定股票代號的台股標的）。</span>`;
+  if(!assetSupportsAutoFetch(asset)){
+    statusEl.innerHTML = `<span style="color:var(--red)">此標的無自動更新功能，無法匯出（需設定股票代號或Yahoo Finance代號）。</span>`;
     return;
   }
   const startStr = document.getElementById('btStartDate').value;
@@ -1081,9 +1131,9 @@ async function exportBacktestHistory(){
   statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...</span>`;
 
   try{
-    const allRows = await fetchMonthRangeCloses(asset.stockNo, fetchFrom, today, (done, total) => {
+    const allRows = await fetchAssetRange(asset, fetchFrom, today, (done, total) => {
       btn.textContent = `抓取中 ${done}/${total}`;
-      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}個月）</span>`;
+      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${done}/${total}）</span>`;
     });
     if(allRows.length < 10){
       throw new Error('回傳資料不足，可能是股票代號錯誤或該區間無交易資料');
@@ -1804,7 +1854,7 @@ function renderAll(){
 // 切換到沒有股票代號的標的（例如ADR）時，主動提示回測/匯出/匯入功能無法使用，不用等按下去才發現
 function renderBacktestAvailability(){
   const asset = getAsset(state.activeTab);
-  const supported = !!asset.stockNo;
+  const supported = assetSupportsAutoFetch(asset);
   const statusEl = document.getElementById('backtestStatus');
   const btnRun = document.getElementById('btnRunBacktest');
   const btnExport = document.getElementById('btnExportBtData');
@@ -1819,8 +1869,8 @@ function renderBacktestAvailability(){
   });
   if(clearLink) clearLink.classList.toggle('link-disabled', !supported);
   if(!supported){
-    statusEl.innerHTML = `<span style="color:var(--amber)">・${asset.name}尚未設定股票代號，無法回測／匯出／匯入歷史資料，請至「投資標的管理」設定（僅適用台股上市股票）。</span>`;
-  } else if(statusEl.innerHTML.includes('尚未設定股票代號，無法回測')){
+    statusEl.innerHTML = `<span style="color:var(--amber)">・${asset.name}尚未設定股票代號或Yahoo Finance代號，無法回測／匯出／匯入歷史資料，請至「投資標的管理」設定。</span>`;
+  } else if(statusEl.innerHTML.includes('尚未設定股票代號或Yahoo Finance代號，無法回測')){
     statusEl.innerHTML = '';
   }
 }
@@ -1902,6 +1952,7 @@ function renderAssetManage(){
         <div class="field"><label>重砲觸發：第二層（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
       </div>
       <div class="field"><label>證交所股票代號（僅台股上市股票可自動抓取，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330" ${a.currency==='美元'?'disabled':''}></div>
+      <div class="field"><label>Yahoo Finance代號（美股/ADR自動抓取用，例：TSM）</label><input type="text" data-aidx="${idx}" data-afield="yahooSymbol" value="${a.yahooSymbol||''}" placeholder="例：TSM" ${a.currency==='台幣'?'disabled':''}></div>
     </div>
   `).join('');
 
@@ -1916,6 +1967,9 @@ function renderAssetManage(){
       // 幣別改成美元時，這個標的不可能是台股上市股票，股票代號自動清空
       if(field === 'currency' && v === '美元'){
         state.assets[idx].stockNo = '';
+      }
+      if(field === 'currency' && v === '台幣'){
+        state.assets[idx].yahooSymbol = '';
       }
       await storageSet(KEY_ASSETS, state.assets);
       renderTabs();
@@ -2482,7 +2536,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   let idx = state.assets.length + 1;
   let newKey = 'asset' + idx;
   while(state.assets.some(a=>a.key===newKey)){ idx++; newKey = 'asset' + idx; }
-  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'台幣', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'' });
+  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'台幣', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', yahooSymbol:'' });
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   renderAssetManage();
@@ -2532,6 +2586,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         l1Pct: numOr(imported.l1Pct, 0.06),
         l2Pct: numOr(imported.l2Pct, 0.08),
         stockNo: imported.stockNo || '',
+        yahooSymbol: imported.yahooSymbol || '',
       };
       const existIdx = state.assets.findIndex(a=>a.key===clean.key);
       if(existIdx >= 0){
@@ -2612,6 +2667,9 @@ armConfirmClick(
     if(typeof a.l2Pct !== 'number' || isNaN(a.l2Pct)) a.l2Pct = 0.08;
     if(typeof a.boostMult !== 'number' || isNaN(a.boostMult)) a.boostMult = 1.0;
     if(a.currency === '元') a.currency = '台幣';
+    if(typeof a.yahooSymbol !== 'string'){
+      a.yahooSymbol = (a.key === 'adr' && !a.stockNo) ? 'TSM' : '';
+    }
     // 清掉改版前的舊欄位，避免匯出檔案裡累積死資料
     delete a.roundTick;
     delete a.boostValue;
