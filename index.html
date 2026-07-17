@@ -683,30 +683,48 @@ function calcMA(closes, period){
 async function fetchYahooRange(symbol, fromDate, toDate){
   const period1 = Math.floor(fromDate.getTime() / 1000);
   const period2 = Math.floor(toDate.getTime() / 1000) + 86400; // 含結束日當天
-  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d`;
-  const res = await fetch(CORS_PROXY + encodeURIComponent(target));
-  if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
-  const json = await res.json();
-  const result = json && json.chart && json.chart.result && json.chart.result[0];
-  if(!result || !Array.isArray(result.timestamp)) return [];
-  const ts = result.timestamp;
-  const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
-  if(!quote) return [];
-  const rows = [];
-  for(let i = 0; i < ts.length; i++){
-    const close = quote.close ? quote.close[i] : null;
-    if(close == null || isNaN(close)) continue; // 跳過無交易資料的當天（null）
-    const date = new Date(ts[i] * 1000).toISOString().slice(0, 10);
-    rows.push({
-      date,
-      open: quote.open ? quote.open[i] : close,
-      high: quote.high ? quote.high[i] : close,
-      low: quote.low ? quote.low[i] : close,
-      close,
-      volume: quote.volume ? quote.volume[i] : null,
-    });
+  const hosts = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']; // 429時改用備用網域再試
+  let lastErr = null;
+
+  for(const host of hosts){
+    const target = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d`;
+    // 每個網域最多重試2次（間隔漸長），共用於處理429限流
+    for(let attempt = 0; attempt < 2; attempt++){
+      try{
+        const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+        if(res.status === 429){
+          lastErr = new Error('Yahoo Finance回應429（請求過於頻繁）');
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
+        const json = await res.json();
+        const result = json && json.chart && json.chart.result && json.chart.result[0];
+        if(!result || !Array.isArray(result.timestamp)) return [];
+        const ts = result.timestamp;
+        const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
+        if(!quote) return [];
+        const rows = [];
+        for(let i = 0; i < ts.length; i++){
+          const close = quote.close ? quote.close[i] : null;
+          if(close == null || isNaN(close)) continue; // 跳過無交易資料的當天（null）
+          const date = new Date(ts[i] * 1000).toISOString().slice(0, 10);
+          rows.push({
+            date,
+            open: quote.open ? quote.open[i] : close,
+            high: quote.high ? quote.high[i] : close,
+            low: quote.low ? quote.low[i] : close,
+            close,
+            volume: quote.volume ? quote.volume[i] : null,
+          });
+        }
+        return rows;
+      } catch(err){
+        lastErr = err;
+      }
+    }
   }
-  return rows;
+  throw lastErr || new Error('Yahoo Finance抓取失敗');
 }
 
 // 是否支援自動抓取（有台股代號，或有設定Yahoo Finance代號，兩者擇一即可）
