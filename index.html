@@ -296,7 +296,7 @@
   }
   .asset-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .asset-name-row input{
-    flex:1; background: var(--panel-2); border:1px solid var(--hair);
+    flex:1; min-width:0; background: var(--panel-2); border:1px solid var(--hair);
     border-radius:10px; padding:9px 10px; color:var(--text);
     font-family: var(--font-ui); font-size:14px; font-weight:700;
   }
@@ -551,12 +551,14 @@
       <span class="icon-btn" id="btnCloseParamsX">✕</span>
     </div>
     <div id="assetManageList"></div>
-    <div style="display:flex; justify-content:center; margin-bottom:10px;">
+
+    <div style="display:flex; justify-content:center; margin:6px 0 14px;">
       <button class="btn btn-neutral btn-sm" id="btnAddAsset">＋ 新增投資標的</button>
     </div>
 
-    <div class="field" style="margin-top:6px; padding-top:10px; border-top:1px solid var(--hair);">
-      <div style="display:flex; justify-content:center; gap:10px;">
+    <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
+      <div class="param-cat-mini" style="text-align:center; margin-top:0;">備份與還原</div>
+      <div style="display:flex; justify-content:center; gap:10px; margin-top:4px;">
         <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
         <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
         <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets">匯入</button>
@@ -1929,15 +1931,17 @@ function renderAssetManage(){
         <span class="order-btn ${idx===0?'disabled':''}" data-aup="${idx}">◀</span>
         <span class="order-btn ${idx===state.assets.length-1?'disabled':''}" data-adown="${idx}">▶</span>
         <input type="text" data-aidx="${idx}" data-afield="name" value="${a.name}">
-        <span class="danger-link" data-areset="${idx}" style="font-size:12px; flex-shrink:0; color:var(--text-faint);">恢復預設值</span>
-        ${state.assets.length>1?`<span class="danger-link" data-adel="${idx}" style="font-size:12px; flex-shrink:0;">刪除</span>`:''}
+        <span class="danger-link" data-areset="${idx}" style="font-size:12px; flex-shrink:0; color:var(--text-faint); display:inline-block; width:72px; text-align:right; white-space:nowrap;">恢復預設值</span>
+        ${state.assets.length>1?`<span class="danger-link" data-adel="${idx}" style="font-size:12px; flex-shrink:0; display:inline-block; width:72px; text-align:right; white-space:nowrap;">刪除</span>`:''}
       </div>
       <div class="subtabs">
         <div class="subtab ${sub==='basic'?'active':''}" data-subtab="basic">基本設定</div>
         <div class="subtab ${sub==='advanced'?'active':''}" data-subtab="advanced">進階設定</div>
       </div>
-      <div style="${sub==='basic'?'':'display:none;'}">${basicHtml}</div>
-      <div style="${sub==='advanced'?'':'display:none;'}">${advHtml}</div>
+      <div style="height:282px; overflow-y:auto;">
+        <div style="${sub==='basic'?'':'display:none;'}">${basicHtml}</div>
+        <div style="${sub==='advanced'?'':'display:none;'}">${advHtml}</div>
+      </div>
       <div style="position:relative; display:flex; justify-content:center; align-items:center; margin-top:12px; min-height:34px;">
         <button class="btn btn-neutral btn-sm" id="btnSaveAsset" style="flex:0 0 auto; padding-left:20px; padding-right:20px;">儲存</button>
         <span class="footer-note" id="assetSaveStatus" style="position:absolute; right:0; top:50%; transform:translateY(-50%); color:var(--teal); font-weight:600;"></span>
@@ -1999,7 +2003,8 @@ function renderAssetManage(){
     });
   });
   wrap.querySelectorAll('[data-adel]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
+    if(state.assets.length <= 1) return;
+    armConfirmClick(el, '刪除', '確定刪除？', async ()=>{
       const i = parseInt(el.dataset.adel, 10);
       if(state.assets.length <= 1) return;
       const removedKey = state.assets[i].key;
@@ -2013,7 +2018,7 @@ function renderAssetManage(){
     });
   });
   wrap.querySelectorAll('[data-areset]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
+    armConfirmClick(el, '恢復預設值', '確定恢復？', async ()=>{
       const i = parseInt(el.dataset.areset, 10);
       const asset = state.assets[i];
       // 已知的內建標的（台積電/ADR）恢復成各自的原始預設值；自訂新增的標的恢復成新增標的時的通用預設值
