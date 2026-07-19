@@ -420,7 +420,7 @@
       </div>
     </div>
 
-    <div class="footer-note" style="text-align:left; margin-bottom:10px;">「更新」會同時從證交所更新最近3個交易日的收盤價與均線</div>
+    <div class="footer-note" id="updateHintText" style="text-align:left; margin-bottom:10px;">「更新」會同時從證交所更新最近3個交易日的收盤價與均線</div>
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
@@ -536,6 +536,11 @@
     </div>
 
     <div class="field">
+      <label style="color:var(--text);">現金水位停損：絕對底線倍數<span style="color:var(--text-faint); font-weight:400;">（留空＝使用「設定」裡這個標的的正式數值；填了就用這裡的數字覆蓋，方便單次測試不同倍數）</span></label>
+      <input type="number" step="0.05" id="btLiqFloorMult" placeholder="0.95">
+    </div>
+
+    <div class="field">
       <label style="color:var(--text);">輸入監控參數<span style="color:var(--text-faint); font-weight:400;">（回測結果會統計現金水位低於這個門檻的日期）</span></label>
       <label style="margin-top:8px;">現金水位下限</label>
       <input type="number" step="1000" id="btCashFloor" placeholder="100000">
@@ -545,6 +550,7 @@
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowExit" style="width:auto;">停利</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowTimeStop" style="width:auto;">時間停損</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLiqStop" style="width:auto;">現金水位停損</label>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowDcaPause" style="width:auto;">暫停定期定額</label>
       </div>
     </div>
 
@@ -602,6 +608,7 @@ const DEFAULT_PARAMS = {
   layer2Mult: 0.97,
   cashTargetPct: 0.10,
   liqRebuildMult: 1.75,
+  liqFloorMult: 0.95,
   marginRatio: 0.60,
   marginCallRatio: 1.20,
   costExitMult: 1.10,
@@ -615,6 +622,7 @@ const PARAM_META = [
   ['layer2Mult','第二層加碼乘數','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以基準價算出更低的限價，用來承接更深的下跌'],
   ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場'],
   ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
+  ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['exitMult','出清價位乘數','mult','出清邏輯','股價漲到「MA20×這個倍數」時觸發出清，倍數越高，要漲越多才會出場'],
   ['costExitMult','出清成本乘數（與MA20出清價取高者）','mult','出清邏輯','股價漲到「平均持股成本×這個倍數」時也會觸發出清，跟上面的MA20出清價取兩者較高的門檻，避免賣在成本以下'],
   ['exitPartialFrac','出清觸發分批比例%','pct','出清邏輯','出清觸發時，一次賣出目前股數的這個比例，不是全部出清，剩下的部位繼續留倉'],
@@ -939,6 +947,12 @@ async function runBacktest(){
     statusEl.innerHTML = `<span style="color:var(--red)">現金水位下限格式錯誤。</span>`;
     return;
   }
+  const liqFloorMultRaw = document.getElementById('btLiqFloorMult').value;
+  const LIQ_FLOOR_MULT = liqFloorMultRaw !== '' ? parseFloat(liqFloorMultRaw) : P.liqFloorMult;
+  if(isNaN(LIQ_FLOOR_MULT) || LIQ_FLOOR_MULT < 0 || LIQ_FLOOR_MULT > 1){
+    statusEl.innerHTML = `<span style="color:var(--red)">現金水位停損絕對底線倍數格式錯誤（需介於0~1之間）。</span>`;
+    return;
+  }
 
   // 往前抓約4個月做為MA60計算的緩衝，用來確認已匯入的資料是否涵蓋足夠的起始區間
   const fetchFrom = new Date(startDate.getFullYear(), startDate.getMonth() - 4, 1);
@@ -995,12 +1009,13 @@ async function runBacktest(){
     let cash = START_CAPITAL;
     let totalShares = 0, totalCost = 0;
     let dcaExec=0, dcaSkip=0, momExec=0, momSkip=0, b1Exec=0, b1Skip=0, b2Exec=0, b2Skip=0;
-    let exitExec=0, exitSkip=0, tsExec=0, tsSkip=0, liqExec=0;
+    let exitExec=0, exitSkip=0, tsExec=0, tsSkip=0, liqExec=0, dcaPausedCount=0;
     let lastTsCheck = new Date(allRows[simStart].date + 'T00:00:00');
     const cashHistory = [];
     const lowCashEvents = [];
     const exitEvents = [];
     const liquidityStopEvents = [];
+    const dcaPausedEvents = [];
     const bombardL1Events = [];
     const bombardL1CashSkipEvents = [];
 
@@ -1033,8 +1048,47 @@ async function runBacktest(){
       const momentum = threeDay && ma5upFlat && defenseOk;
       const closeT = today_.close;
 
-      // 定期定額／定股：市價單，今天成交，系統自動扣款不需要人工判斷
-      if(asset.dcaValue > 0){
+      // 現金水位停損：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
+      // MA60顯示安全（多頭/強勢）：賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
+      // MA60顯示不安全（空頭/弱勢）：優先暫緩、不強制在弱勢中賣股，改成暫停今天的定期定額，只有現金比例已經跌破「絕對底線（門檻的一半）」才不管趨勢強制賣股救急
+      // 這段放在定期定額之前執行，因為要決定「今天的定期定額」要不要暫停
+      let liqDcaShouldPause = false;
+      if(P.cashTargetPct > 0 && P.cashTargetPct < 1 && totalShares > 0){
+        const marketValueNow = totalShares * closeT;
+        const totalWealthNow = cash + marketValueNow;
+        const triggerCash = P.cashTargetPct * totalWealthNow;
+        if(cash < triggerCash){
+          const floorCash = LIQ_FLOOR_MULT * P.cashTargetPct * totalWealthNow; // 絕對底線：門檻×測試用倍數，不管趨勢都要救
+          const shouldForceSell = priceDefenseOk || (cash < floorCash);
+          // 診斷用：當下現金比例，是「最低流動現金佔比%」門檻的百分之多少（用來檢視是否集中在某個窄區間）
+          const cashRatioNow = totalWealthNow > 0 ? (cash / totalWealthNow) : 0;
+          const pctOfThreshold = P.cashTargetPct > 0 ? (cashRatioNow / P.cashTargetPct * 100) : 0;
+          if(shouldForceSell){
+            const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
+            const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
+            let sharesToSell = (targetCash - cash) / closeT;
+            sharesToSell = Math.min(sharesToSell, totalShares);
+            if(sharesToSell > 0){
+              const sellCostBasis = totalCost * (sharesToSell / totalShares);
+              const proceeds = sharesToSell * closeT;
+              cash += proceeds; totalShares -= sharesToSell; totalCost -= sellCostBasis;
+              liqExec++;
+              liquidityStopEvents.push({ date: today_.date, price: closeT, shares: sharesToSell, proceeds, cost: sellCostBasis, profit: proceeds - sellCostBasis, byFloor: !priceDefenseOk, pctOfThreshold });
+            }
+          } else {
+            // MA60弱勢、還沒跌破絕對底線：不賣股，改成今天暫停定期定額，優先保護現金但不逆勢賣股
+            liqDcaShouldPause = true;
+            dcaPausedCount++;
+            dcaPausedEvents.push({ date: today_.date, pctOfThreshold });
+          }
+        }
+      }
+
+      // 定期定額／定股：市價單，今天成交，系統自動扣款不需要人工判斷；
+      // 但MA60弱勢且現金水位不足（還沒跌破絕對底線）時，今天暫停，不逆勢加碼部位
+      if(liqDcaShouldPause){
+        dcaSkip++;
+      } else if(asset.dcaValue > 0){
         if(asset.dcaMode === 'amount'){
           if(cash >= asset.dcaValue){ totalShares += asset.dcaValue/closeT; totalCost += asset.dcaValue; cash -= asset.dcaValue; dcaExec++; }
           else dcaSkip++;
@@ -1084,27 +1138,6 @@ async function runBacktest(){
         if(today_.low != null && today_.low <= p2 && cost2 > 0 && cash >= cost2){
           totalShares += cost2 / p2; totalCost += cost2; cash -= cost2; b2Exec++;
         } else b2Skip++;
-      }
-
-      // 現金現金水位停損：跟時間、價格都無關，只要現金比例低於「最低流動現金佔比%」就觸發；
-      // 但賣的時候不是只補回剛好貼著門檻，而是補到「門檻×補回倍數」，多留一點緩衝，避免定期定額一買現金又馬上被打回門檻、頻繁反覆觸發
-      if(P.cashTargetPct > 0 && P.cashTargetPct < 1 && totalShares > 0){
-        const marketValueNow = totalShares * closeT;
-        const totalWealthNow = cash + marketValueNow;
-        const triggerCash = P.cashTargetPct * totalWealthNow;
-        if(cash < triggerCash){
-          const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
-          const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
-          let sharesToSell = (targetCash - cash) / closeT;
-          sharesToSell = Math.min(sharesToSell, totalShares);
-          if(sharesToSell > 0){
-            const sellCostBasis = totalCost * (sharesToSell / totalShares);
-            const proceeds = sharesToSell * closeT;
-            cash += proceeds; totalShares -= sharesToSell; totalCost -= sellCostBasis;
-            liqExec++;
-            liquidityStopEvents.push({ date: today_.date, price: closeT, shares: sharesToSell, proceeds, cost: sellCostBasis, profit: proceeds - sellCostBasis });
-          }
-        }
       }
 
       // 出清觸發：限價賣單，掛用昨天資料算出的出清價位，今天最高價要觸及才成交，分批出清
@@ -1165,7 +1198,7 @@ async function runBacktest(){
 
     let html = `<div class="footer-note" style="text-align:left; margin-top:10px;">起算日：${actualStartStr}${dateNote}｜起始本金：${fmtRaw(START_CAPITAL,0)} ${unit}｜模擬至：${lastDate}</div>`;
     html += `<div class="footer-note" style="text-align:left;">定期定額：${dcaExec}執行/${dcaSkip}跳過｜動能：${momExec}執行/${momSkip}未成交｜加碼L1：${b1Exec}執行/${b1Skip}未成交｜加碼L2：${b2Exec}執行/${b2Skip}未成交</div>`;
-    html += `<div class="footer-note" style="text-align:left;">出清：${exitExec}成交/${exitSkip}未觸及｜時間停損：${tsExec}成交/${tsSkip}未觸及｜現金水位停損：${liqExec}次</div>`;
+    html += `<div class="footer-note" style="text-align:left;">出清：${exitExec}成交/${exitSkip}未觸及｜時間停損：${tsExec}成交/${tsSkip}未觸及｜現金水位停損：${liqExec}次｜定期定額暫停（弱勢保護）：${dcaPausedCount}次</div>`;
     const profitColor = profit >= 0 ? 'var(--teal)' : 'var(--red)';
 
     if(lowCashEvents.length > 0){
@@ -1181,12 +1214,13 @@ async function runBacktest(){
     const showExit = document.getElementById('btShowExit').checked;
     const showTimeStop = document.getElementById('btShowTimeStop').checked;
     const showLiqStop = document.getElementById('btShowLiqStop').checked;
-    const tagVisible = { '加碼': showBombard, '停利': showExit, '停損': showTimeStop, '現金水位停損': showLiqStop };
+    const showDcaPause = document.getElementById('btShowDcaPause').checked;
+    const tagVisible = { '加碼': showBombard, '停利': showExit, '時間停損': showTimeStop, '現金水位停損': showLiqStop, '暫停定期定額': showDcaPause };
 
     const timelineEvents = [
       ...bombardL1Events.map(ev => ({ date: ev.date, tag: '加碼', detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.cost,0)} ${unit}` })),
       ...exitEvents.map(ev => {
-        const tag = ev.type === '出清' ? '停利' : '停損';
+        const tag = ev.type === '出清' ? '停利' : '時間停損';
         const profitColor2 = ev.profit >= 0 ? 'var(--teal)' : 'var(--red)';
         return {
           date: ev.date, tag,
@@ -1197,16 +1231,18 @@ async function runBacktest(){
       }),
       ...liquidityStopEvents.map(ev => {
         const profitColor3 = ev.profit >= 0 ? 'var(--teal)' : 'var(--red)';
+        const reasonTxt = ev.byFloor ? '（跌破絕對底線，逆勢強制賣出）' : '（MA60安全，順勢賣出）';
         return {
           date: ev.date, tag: '現金水位停損',
-          detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}`,
+          detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}${reasonTxt}｜觸發時現金比例為門檻的${ev.pctOfThreshold.toFixed(1)}%`,
           profitLine: `<span style="color:${profitColor3};">損益${ev.profit>=0?'+':''}${fmtRaw(ev.profit,0)} ${unit}</span>`,
         };
       }),
+      ...dcaPausedEvents.map(ev => ({ date: ev.date, tag: '暫停定期定額', detail: `MA60弱勢，現金水位不足但未跌破絕對底線，暫停今天扣款｜當時現金比例為門檻的${ev.pctOfThreshold.toFixed(1)}%` })),
     ].filter(ev => tagVisible[ev.tag]).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
     if(timelineEvents.length > 0){
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／停損／現金水位停損明細（共${timelineEvents.length}筆）：</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／時間停損／現金水位停損／暫停定期定額明細（共${timelineEvents.length}筆）：</div>`;
       timelineEvents.forEach(ev=>{
         html += `<div class="footer-note" style="text-align:left;">［${ev.tag}］${ev.date}：${ev.detail}</div>`;
         if(ev.profitLine){
@@ -1217,7 +1253,7 @@ async function runBacktest(){
         }
       });
     } else {
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、停損或現金水位停損成交紀錄。</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、時間停損、現金水位停損或暫停定期定額紀錄。</div>`;
     }
 
     if(bombardL1CashSkipEvents.length > 0){
@@ -1234,7 +1270,7 @@ async function runBacktest(){
       期末現金：${fmtRaw(cash,0)} ${unit}｜期末持股：${fmtRaw(totalShares,0)} 股（市值 ${fmtRaw(finalShareValue,0)} ${unit}）<br>
       期末總資產：${fmtRaw(finalWealth,0)} ${unit}｜損益：${profit>=0?'+':''}${fmtRaw(profit,0)} ${unit}（${profit>=0?'+':''}${profitPct.toFixed(2)}%）<br>
       期末現金佔比 ${finalCashRatio.toFixed(1)}%｜現金<${fmtRaw(CASH_FLOOR,0)}元天數比例：${zeroPct.toFixed(1)}%（共${lowCashEvents.length}天）<br>
-      現金水位中位數佔本金 ${(medianCash/START_CAPITAL*100).toFixed(1)}%｜現金水位停損：${liqExec}次｜時間停損：${tsExec}成交/${tsSkip}未觸及｜出清（停利）：${exitExec}成交/${exitSkip}未觸及｜加碼L1：${b1Exec}次
+      現金水位中位數佔本金 ${(medianCash/START_CAPITAL*100).toFixed(1)}%｜現金水位停損：${liqExec}次｜定期定額暫停：${dcaPausedCount}次｜時間停損：${tsExec}成交/${tsSkip}未觸及｜出清（停利）：${exitExec}成交/${exitSkip}未觸及｜加碼L1：${b1Exec}次
     </div>`;
 
     html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／加碼／出清／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交）、現金水位停損為當天市價單（現金比例不足立刻成交），現金為封閉式循環（不再外部注資，出清/時間停損/現金水位停損現金回到同一資金池），僅供策略參考</div>`;
@@ -1410,29 +1446,9 @@ function computeForAsset(assetKey){
   out.requiredReserve = requiredReserve;
   out.cashSufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
 
-  // 現金現金水位停損：現金比例低於「最低流動現金佔比%」時，建議今天用市價賣股票，
-  // 補回到「最低比例×補回倍數」（多留緩衝，避免定期定額一買現金又立刻被打回門檻）
   const curShares = state.shares[assetKey] || 0;
   out.liquidityStopTriggered = false;
-  if(today.close != null && curShares > 0 && out.cashSufficient === false){
-    const marketValueNow = curShares * today.close;
-    const totalWealthNow = cur + marketValueNow;
-    const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
-    const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
-    let sharesToSell = (targetCash - cur) / today.close;
-    sharesToSell = Math.min(sharesToSell, curShares);
-    if(sharesToSell > 0){
-      out.liquidityStopTriggered = true;
-      out.liquidityStopShares = sharesToSell;
-      out.liquidityStopPrice = today.close;
-    }
-  }
-
-  // 時間停損多一個條件：現金水位已經足夠（高於最低比例）時暫緩，避免現金充裕還無謂出場；
-  // 現金水位不夠（現金水位停損已經在處理）時，才正常照時間到了就出場
-  if(out.timeStopTriggered !== undefined){
-    out.timeStopTriggered = out.timeStopTriggered && (out.cashSufficient !== true);
-  }
+  out.dcaPaused = false;
 
   // 融資防禦邊界：只在有股票代號（台股）且有輸入融資買進均價時才適用，ADR等無融資功能標的視為不適用（不影響defenseOk）
   out.marginStatus = getMarginStatus(assetKey);
@@ -1458,6 +1474,39 @@ function computeForAsset(assetKey){
     out.priceDefenseOk = out.ma60upFlat && out.priceAboveMa60;
   } else {
     out.priceDefenseOk = false;
+  }
+
+  // 現金水位停損：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
+  // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
+  // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急
+  if(today.close != null && curShares > 0 && out.cashSufficient === false){
+    const marketValueNow = curShares * today.close;
+    const totalWealthNow = cur + marketValueNow;
+    const triggerCash = P.cashTargetPct * totalWealthNow;
+    const floorMult = (P.liqFloorMult != null && P.liqFloorMult >= 0 && P.liqFloorMult <= 1) ? P.liqFloorMult : 0.95;
+    const floorCash = floorMult * P.cashTargetPct * totalWealthNow;
+    const shouldSuggestSell = out.priceDefenseOk || (cur < floorCash);
+    if(shouldSuggestSell){
+      const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
+      const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
+      let sharesToSell = (targetCash - cur) / today.close;
+      sharesToSell = Math.min(sharesToSell, curShares);
+      if(sharesToSell > 0){
+        out.liquidityStopTriggered = true;
+        out.liquidityStopShares = sharesToSell;
+        out.liquidityStopPrice = today.close;
+        out.liquidityStopByFloor = !out.priceDefenseOk;
+      }
+    } else {
+      // MA60弱勢、還沒跌破絕對底線：建議暫停定期定額，不逆勢賣股
+      out.dcaPaused = true;
+    }
+  }
+
+  // 時間停損多一個條件：現金水位已經足夠（高於最低比例）時暫緩，避免現金充裕還無謂出場；
+  // 現金水位不夠（現金水位停損已經在處理）時，才正常照時間到了就出場
+  if(out.timeStopTriggered !== undefined){
+    out.timeStopTriggered = out.timeStopTriggered && (out.cashSufficient !== true);
   }
 
   // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
@@ -1491,7 +1540,7 @@ function renderHero(){
   if(!d.ready1){
     hero.className = 'hero st-idle';
     headline.textContent = '⏳ 尚無資料';
-    sub.textContent = '請先在下方輸入最近三日的資料';
+    sub.textContent = '請先輸入最近三日的資料';
     return;
   }
   const defenseOff = d.ready2 && !d.defenseOk;
@@ -1499,56 +1548,59 @@ function renderHero(){
   if(d.liquidityStopTriggered){
     hero.className = 'hero st-warn';
     headline.textContent = '🚨 現金水位停損觸發';
-    sub.textContent = `流動現金佔比過低，建議賣出部分持股，優先保護現金水位`;
+    sub.textContent = `流動現金不足，建議賣股`;
   } else if(d.exit){
     if((state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
       headline.textContent = '⚠ 出清觸發，但目前股數為0';
-      sub.textContent = `目前股數池為0，沒有部位可以出清`;
+      sub.textContent = `目前無部位，無法出清`;
     } else {
       hero.className = 'hero st-exit';
       headline.textContent = '💰 出清觸發';
-      const srcTxt = d.exitThresholdSource === 'cost' ? '成本乘數' : 'MA20×出清乘數';
-      sub.textContent = `股價達出清價位（依${srcTxt}計算：${fmt(d.exitThreshold,2)}），分批出清${(P.exitPartialFrac*100).toFixed(0)}%，不受防禦邊界影響`;
+      sub.textContent = `股價達出清價位，分批出清${(P.exitPartialFrac*100).toFixed(0)}%`;
     }
   } else if(d.timeStopTriggered){
     if((state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
       headline.textContent = '⚠ 時間停損觸發，但目前股數為0';
-      sub.textContent = `目前股數池為0，沒有部位可以分批停損`;
+      sub.textContent = `目前無部位，無法停損`;
     } else {
       hero.className = 'hero st-exit';
       headline.textContent = '⏰ 時間停損觸發';
-      sub.textContent = `已持有${d.holdDays}天，超過門檻${P.timeStopDays}天仍未出清，建議分批出清${(P.timeStopPartialFrac*100).toFixed(0)}%，不受防禦邊界影響`;
+      sub.textContent = `已持有${d.holdDays}天，分批停損${(P.timeStopPartialFrac*100).toFixed(0)}%`;
     }
+  } else if(d.dcaPaused){
+    hero.className = 'hero st-warn';
+    headline.textContent = '⏸ 定期定額今日暫停';
+    sub.textContent = `流動現金不足，今日暫停扣款`;
   } else if(defenseOff){
     hero.className = 'hero st-defense';
     if(d.marginSafe === false){
       headline.textContent = '🛡 防禦邊界關閉：融資維持率過低';
-      sub.textContent = `暫停動能觸發與加碼觸發，僅維持${dcaLabel}，建議減碼融資部位`;
+      sub.textContent = `建議減碼融資部位`;
     } else {
       headline.textContent = '🛡 防禦邊界關閉';
-      sub.textContent = `暫停動能觸發與加碼觸發，僅維持${dcaLabel}`;
+      sub.textContent = `暫停動能與加碼，僅維持${dcaLabel}`;
     }
   } else if(d.bombard){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
       hero.className = 'hero st-warn';
       headline.textContent = '📈 加碼觸發：流動現金不足支付加碼';
-      sub.textContent = `股價小於MA20×${touchMult}，但流動現金不足支付第一層加碼`;
+      sub.textContent = `現金不足，無法支付第一層`;
     } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
       hero.className = 'hero st-warn';
       headline.textContent = '📈 加碼觸發：流動現金不足支付加碼第二層';
-      sub.textContent = `股價小於MA20×${touchMult}，但流動現金不足支付第二層加碼`;
+      sub.textContent = `現金不足，無法支付第二層`;
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `股價小於MA20×${touchMult} 且MA20持平或向上`;
+      sub.textContent = `股價達加碼價位`;
     }
   } else if(d.momentum){
     hero.className = 'hero st-momentum';
     headline.textContent = '🔷 動能觸發';
-    sub.textContent = 'MA5持平或向上 且連續三日股價大於MA5';
+    sub.textContent = '連續三日站穩MA5';
   } else {
     hero.className = 'hero st-idle';
     headline.textContent = `🟢 ${dcaLabel}`;
@@ -1656,6 +1708,7 @@ function renderLeds(){
   }
   resultHtml += ledItem(!!d.timeStopTriggered, tsLabel, d.timeStopTriggered?'amber':'');
   resultHtml += ledItem(!!d.liquidityStopTriggered, '現金水位停損觸發', d.liquidityStopTriggered?'red':'');
+  resultHtml += ledItem(!!d.dcaPaused, '定期定額今日暫停', d.dcaPaused?'amber':'');
 
   grid.innerHTML = noticeHtml +
     `<div class="led-col"><div class="led-col-title">條件</div>${condHtml}</div>` +
@@ -1681,15 +1734,22 @@ function renderOrders(){
   const tickDec = getTickDecimals(getEffectiveTick(asset, d.today ? d.today.close : 0));
   let html = '';
 
-  // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價
-  let dcaDetail;
-  if(asset.dcaMode === 'amount'){
-    dcaDetail = `${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
+  // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價；
+  // 暫停時只顯示執行結果，原因說明統一放在防禦邊界卡片
+  let dcaDetail, dcaCond;
+  if(d.dcaPaused){
+    dcaDetail = `<span style="color:var(--amber); font-weight:700;">今日暫停</span>`;
+    dcaCond = '今日不執行';
   } else {
-    dcaDetail = d.ready1 ? `${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `${asset.dcaValue} 股 ＠市價`;
+    dcaCond = '恆常執行，不受防禦邊界影響';
+    if(asset.dcaMode === 'amount'){
+      dcaDetail = `${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
+    } else {
+      dcaDetail = d.ready1 ? `${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `${asset.dcaValue} 股 ＠市價`;
+    }
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
-  html += orderRow(true, dcaLabel, '恆常執行，不受防禦邊界影響', dcaDetail);
+  html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail);
 
   // 動能觸發：限價單，掛在最近一次收盤價（隔天下單用），需要精確股價與股數，不寫「市價」
   let boostDetail = '';
@@ -1762,8 +1822,8 @@ function renderOrders(){
   }
   html += orderRow(!!d.timeStopTriggered, '時間停損觸發', tsCondTxt, tsDetail);
 
-  // 現金水位停損：現金比例低於最低流動現金佔比%時，建議今天用市價賣股票，救回到「門檻×補回倍數」，優先保護現金水位
-  let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%，建議今日市價賣出部分持股`;
+  // 現金水位停損：只顯示執行動作，原因說明統一放在防禦邊界卡片
+  let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
   let liqDetail = '';
   if(d.liquidityStopTriggered && d.today){
     liqDetail = `${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
@@ -1883,7 +1943,10 @@ function renderReserve(){
   let liquidityLine = '';
   if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
-    liquidityLine = `<br><span style="color:var(--red); font-weight:700;">→ 現金水位停損建議：今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}</span>`;
+    const reasonTxt = d.liquidityStopByFloor ? '（跌破絕對底線，逆勢賣出）' : '（MA60安全，順勢賣出）';
+    liquidityLine = `<br><span style="color:var(--red); font-weight:700;">→ 現金水位停損建議：今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}${reasonTxt}</span>`;
+  } else if(d.dcaPaused){
+    liquidityLine = `<br><span style="color:var(--amber); font-weight:700;">→ 定期定額今日暫停：MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股</span>`;
   }
   const cashLed = getCashLedState(st);
   const defenseLed = getDefenseLedState(d);
@@ -1892,7 +1955,7 @@ function renderReserve(){
   const marginLed = getMarginLedState(d);
   const liquidityLedHtml = d.liquidityStopTriggered
     ? `<span style="color:var(--red); font-weight:700;">現金水位停損觸發</span><br>`
-    : '';
+    : (d.dcaPaused ? `<span style="color:var(--amber); font-weight:700;">定期定額今日暫停</span><br>` : '');
 
   let marginLine = '';
   if(d.marginStatus && d.marginStatus.hasPrice){
@@ -1961,6 +2024,12 @@ function renderAll(){
   renderOrders();
   const asset = getAsset(state.activeTab);
   document.getElementById('marginFieldsWrap').style.display = asset.stockNo ? 'block' : 'none';
+  const updateHint = document.getElementById('updateHintText');
+  if(updateHint){
+    updateHint.textContent = assetSupportsAutoFetch(asset)
+      ? '「更新」會同時從證交所更新最近3個交易日的收盤價與均線'
+      : '「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入';
+  }
   renderBacktestAvailability();
 }
 
@@ -1977,15 +2046,20 @@ function renderBacktestAvailability(){
   const inEndDate = document.getElementById('btEndDate');
   const inStartCapital = document.getElementById('btStartCapital');
   const inCashFloor = document.getElementById('btCashFloor');
+  const inLiqFloorMult = document.getElementById('btLiqFloorMult');
   const clearLink = document.getElementById('btnBtClearImport');
   // 現金水位下限的預設提示文字，跟著「輸入起始本金」的預設值（5,000,000）×這個標的的最低流動現金佔比%計算
   if(inCashFloor && asset.params){
     inCashFloor.placeholder = String(Math.round(5000000 * asset.params.cashTargetPct));
   }
+  // 絕對底線倍數的提示文字，跟著這個標的目前的正式設定值
+  if(inLiqFloorMult && asset.params){
+    inLiqFloorMult.placeholder = String(asset.params.liqFloorMult);
+  }
   [btnDownload, inDownloadStartDate].forEach(el=>{
     if(el) el.disabled = !supported;
   });
-  [btnRun, btnImport, inStartDate, inEndDate, inStartCapital, inCashFloor].forEach(el=>{
+  [btnRun, btnImport, inStartDate, inEndDate, inStartCapital, inCashFloor, inLiqFloorMult].forEach(el=>{
     if(el) el.disabled = false;
   });
   if(!supported){
