@@ -877,16 +877,28 @@ let btImportedData = {};
 function parseBacktestImportFile(text){
   const lines = text.split(/\r?\n/);
   const rows = [];
+  const numOrNull = (v) => (v === undefined || v === '—' || isNaN(parseFloat(String(v).replace(/,/g,'')))) ? null : parseFloat(String(v).replace(/,/g,''));
   for(const line of lines){
     const parts = line.trim().split(/\s+/);
     if(parts.length < 6) continue;
     const dateMatch = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]);
     if(!dateMatch) continue; // 跳過標題行、資產名稱行
-    const open = parseFloat(parts[1]);
-    const close = parseFloat(parts[2]);
-    const high = parseFloat(parts[3]);
-    const low = parseFloat(parts[4]);
-    const volume = parseFloat(String(parts[5]).replace(/,/g, ''));
+    let open, close, high, low, volume;
+    if(parts.length >= 12){
+      // 新版格式（跟「歷史紀錄」下載一致）：日期/收盤價/MA5/MA20/MA60/開盤價/最高價/最低價/漲跌價差/成交股數/成交金額/成交筆數
+      close = parseFloat(parts[1]);
+      open = numOrNull(parts[5]);
+      high = numOrNull(parts[6]);
+      low = numOrNull(parts[7]);
+      volume = numOrNull(parts[9]);
+    } else {
+      // 舊版格式：日期/開盤價/收盤價/最高價/最低價/成交股數/MA5/MA20/MA60
+      open = numOrNull(parts[1]);
+      close = parseFloat(parts[2]);
+      high = numOrNull(parts[3]);
+      low = numOrNull(parts[4]);
+      volume = numOrNull(parts[5]);
+    }
     if(isNaN(close)) continue;
     rows.push({ date: parts[0], open, close, high, low, volume });
   }
@@ -949,17 +961,12 @@ async function downloadHistoricalData(){
     };
 
     let txt = `${asset.name}\n`;
-    txt += '日期        開盤價        收盤價        最高價        最低價        成交股數        MA5           MA20          MA60\n';
+    txt += '日期        收盤價        MA5           MA20          MA60          開盤價        最高價        最低價        漲跌價差      成交股數      成交金額      成交筆數\n';
+    const numOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
     for(let i = startIdx; i < allRows.length; i++){
       const ma5 = maAt(i,5), ma20 = maAt(i,20), ma60 = maAt(i,60);
-      const ma60Txt = ma60 != null ? fmtRaw(ma60,2) : '—';
-      const ma20Txt = ma20 != null ? fmtRaw(ma20,2) : '—';
-      const ma5Txt = ma5 != null ? fmtRaw(ma5,2) : '—';
-      const openTxt = (allRows[i].open != null && !isNaN(allRows[i].open)) ? fmtRaw(allRows[i].open,2) : '—';
-      const highTxt = (allRows[i].high != null && !isNaN(allRows[i].high)) ? fmtRaw(allRows[i].high,2) : '—';
-      const lowTxt = (allRows[i].low != null && !isNaN(allRows[i].low)) ? fmtRaw(allRows[i].low,2) : '—';
-      const volTxt = (allRows[i].volume != null && !isNaN(allRows[i].volume)) ? fmtRaw(allRows[i].volume,0) : '—';
-      txt += `${allRows[i].date}   ${String(openTxt).padStart(10)}   ${fmtRaw(closes[i],2).padStart(10)}   ${String(highTxt).padStart(10)}   ${String(lowTxt).padStart(10)}   ${String(volTxt).padStart(12)}   ${String(ma5Txt).padStart(10)}   ${String(ma20Txt).padStart(10)}   ${String(ma60Txt).padStart(10)}\n`;
+      const r = allRows[i];
+      txt += `${r.date}   ${fmtRaw(closes[i],2).padStart(10)}   ${numOrDash(ma5,2).padStart(10)}   ${numOrDash(ma20,2).padStart(10)}   ${numOrDash(ma60,2).padStart(10)}   ${numOrDash(r.open,2).padStart(10)}   ${numOrDash(r.high,2).padStart(10)}   ${numOrDash(r.low,2).padStart(10)}   ${numOrDash(r.change,2).padStart(10)}   ${numOrDash(r.volume,0).padStart(10)}   ${numOrDash(r.amount,0).padStart(10)}   ${numOrDash(r.tradeCount,0).padStart(10)}\n`;
     }
 
     const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
