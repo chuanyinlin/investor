@@ -387,7 +387,7 @@
 
     <!-- 日常操作：每天真正需要輸入的東西，跟自動抓價一起送出 -->
     <div class="field">
-      <label style="color:var(--text);">目前流動現金／股數<span style="color:var(--text-faint); font-weight:400;">（計算現金水位停損）</span></label>
+      <label style="color:var(--text);">目前流動現金／股數<span style="color:var(--text-faint); font-weight:400;">（計算現金水位）</span></label>
     </div>
     <div class="grid2">
       <div class="field">
@@ -430,19 +430,25 @@
       </div>
     </div>
 
-    <div class="footer-note" id="updateHintText" style="text-align:left; margin-bottom:10px;">「更新」會同時從證交所更新最近3個交易日的收盤價與均線</div>
+    <button class="btn btn-neutral btn-sm" id="btnSaveManualFields" style="width:100%; margin-top:6px;">儲存</button>
+    <div class="footer-note" id="saveManualFieldsStatus" style="text-align:left; margin-top:6px;"></div>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">更新標的資料</label>
+    </div>
+    <div class="footer-note" id="updateHintText" style="text-align:left; margin-bottom:10px;">「更新」會從證交所更新最近3個交易日的資料</div>
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
     <!-- 進階/例外處理：收合，平常不會用到 -->
     <div class="card-title" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);">
-      <h3 style="font-size:13px;">進階</h3>
+      <h3 style="font-size:13px;">進階資料輸入</h3>
       <button class="btn btn-primary btn-sm" id="toggleAdvancedInput" title="展開"><span class="chev collapsed">▾</span></button>
     </div>
     <div id="advancedInputBody" style="display:none;">
 
     <div class="field date-field">
-      <label style="color:var(--text);">手動更新特定日期的價格／均線<span style="color:var(--text-faint); font-weight:400;">（不更動流動現金／股數）</span></label>
+      <label style="color:var(--text);">手動更新特定日期的資料<span style="color:var(--text-faint); font-weight:400;">（不更動流動現金／股數）</span></label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
@@ -464,6 +470,22 @@
     <div class="grid2">
       <div class="field"><label>MA20</label><input type="number" step="0.01" id="inMa20" placeholder="0.00"></div>
       <div class="field"><label>MA60</label><input type="number" step="0.01" id="inMa60" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>開盤價</label><input type="number" step="0.01" id="inOpen" placeholder="0.00"></div>
+      <div class="field"><label>最高價</label><input type="number" step="0.01" id="inHigh" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>最低價</label><input type="number" step="0.01" id="inLow" placeholder="0.00"></div>
+      <div class="field"><label>漲跌價差</label><input type="number" step="0.01" id="inChange" placeholder="0.00"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>成交股數</label><input type="number" step="1" id="inVolume" placeholder="0"></div>
+      <div class="field"><label>成交金額</label><input type="number" step="1" id="inAmount" placeholder="0"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>成交筆數</label><input type="number" step="1" id="inTradeCount" placeholder="0"></div>
+      <div></div>
     </div>
     <button class="btn btn-neutral btn-sm" id="btnAdd">新增</button>
 
@@ -678,7 +700,7 @@ const PARAM_META = [
   ['exitMult','停利價位乘數','mult','停利邏輯','股價漲到「MA20×這個倍數」時觸發停利，倍數越高，要漲越多才會出場'],
   ['costExitMult','停利成本乘數（與MA20停利價取高者）','mult','停利邏輯','股價漲到「平均持股成本×這個倍數」時也會觸發停利，跟上面的MA20停利價取兩者較高的門檻，避免賣在成本以下'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的這個比例，不是全部停利，剩下的部位繼續留倉'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場。換算成金額的公式：現金應保留＝這個比例×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保現金補到這個金額後，佔總部位的比例真的精確等於設定值'],
   ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
@@ -720,10 +742,13 @@ async function fetchStockMonth(stockNo, yyyymm01){
   return json.data.map(row => ({
     date: twseDateToISO(row[0]),
     volume: parseFloat(String(row[1]).replace(/,/g, '')),
+    amount: parseFloat(String(row[2]).replace(/,/g, '')),
     open: parseFloat(String(row[3]).replace(/,/g, '')),
     high: parseFloat(String(row[4]).replace(/,/g, '')),
     low: parseFloat(String(row[5]).replace(/,/g, '')),
-    close: parseFloat(String(row[6]).replace(/,/g, ''))
+    close: parseFloat(String(row[6]).replace(/,/g, '')),
+    change: parseFloat(String(row[7]).replace(/,/g, '')),
+    tradeCount: parseFloat(String(row[8]).replace(/,/g, ''))
   })).filter(r => r.date && !isNaN(r.close));
 }
 
@@ -819,6 +844,13 @@ async function fetchLast3DaysCore(){
         date: target.date,
         close: target.close,
         ma5, ma20, ma60,
+        open: target.open,
+        high: target.high,
+        low: target.low,
+        volume: target.volume,
+        amount: target.amount,
+        change: target.change,
+        tradeCount: target.tradeCount,
         cash: existingIdx >= 0 ? state.log[key][existingIdx].cash : null,
       };
       if(existingIdx >= 0){
@@ -1774,6 +1806,7 @@ function renderHistory(){
   }
 
   const rows = [...rowsAsc].reverse();
+  const fmtOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
   list.innerHTML = rows.map((r)=>{
     const realIdx = state.log[key].findIndex(x=>x.date===r.date && x.close===r.close && x.ma5===r.ma5 && x.ma20===r.ma20);
     const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
@@ -1789,6 +1822,22 @@ function renderHistory(){
       <div class="hist-grid2">
         <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20,2)}</div></div>
         <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
+      </div>
+      <div class="hist-grid2" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">
+        <div><div class="hist-stat-label">開盤價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.open,2)}</div></div>
+        <div><div class="hist-stat-label">最高價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.high,2)}</div></div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">最低價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.low,2)}</div></div>
+        <div><div class="hist-stat-label">漲跌價差</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.change,2)}</div></div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">成交股數</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.volume,0)}</div></div>
+        <div><div class="hist-stat-label">成交金額</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.amount,0)}</div></div>
+      </div>
+      <div class="hist-grid2">
+        <div><div class="hist-stat-label">成交筆數</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash(r.tradeCount,0)}</div></div>
+        <div></div>
       </div>
     </div>`;
   }).join('');
@@ -2010,11 +2059,10 @@ function getCashStatus(key){
   const unit = asset.currency;
   const sufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
 
-  // 加碼所需金額：固定顯示，不管今天有沒有真的觸發加碼，都試算給你參考
+  // 加碼所需金額與夠不夠付：固定顯示，不管今天有沒有真的觸發加碼，都試算給防禦邊界卡片參考
   let bombardTriggered = false, bombardCost = null, bombardSufficient = null, bombardCostTxt = '';
   let layer2Cost = null, layer2CostTxt = '', bombardSufficientBoth = null;
   if(d.today){
-    bombardTriggered = true;
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
@@ -2027,6 +2075,8 @@ function getCashStatus(key){
     // 兩層都觸發時會同時掛單，所以要檢查現金夠不夠同時支付第一層＋第二層
     bombardSufficientBoth = (requiredReserve == null) ? null : ((cur - requiredReserve) >= (bombardCost + layer2Cost));
   }
+  // 這個旗標只用來標記「今天加碼是不是真的有觸發」，只影響「流動現金充足」燈號要不要考慮加碼金額，不影響上面固定顯示的金額試算
+  bombardTriggered = !!(d.bombard && d.today);
 
   return { requiredReserve, requiredTxt, cur, unit, sufficient, bombardTriggered, bombardCost, bombardCostTxt, bombardSufficient, layer2Cost, layer2CostTxt, bombardSufficientBoth };
 }
@@ -2105,54 +2155,137 @@ function renderReserve(){
 
   const st = getCashStatus(key);
 
-  // 加碼觸發相關金額：固定顯示，不管今天有沒有真的觸發，方便隨時參考
+  // ---- 1. 流動現金充足（對應條件欄第8個燈號） ----
   const available = (st.requiredReserve != null) ? (st.cur - st.requiredReserve) : null;
   const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（尚無收盤價或股數資料）';
-  const bombardLine = `<br><span style="color:var(--text); font-weight:700;">→ 可動用資金（流動現金－應保留金額）：${availableTxt}</span><br><span style="color:var(--text); font-weight:700;">→ 加碼觸發(第一層)所需金額：${st.bombardCostTxt}</span><br><span style="color:var(--text); font-weight:700;">→ 加碼觸發(第二層)所需金額：${st.layer2CostTxt}</span>`;
+  const avgCostVal = state.avgCost[key] || 0;
+  const positionStartTxt = state.positionStart[key] || '—（未輸入）';
+  const hasMarginPrice = !!(d.marginStatus && d.marginStatus.hasPrice);
+  const marginRawTxt = hasMarginPrice
+    ? `融資買進均價：${fmt(d.marginStatus.costPrice,2)}｜融資股數：${(d.marginStatus.shares||0).toLocaleString()} 股`
+    : `融資買進均價：—（未輸入）｜融資股數：—`;
+  const cashSectionTop = `<span style="color:var(--text-faint); font-size:11px;">根據資料輸入</span><br>` +
+    `<span style="color:var(--text-faint);">目前流動現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股</span><br>` +
+    `<span style="color:var(--text-faint);">平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}｜建倉起始日：${positionStartTxt}</span><br>` +
+    `<span style="color:var(--text-faint);">${marginRawTxt}</span><br>`;
+  // 流動現金充足：唯一一行，恆常顯示現金應保留／可動用現金水位，後面依判定訊號燈號的4種狀態補充對應文字
+  let bombardAffordTxt;
+  const affordBase = `現金應保留${st.requiredTxt}｜可動用現金水位${availableTxt}`;
+  if(st.sufficient == null){
+    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜尚無資料，無法判斷</span>`;
+  } else if(st.sufficient === false){
+    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位不足</span>`;
+  } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
+    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
+  } else {
+    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}</span>`;
+  }
 
-  // 現金水位停損／定期定額暫停：冒號前固定「現金水位／定期定額」這個標籤，冒號後才依現況變化，跟其他「→ 標籤：內容」的格式一致
-  let liquidityStateHtml;
+  // ---- 2. 融資維持率安全（對應條件欄第9個燈號） ----
+  let marginLine;
+  if(hasMarginPrice){
+    const ms = d.marginStatus;
+    const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
+    const callPriceTicked = applyTick(ms.callPrice, getEffectiveTick(asset, ms.callPrice), 'round');
+    marginLine = `<span style="color:var(--text); font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked,2)}</span>`;
+  } else {
+    marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
+  }
+
+  // ---- 2.5 防禦邊界安全（對應結果欄第1個燈號） ----
+  let defenseLedTxt;
+  if(!d.ready2 || !d.hasMa60){
+    defenseLedTxt = '未確認（資料不足或尚未輸入MA60）';
+  } else if(d.defenseOk){
+    defenseLedTxt = '安全';
+  } else {
+    const defenseReasons = [];
+    if(!d.ma60upFlat) defenseReasons.push('MA60未持平或向上');
+    if(!d.priceAboveMa60) defenseReasons.push('股價未站穩MA60');
+    if(d.cashSufficient === false) defenseReasons.push('流動現金不足');
+    if(d.marginSafe === false) defenseReasons.push('融資維持率不安全');
+    defenseLedTxt = `不安全（${defenseReasons.join('、')}）`;
+  }
+  const defenseLedLine = `<span style="color:var(--text); font-weight:700;">→ 防禦邊界安全：${defenseLedTxt}</span>`;
+
+  // ---- 3. 定期定額（對應結果欄第2個燈號） ----
+  let dcaStateHtml;
+  if(d.dcaPaused){
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ 定期定額：今日暫停（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
+  } else {
+    dcaStateHtml = `<span style="color:var(--text); font-weight:700;">→ 定期定額：今日正常執行</span>`;
+  }
+
+  // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
+  let bombardTriggerTxt;
+  if(!d.ready2){
+    bombardTriggerTxt = '未觸發（資料不足，無法判斷）';
+  } else if(d.bombard){
+    bombardTriggerTxt = `已觸發｜第一層所需金額${st.bombardCostTxt}｜第二層所需金額${st.layer2CostTxt}`;
+  } else {
+    const reasons = [];
+    if(!d.ma60upFlat) reasons.push('MA60未持平或向上');
+    if(!d.priceAboveMa60) reasons.push('股價未站穩MA60');
+    if(!d.ma20upFlat) reasons.push('MA20未持平或向上');
+    if(!d.touch) reasons.push('股價未達加碼價位');
+    if(d.cashSufficient === false) reasons.push('流動現金不足');
+    if(d.marginSafe === false) reasons.push('融資維持率不安全');
+    bombardTriggerTxt = `未觸發（${reasons.join('、')}）`;
+  }
+  const bombardLine = `<span style="color:var(--text); font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
+
+  // ---- 5. 停利觸發（對應結果欄第4個燈號） ----
+  const exitThresholdTicked = (d.exitThreshold != null) ? applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round') : null;
+  const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
+  const sharesNow = state.shares[key] || 0;
+  let exitTriggerTxt;
+  if(d.exit && sharesNow <= 0){
+    exitTriggerTxt = '已達停利價位，但目前股數為0，無法執行';
+  } else if(d.exit){
+    exitTriggerTxt = '已觸發';
+  } else {
+    exitTriggerTxt = '未觸發';
+  }
+  const costLine = `<span style="color:var(--text); font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}｜已持有：${holdDaysTxt}</span>`;
+
+  // ---- 6. 現金水位停損觸發（對應結果欄第6個燈號） ----
+  let liquidityStopHtml;
   if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
     const reasonTxt = d.liquidityStopByFloor ? '（跌破絕對底線，逆勢賣出）' : '（MA60安全，順勢賣出）';
     const rebuildMultTxt = (asset.params.liqRebuildMult && asset.params.liqRebuildMult >= 1) ? asset.params.liqRebuildMult : 1;
-    liquidityStateHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位／定期定額：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}，補回到門檻×${rebuildMultTxt}倍${reasonTxt}</span>`;
-  } else if(d.dcaPaused){
-    liquidityStateHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位／定期定額：今日暫停定期定額（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
+    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}，補回到門檻×${rebuildMultTxt}倍${reasonTxt}</span>`;
   } else {
-    liquidityStateHtml = `<span style="color:var(--text); font-weight:700;">→ 現金水位／定期定額：正常</span>`;
+    liquidityStopHtml = `<span style="color:var(--text); font-weight:700;">→ 現金水位停損觸發：未觸發</span>`;
   }
 
-
-  // 融資：固定顯示，沒有輸入融資買進均價時用「—（未輸入）」，格式不因有沒有融資部位而變動
-  let marginLine;
-  if(d.marginStatus && d.marginStatus.hasPrice){
-    const ms = d.marginStatus;
-    const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
-    const callPriceTicked = applyTick(ms.callPrice, getEffectiveTick(asset, ms.callPrice), 'round');
-    marginLine = `<br><span style="color:var(--text-faint);">融資買進均價：${fmt(ms.costPrice,2)}｜融資股數：${(ms.shares||0).toLocaleString()} 股</span>` +
-      `<br><span style="color:var(--text); font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked,2)}</span>`;
+  // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位停損觸發） ----
+  let timeStopHtml;
+  if(d.timeStopTriggered === undefined){
+    timeStopHtml = `<span style="color:var(--text); font-weight:700;">→ 時間停損觸發：未觸發（尚未設定建倉起始日，無法判斷）</span>`;
+  } else if(d.timeStopTriggered && d.today){
+    const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
+    const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
+    const tickDec2 = getTickDecimals(getEffectiveTick(asset, tsPrice));
+    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：建議今日分批停損 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec2)}</span>`;
   } else {
-    marginLine = `<br><span style="color:var(--text-faint);">融資買進均價：—（未輸入）｜融資股數：—</span>` +
-      `<br><span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
+    timeStopHtml = `<span style="color:var(--text); font-weight:700;">→ 時間停損觸發：未觸發</span>`;
   }
-
-  // 持股成本／建倉起始日／停利價位／已持有天數：固定顯示，沒有輸入時用「—」
-  const avgCostVal = state.avgCost[key] || 0;
-  const positionStartTxt = state.positionStart[key] || '—（未輸入）';
-  let costLine = `<br><span style="color:var(--text-faint);">平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}｜建倉起始日：${positionStartTxt}</span>`;
-  const exitThresholdTicked = (d.exitThreshold != null) ? applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round') : null;
-  const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
-  let exitLine = `→ 停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}｜已持有：${holdDaysTxt}`;
-  exitLine = `<span style="color:var(--text); font-weight:700;">${exitLine}</span>`;
-  costLine += `<br>${exitLine}`;
 
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
-    `<span style="color:var(--text-faint); font-size:11px;">根據資料輸入</span><br>` +
-    `<span style="color:var(--text-faint);">目前流動現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股</span><br>` +
-    `<span style="color:var(--text); font-weight:700;">→ 現金應保留：${st.requiredTxt}</span>${bombardLine}<br>${liquidityStateHtml}<br>` +
-    `${costLine.replace(/^<br>/,'')}${marginLine}`;
+    cashSectionTop + bombardAffordTxt + `<br>` +
+    marginLine + `<br>` +
+    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
+    `<span style="color:var(--text-faint);">根據最近3個交易日的收盤價與均線</span><br>` +
+    defenseLedLine + `<br>` +
+    dcaStateHtml + `<br>` +
+    bombardLine + `<br>` +
+    costLine + `<br>` +
+    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
+    `<span style="color:var(--text-faint);">根據資料輸入及最近3個交易日的收盤價與均線</span><br>` +
+    liquidityStopHtml + `<br>` +
+    timeStopHtml;
 }
 
 function renderTabs(){
@@ -2171,6 +2304,7 @@ function renderTabs(){
       document.getElementById('inMarginSharesNow').value = '';
       document.getElementById('importStatus').innerHTML = '';
       document.getElementById('updateDailyStatus').innerHTML = '';
+      document.getElementById('saveManualFieldsStatus').innerHTML = '';
       document.getElementById('clearAssetDataStatus').innerHTML = '';
       document.getElementById('backtestResult').innerHTML = '';
       document.getElementById('backtestStatus').innerHTML = '';
@@ -2193,7 +2327,7 @@ function renderAll(){
   const updateHint = document.getElementById('updateHintText');
   if(updateHint){
     updateHint.textContent = assetSupportsAutoFetch(asset)
-      ? '「更新」會同時從證交所更新最近3個交易日的收盤價與均線'
+      ? '「更新」會從證交所更新最近3個交易日的資料'
       : '「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入';
   }
   renderBacktestAvailability();
@@ -2676,16 +2810,16 @@ document.getElementById('btnBtClearImport').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
+  const fmtOrDashRaw = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
   const section = (asset)=>{
     const rows = sortedLog(asset.key);
     let txt = `${asset.name}\n`;
     if(rows.length === 0){
       txt += '（尚無資料）\n';
     } else {
-      txt += '日期        收盤價        MA5           MA20          MA60\n';
+      txt += '日期        收盤價        MA5           MA20          MA60          開盤價        最高價        最低價        漲跌價差      成交股數      成交金額      成交筆數\n';
       rows.forEach(r=>{
-        const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
-        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${String(ma60Txt).padStart(10)}\n`;
+        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${fmtOrDashRaw(r.ma60,2).padStart(10)}   ${fmtOrDashRaw(r.open,2).padStart(10)}   ${fmtOrDashRaw(r.high,2).padStart(10)}   ${fmtOrDashRaw(r.low,2).padStart(10)}   ${fmtOrDashRaw(r.change,2).padStart(10)}   ${fmtOrDashRaw(r.volume,0).padStart(10)}   ${fmtOrDashRaw(r.amount,0).padStart(10)}   ${fmtOrDashRaw(r.tradeCount,0).padStart(10)}\n`;
       });
     }
     return txt;
@@ -2721,27 +2855,42 @@ function parseImportText(text){
       const parts = line.split(/\s+/);
       if(parts.length < 4) continue;
       let close, ma5, ma20, ma60, cash = null, shares = null;
-      if(parts.length >= 9){
-        // 「回測資料」下載格式：日期/開盤價/收盤價/最高價/最低價/成交股數/MA5/MA20/MA60（9欄，沒有流動現金/股數快照）
-        close = parseFloat(parts[2]);
-        ma5 = parseFloat(parts[6]);
-        ma20 = parseFloat(parts[7]);
-        const ma60Raw = parts[8];
-        ma60 = (ma60Raw === undefined || ma60Raw === '—' || isNaN(parseFloat(ma60Raw))) ? null : parseFloat(ma60Raw);
-      } else {
-        // 「歷史紀錄」下載格式：日期/收盤價/MA5/MA20/MA60[/流動現金/股數]
+      let open = null, high = null, low = null, change = null, volume = null, amount = null, tradeCount = null;
+      const numOrNull = (v) => (v === undefined || v === '—' || isNaN(parseFloat(v))) ? null : parseFloat(v);
+      if(parts.length >= 12){
+        // 新版「歷史紀錄」完整下載格式：日期/收盤價/MA5/MA20/MA60/開盤價/最高價/最低價/漲跌價差/成交股數/成交金額/成交筆數（12欄）
         close = parseFloat(parts[1]);
         ma5 = parseFloat(parts[2]);
         ma20 = parseFloat(parts[3]);
-        const ma60Raw = parts[4];
-        ma60 = (ma60Raw === undefined || ma60Raw === '—' || isNaN(parseFloat(ma60Raw))) ? null : parseFloat(ma60Raw);
-        const cashRaw = parts[5];
-        cash = (cashRaw === undefined || cashRaw === '—' || isNaN(parseFloat(cashRaw))) ? null : parseFloat(cashRaw);
-        const sharesRaw = parts[6];
-        shares = (sharesRaw === undefined || sharesRaw === '—' || isNaN(parseFloat(sharesRaw))) ? null : parseFloat(sharesRaw);
+        ma60 = numOrNull(parts[4]);
+        open = numOrNull(parts[5]);
+        high = numOrNull(parts[6]);
+        low = numOrNull(parts[7]);
+        change = numOrNull(parts[8]);
+        volume = numOrNull(parts[9]);
+        amount = numOrNull(parts[10]);
+        tradeCount = numOrNull(parts[11]);
+      } else if(parts.length >= 9){
+        // 「回測資料」下載格式：日期/開盤價/收盤價/最高價/最低價/成交股數/MA5/MA20/MA60（9欄，沒有流動現金/股數快照）
+        open = numOrNull(parts[1]);
+        close = parseFloat(parts[2]);
+        high = numOrNull(parts[3]);
+        low = numOrNull(parts[4]);
+        volume = numOrNull(parts[5]);
+        ma5 = parseFloat(parts[6]);
+        ma20 = parseFloat(parts[7]);
+        ma60 = numOrNull(parts[8]);
+      } else {
+        // 舊版「歷史紀錄」下載格式：日期/收盤價/MA5/MA20/MA60[/流動現金/股數]
+        close = parseFloat(parts[1]);
+        ma5 = parseFloat(parts[2]);
+        ma20 = parseFloat(parts[3]);
+        ma60 = numOrNull(parts[4]);
+        cash = numOrNull(parts[5]);
+        shares = numOrNull(parts[6]);
       }
       if(isNaN(close) || isNaN(ma5) || isNaN(ma20)) continue;
-      result[currentKey].push({ date: parts[0], close, ma5, ma20, ma60, cash, shares });
+      result[currentKey].push({ date: parts[0], close, ma5, ma20, ma60, cash, shares, open, high, low, change, volume, amount, tradeCount });
       continue;
     }
     // 不是資料列、不是表頭列，視為標的名稱／區段標題行
@@ -2871,15 +3020,46 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
     return;
   }
   const ma60 = ma60Raw === '' ? null : parseFloat(ma60Raw);
+
+  // 其餘7個欄位（開盤價／最高價／最低價／漲跌價差／成交股數／成交金額／成交筆數）都是選填，逐一驗證格式
+  const optionalFields = [
+    { id:'inOpen', key:'open', label:'開盤價' },
+    { id:'inHigh', key:'high', label:'最高價' },
+    { id:'inLow', key:'low', label:'最低價' },
+    { id:'inChange', key:'change', label:'漲跌價差' },
+    { id:'inVolume', key:'volume', label:'成交股數' },
+    { id:'inAmount', key:'amount', label:'成交金額' },
+    { id:'inTradeCount', key:'tradeCount', label:'成交筆數' },
+  ];
+  const optionalValues = {};
+  for(const f of optionalFields){
+    const raw = document.getElementById(f.id).value;
+    if(raw === ''){
+      optionalValues[f.key] = undefined; // 留空代表「這次不覆蓋」，下面會補回原本記錄的值
+      continue;
+    }
+    const num = parseFloat(raw);
+    if(isNaN(num)){
+      alert(`${f.label}格式錯誤`);
+      return;
+    }
+    optionalValues[f.key] = num;
+  }
+
   const key = state.activeTab;
   const existingIdx = state.log[key].findIndex(r=>r.date===date);
+  const existing = existingIdx >= 0 ? state.log[key][existingIdx] : null;
   // 現金不再透過這裡寫入歷史紀錄，改由「目前現金」區塊獨立更新；
-  // 若該日期原本就有紀錄，保留原本的cash欄位，不因這次操作被清空
-  const prevCash = existingIdx >= 0 ? state.log[key][existingIdx].cash : null;
+  // 若該日期原本就有紀錄，保留原本的cash欄位跟這次留空的其他欄位，不因這次操作被清空
+  const prevCash = existing ? existing.cash : null;
+  const entry = { date, close, ma5, ma20, ma60, cash: prevCash };
+  for(const f of optionalFields){
+    entry[f.key] = (optionalValues[f.key] !== undefined) ? optionalValues[f.key] : (existing ? existing[f.key] : null);
+  }
   if(existingIdx >= 0){
-    state.log[key][existingIdx] = {date, close, ma5, ma20, ma60, cash: prevCash};
+    state.log[key][existingIdx] = entry;
   } else {
-    state.log[key].push({date, close, ma5, ma20, ma60, cash: prevCash});
+    state.log[key].push(entry);
   }
   // 只保留最近3天的紀錄，超過的自動移除
   state.log[key] = sortedLog(key).slice(-3);
@@ -2889,14 +3069,20 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
   document.getElementById('inMa5').value = '';
   document.getElementById('inMa20').value = '';
   document.getElementById('inMa60').value = '';
+  document.getElementById('inOpen').value = '';
+  document.getElementById('inHigh').value = '';
+  document.getElementById('inLow').value = '';
+  document.getElementById('inChange').value = '';
+  document.getElementById('inVolume').value = '';
+  document.getElementById('inAmount').value = '';
+  document.getElementById('inTradeCount').value = '';
   renderAll();
 });
 
-document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
+document.getElementById('btnSaveManualFields').addEventListener('click', async ()=>{
   const key = state.activeTab;
   const asset = getAsset(key);
-  const statusEl = document.getElementById('updateDailyStatus');
-  const btn = document.getElementById('btnUpdateDaily');
+  const statusEl = document.getElementById('saveManualFieldsStatus');
   const cashRaw = document.getElementById('inCashNow').value;
   const sharesRaw = document.getElementById('inSharesNow').value;
   const avgCostRaw = document.getElementById('inAvgCostNow').value;
@@ -2923,10 +3109,6 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     statusEl.innerHTML = `<span style="color:var(--red)">融資股數格式錯誤。</span>`;
     return;
   }
-  const originalText = btn.textContent;
-  btn.textContent = '更新中...';
-  btn.disabled = true;
-  statusEl.innerHTML = '';
 
   const msgs = [];
   if(cashRaw !== ''){
@@ -2965,9 +3147,6 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     msgs.push('融資股數已更新');
   }
 
-  const fetchResult = await fetchLast3DaysCore();
-  msgs.push(fetchResult.msg);
-
   document.getElementById('inCashNow').value = '';
   document.getElementById('inSharesNow').value = '';
   document.getElementById('inAvgCostNow').value = '';
@@ -2975,9 +3154,27 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   document.getElementById('inMarginCostNow').value = '';
   document.getElementById('inMarginSharesNow').value = '';
   renderAll();
+  if(msgs.length === 0){
+    statusEl.innerHTML = `<span style="color:var(--text-faint)">沒有欄位需要儲存。</span>`;
+  } else {
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ ${msgs.join('；')}</span>`;
+  }
+});
+
+document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('updateDailyStatus');
+  const btn = document.getElementById('btnUpdateDaily');
+  const originalText = btn.textContent;
+  btn.textContent = '更新中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+
+  const fetchResult = await fetchLast3DaysCore();
+
+  renderAll();
   const color = fetchResult.ok ? 'var(--teal)' : 'var(--amber)';
   const icon = fetchResult.ok ? '✅' : '・';
-  statusEl.innerHTML = `<span style="color:${color}">${icon} ${msgs.join('；')}</span>`;
+  statusEl.innerHTML = `<span style="color:${color}">${icon} ${fetchResult.msg}</span>`;
   btn.textContent = originalText;
   btn.disabled = false;
 });
