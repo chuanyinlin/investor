@@ -874,33 +874,66 @@ async function fetchLast3DaysCore(){
 let btImportedData = {};
 
 // 解析「匯出歷史資料」產生的.txt檔案，還原成跟fetchMonthRangeCloses一樣的資料結構
+// ---- 歷史資料的欄位格式定義：下載/上傳/匯入共用同一份定義，改格式只需要改這裡一處 ----
+// 標準表頭（12欄，不含日期）：收盤價/MA5/MA20/MA60/開盤價/最高價/最低價/漲跌價差/成交股數/成交金額/成交筆數
+const HIST_HEADER_LINE = '日期        收盤價        MA5           MA20          MA60          開盤價        最高價        最低價        漲跌價差      成交股數      成交金額      成交筆數';
+
+// 把一列資料（統一欄位物件）格式化成一行文字，供「歷史紀錄」下載與「下載歷史資料」共用
+function formatHistRowTxt(r){
+  const numOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
+  return `${r.date}   ${numOrDash(r.close,2).padStart(10)}   ${numOrDash(r.ma5,2).padStart(10)}   ${numOrDash(r.ma20,2).padStart(10)}   ${numOrDash(r.ma60,2).padStart(10)}   ${numOrDash(r.open,2).padStart(10)}   ${numOrDash(r.high,2).padStart(10)}   ${numOrDash(r.low,2).padStart(10)}   ${numOrDash(r.change,2).padStart(10)}   ${numOrDash(r.volume,0).padStart(10)}   ${numOrDash(r.amount,0).padStart(10)}   ${numOrDash(r.tradeCount,0).padStart(10)}`;
+}
+
+// 把一行文字（已用空白split成parts陣列，parts[0]是日期）解析成統一欄位物件，
+// 依欄位數自動判斷是新版12欄／舊版9欄「回測資料」格式／更早的5~7欄「歷史紀錄」格式，
+// 供「上傳歷史紀錄檔案」與「匯入歷史資料」共用，避免各自維護欄位順序、改一邊忘了改另一邊
+function parseHistDataParts(parts){
+  const numOrNull = (v) => (v === undefined || v === '—' || isNaN(parseFloat(String(v).replace(/,/g,'')))) ? null : parseFloat(String(v).replace(/,/g,''));
+  let close, ma5 = null, ma20 = null, ma60 = null, cash = null, shares = null;
+  let open = null, high = null, low = null, change = null, volume = null, amount = null, tradeCount = null;
+  if(parts.length >= 12){
+    close = parseFloat(parts[1]);
+    ma5 = parseFloat(parts[2]);
+    ma20 = parseFloat(parts[3]);
+    ma60 = numOrNull(parts[4]);
+    open = numOrNull(parts[5]);
+    high = numOrNull(parts[6]);
+    low = numOrNull(parts[7]);
+    change = numOrNull(parts[8]);
+    volume = numOrNull(parts[9]);
+    amount = numOrNull(parts[10]);
+    tradeCount = numOrNull(parts[11]);
+  } else if(parts.length >= 9){
+    open = numOrNull(parts[1]);
+    close = parseFloat(parts[2]);
+    high = numOrNull(parts[3]);
+    low = numOrNull(parts[4]);
+    volume = numOrNull(parts[5]);
+    ma5 = parseFloat(parts[6]);
+    ma20 = parseFloat(parts[7]);
+    ma60 = numOrNull(parts[8]);
+  } else {
+    close = parseFloat(parts[1]);
+    ma5 = parseFloat(parts[2]);
+    ma20 = parseFloat(parts[3]);
+    ma60 = numOrNull(parts[4]);
+    cash = numOrNull(parts[5]);
+    shares = numOrNull(parts[6]);
+  }
+  return { close, ma5, ma20, ma60, cash, shares, open, high, low, change, volume, amount, tradeCount };
+}
+
 function parseBacktestImportFile(text){
   const lines = text.split(/\r?\n/);
   const rows = [];
-  const numOrNull = (v) => (v === undefined || v === '—' || isNaN(parseFloat(String(v).replace(/,/g,'')))) ? null : parseFloat(String(v).replace(/,/g,''));
   for(const line of lines){
     const parts = line.trim().split(/\s+/);
     if(parts.length < 6) continue;
     const dateMatch = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]);
     if(!dateMatch) continue; // 跳過標題行、資產名稱行
-    let open, close, high, low, volume;
-    if(parts.length >= 12){
-      // 新版格式（跟「歷史紀錄」下載一致）：日期/收盤價/MA5/MA20/MA60/開盤價/最高價/最低價/漲跌價差/成交股數/成交金額/成交筆數
-      close = parseFloat(parts[1]);
-      open = numOrNull(parts[5]);
-      high = numOrNull(parts[6]);
-      low = numOrNull(parts[7]);
-      volume = numOrNull(parts[9]);
-    } else {
-      // 舊版格式：日期/開盤價/收盤價/最高價/最低價/成交股數/MA5/MA20/MA60
-      open = numOrNull(parts[1]);
-      close = parseFloat(parts[2]);
-      high = numOrNull(parts[3]);
-      low = numOrNull(parts[4]);
-      volume = numOrNull(parts[5]);
-    }
-    if(isNaN(close)) continue;
-    rows.push({ date: parts[0], open, close, high, low, volume });
+    const f = parseHistDataParts(parts);
+    if(isNaN(f.close)) continue;
+    rows.push({ date: parts[0], open: f.open, close: f.close, high: f.high, low: f.low, volume: f.volume });
   }
   return rows.sort((a,b) => a.date < b.date ? -1 : 1);
 }
@@ -961,12 +994,11 @@ async function downloadHistoricalData(){
     };
 
     let txt = `${asset.name}\n`;
-    txt += '日期        收盤價        MA5           MA20          MA60          開盤價        最高價        最低價        漲跌價差      成交股數      成交金額      成交筆數\n';
-    const numOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
+    txt += HIST_HEADER_LINE + '\n';
     for(let i = startIdx; i < allRows.length; i++){
       const ma5 = maAt(i,5), ma20 = maAt(i,20), ma60 = maAt(i,60);
       const r = allRows[i];
-      txt += `${r.date}   ${fmtRaw(closes[i],2).padStart(10)}   ${numOrDash(ma5,2).padStart(10)}   ${numOrDash(ma20,2).padStart(10)}   ${numOrDash(ma60,2).padStart(10)}   ${numOrDash(r.open,2).padStart(10)}   ${numOrDash(r.high,2).padStart(10)}   ${numOrDash(r.low,2).padStart(10)}   ${numOrDash(r.change,2).padStart(10)}   ${numOrDash(r.volume,0).padStart(10)}   ${numOrDash(r.amount,0).padStart(10)}   ${numOrDash(r.tradeCount,0).padStart(10)}\n`;
+      txt += formatHistRowTxt({ date: r.date, close: closes[i], ma5, ma20, ma60, open: r.open, high: r.high, low: r.low, change: r.change, volume: r.volume, amount: r.amount, tradeCount: r.tradeCount }) + '\n';
     }
 
     const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
@@ -2817,16 +2849,15 @@ document.getElementById('btnBtClearImport').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
-  const fmtOrDashRaw = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
   const section = (asset)=>{
     const rows = sortedLog(asset.key);
     let txt = `${asset.name}\n`;
     if(rows.length === 0){
       txt += '（尚無資料）\n';
     } else {
-      txt += '日期        收盤價        MA5           MA20          MA60          開盤價        最高價        最低價        漲跌價差      成交股數      成交金額      成交筆數\n';
+      txt += HIST_HEADER_LINE + '\n';
       rows.forEach(r=>{
-        txt += `${r.date}   ${fmtRaw(r.close,2).padStart(10)}   ${fmtRaw(r.ma5,2).padStart(10)}   ${fmtRaw(r.ma20,2).padStart(10)}   ${fmtOrDashRaw(r.ma60,2).padStart(10)}   ${fmtOrDashRaw(r.open,2).padStart(10)}   ${fmtOrDashRaw(r.high,2).padStart(10)}   ${fmtOrDashRaw(r.low,2).padStart(10)}   ${fmtOrDashRaw(r.change,2).padStart(10)}   ${fmtOrDashRaw(r.volume,0).padStart(10)}   ${fmtOrDashRaw(r.amount,0).padStart(10)}   ${fmtOrDashRaw(r.tradeCount,0).padStart(10)}\n`;
+        txt += formatHistRowTxt(r) + '\n';
       });
     }
     return txt;
@@ -2861,43 +2892,9 @@ function parseImportText(text){
       if(!currentKey) continue;
       const parts = line.split(/\s+/);
       if(parts.length < 4) continue;
-      let close, ma5, ma20, ma60, cash = null, shares = null;
-      let open = null, high = null, low = null, change = null, volume = null, amount = null, tradeCount = null;
-      const numOrNull = (v) => (v === undefined || v === '—' || isNaN(parseFloat(v))) ? null : parseFloat(v);
-      if(parts.length >= 12){
-        // 新版「歷史紀錄」完整下載格式：日期/收盤價/MA5/MA20/MA60/開盤價/最高價/最低價/漲跌價差/成交股數/成交金額/成交筆數（12欄）
-        close = parseFloat(parts[1]);
-        ma5 = parseFloat(parts[2]);
-        ma20 = parseFloat(parts[3]);
-        ma60 = numOrNull(parts[4]);
-        open = numOrNull(parts[5]);
-        high = numOrNull(parts[6]);
-        low = numOrNull(parts[7]);
-        change = numOrNull(parts[8]);
-        volume = numOrNull(parts[9]);
-        amount = numOrNull(parts[10]);
-        tradeCount = numOrNull(parts[11]);
-      } else if(parts.length >= 9){
-        // 「回測資料」下載格式：日期/開盤價/收盤價/最高價/最低價/成交股數/MA5/MA20/MA60（9欄，沒有流動現金/股數快照）
-        open = numOrNull(parts[1]);
-        close = parseFloat(parts[2]);
-        high = numOrNull(parts[3]);
-        low = numOrNull(parts[4]);
-        volume = numOrNull(parts[5]);
-        ma5 = parseFloat(parts[6]);
-        ma20 = parseFloat(parts[7]);
-        ma60 = numOrNull(parts[8]);
-      } else {
-        // 舊版「歷史紀錄」下載格式：日期/收盤價/MA5/MA20/MA60[/流動現金/股數]
-        close = parseFloat(parts[1]);
-        ma5 = parseFloat(parts[2]);
-        ma20 = parseFloat(parts[3]);
-        ma60 = numOrNull(parts[4]);
-        cash = numOrNull(parts[5]);
-        shares = numOrNull(parts[6]);
-      }
-      if(isNaN(close) || isNaN(ma5) || isNaN(ma20)) continue;
-      result[currentKey].push({ date: parts[0], close, ma5, ma20, ma60, cash, shares, open, high, low, change, volume, amount, tradeCount });
+      const f = parseHistDataParts(parts);
+      if(isNaN(f.close) || isNaN(f.ma5) || isNaN(f.ma20)) continue;
+      result[currentKey].push({ date: parts[0], ...f });
       continue;
     }
     // 不是資料列、不是表頭列，視為標的名稱／區段標題行
