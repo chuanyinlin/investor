@@ -171,7 +171,6 @@
     width:16px; height:16px; padding:0; background:none; border:1px solid var(--hair-strong);
     border-radius:4px; accent-color: var(--teal); flex-shrink:0;
   }
-  .link-disabled{ opacity:0.4; pointer-events:none; cursor:not-allowed; }
   input[type="number"]{
     -moz-appearance: textfield;
   }
@@ -303,7 +302,6 @@
     width:92px; text-align:right; background: var(--panel-3); border:1px solid var(--hair);
     border-radius:9px; padding:7px 9px; color:var(--text); font-family:var(--font-mono); font-size:13px;
   }
-  .modal-close{ margin-top:14px; }
 
   .asset-card{
     background: var(--panel-3); border:1px solid var(--hair); border-radius:12px;
@@ -397,11 +395,11 @@
     </div>
     <div class="grid3">
       <div class="field">
-        <label id="cashLabel">流動現金</label>
+        <label>流動現金</label>
         <input type="number" step="1" id="inCashNow" placeholder="0">
       </div>
       <div class="field">
-        <label id="sharesLabel">股數</label>
+        <label>股數</label>
         <input type="number" step="1" id="inSharesNow" placeholder="0">
       </div>
       <div class="field">
@@ -652,7 +650,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-21 18:41</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-21 20:00</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -681,7 +679,6 @@
 </div>
 
 <script>
-const KEY_PARAMS = 'tsmos:params';
 const KEY_ASSETS = 'tsmos:assets';
 const KEY_LOG = k => 'tsmos:log:' + k;
 const KEY_CASH = k => 'tsmos:cash:' + k;
@@ -3507,19 +3504,14 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
   try{
     const text = await file.text();
     const parsed = JSON.parse(text);
-    // 新格式：{ assets }，每個標的自帶params；舊格式：{ params, assets } 或純標的陣列（維持相容）
-    const assetsArr = Array.isArray(parsed) ? parsed : parsed.assets;
-    const legacyGlobalParams = Array.isArray(parsed) ? null : parsed.params; // 舊格式的全域參數，僅作為相容備援
+    const assetsArr = parsed.assets;
     if(!Array.isArray(assetsArr) || assetsArr.length === 0 || !assetsArr.every(a=>a && typeof a.key === 'string' && typeof a.name === 'string')){
       throw new Error('format');
     }
     let addedCount = 0, updatedCount = 0;
     assetsArr.forEach(imported=>{
       const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
-      // 策略參數：優先用這個標的自己的params；沒有的話（舊檔案格式）退回舊版全域參數；都沒有就用固定初始預設值
-      const paramsSrc = (imported.params && typeof imported.params === 'object') ? imported.params
-        : (legacyGlobalParams && typeof legacyGlobalParams === 'object') ? legacyGlobalParams
-        : {};
+      const paramsSrc = (imported.params && typeof imported.params === 'object') ? imported.params : {};
       const cleanParams = {};
       PARAM_META.forEach(([pk,,ptype])=>{
         const v = paramsSrc[pk];
@@ -3589,9 +3581,6 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
   const todayStr = new Date().toISOString().slice(0,10);
   document.getElementById('inDate').value = todayStr;
 
-  // 讀取舊版全域參數，僅作為「搬進每個標的自己的params」時的遷移來源，不再是持續使用的全域狀態
-  const legacySavedParams = await storageGet(KEY_PARAMS, null);
-
   const savedAssets = await storageGet(KEY_ASSETS, null);
   state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}}));
   // 相容舊版資產設定：如果是更新前存的資料，沒有l1Pct/l2Pct（可能還是舊的固定股數l1/l2）或boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN
@@ -3604,12 +3593,7 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
     delete a.roundTick;
     delete a.boostValue;
     delete a.yahooSymbol;
-    // 遷移：這個標的還沒有自己的策略參數，就用舊版全域參數（保留原本的行為）當起始值，沒有的話用固定初始預設值
-    if(!a.params || typeof a.params !== 'object'){
-      a.params = Object.assign({}, DEFAULT_PARAMS, legacySavedParams || {});
-    } else {
-      a.params = Object.assign({}, DEFAULT_PARAMS, a.params); // 補齊缺少的欄位
-    }
+    a.params = Object.assign({}, DEFAULT_PARAMS, a.params && typeof a.params === 'object' ? a.params : {}); // 補齊缺少的欄位
   });
   await storageSet(KEY_ASSETS, state.assets);
   state.activeTab = state.assets[0].key;
