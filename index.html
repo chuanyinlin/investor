@@ -652,7 +652,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-21 18:26</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-21 18:41</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -3521,8 +3521,13 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         : (legacyGlobalParams && typeof legacyGlobalParams === 'object') ? legacyGlobalParams
         : {};
       const cleanParams = {};
-      Object.keys(DEFAULT_PARAMS).forEach(pk=>{
-        cleanParams[pk] = numOr(paramsSrc[pk], DEFAULT_PARAMS[pk]);
+      PARAM_META.forEach(([pk,,ptype])=>{
+        const v = paramsSrc[pk];
+        if(ptype === 'bool'){
+          cleanParams[pk] = (typeof v === 'boolean') ? v : DEFAULT_PARAMS[pk];
+        } else {
+          cleanParams[pk] = numOr(v, DEFAULT_PARAMS[pk]);
+        }
       });
       const clean = {
         key: imported.key,
