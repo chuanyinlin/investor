@@ -389,11 +389,11 @@
 
     <!-- 日常操作：每天真正需要輸入的東西，跟自動抓價一起送出 -->
     <div class="field">
-      <label style="color:var(--text);">目前流動現金／股數／平均持股成本<span style="color:var(--text-faint); font-weight:400;">（計算現金水位與停利基準）</span></label>
+      <label style="color:var(--text);">目前活存現金／股數／平均持股成本<span style="color:var(--text-faint); font-weight:400;">（計算現金水位與停利基準）</span></label>
     </div>
     <div class="grid3">
       <div class="field">
-        <label>流動現金</label>
+        <label>活存現金</label>
         <input type="number" step="1" id="inCashNow" placeholder="0">
       </div>
       <div class="field">
@@ -407,7 +407,7 @@
     </div>
 
     <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（給「設定」裡的加碼節流用；股價脫離加碼區間時會自動清空，不用手動維護）</span></label>
+      <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（計算加碼節流）</span></label>
     </div>
     <div class="grid2">
       <div class="field">
@@ -438,7 +438,7 @@
     <div id="advancedInputBody" style="display:none;">
 
     <div class="field date-field">
-      <label style="color:var(--text);">手動更新特定日期的資料<span style="color:var(--text-faint); font-weight:400;">（不更動流動現金／股數）</span></label>
+      <label style="color:var(--text);">手動更新特定日期的資料<span style="color:var(--text-faint); font-weight:400;">（僅更新價格與均線，不影響其他資料）</span></label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
@@ -487,7 +487,7 @@
     </div>
 
     <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">清除這個標的的全部資料<span style="color:var(--text-faint); font-weight:400;">（歷史紀錄、流動現金、股數、持股成本、建倉起始日、融資資料，全部清空；不會刪除這個標的本身或它的策略參數設定）</span></label>
+      <label style="color:var(--text);">清除這個標的的全部資料<span style="color:var(--text-faint); font-weight:400;">（歷史紀錄、活存現金、股數、持股成本、建倉起始日、融資資料，全部清空；不會刪除這個標的本身或它的策略參數設定）</span></label>
       <button type="button" class="btn btn-neutral btn-sm" id="btnClearAssetData" style="width:100%;">清除全部資料</button>
       <div class="footer-note" id="clearAssetDataStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
@@ -515,7 +515,7 @@
 
   <!-- ============ RESERVE FUND CARD ============ -->
   <div class="card">
-    <div class="card-title"><h3 id="reserveTitle">防禦邊界</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div class="card-title"><h3 id="reserveTitle">訊號明細</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="reserveBody" style="display:none;">
     <div class="footer-note" id="reserveHint" style="text-align:left; margin-top:2px;"></div>
     </div>
@@ -648,7 +648,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-22 04:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-22 08:27</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -2004,7 +2004,8 @@ function renderLeds(){
   { const dled = getDefenseLedState(d); resultHtml += ledItem(dled.on, dled.label, dled.color==='var(--red)'?'red':''); }
 
   // 現金流：定期定額（基本盤，放在防禦邊界之後）
-  resultHtml += ledItem(true, '定期定額', d.dcaPaused?'amber':'');
+  const dcaLabelLed = getAsset(key).dcaMode === 'amount' ? '定期定額' : '定期定股';
+  resultHtml += ledItem(true, dcaLabelLed, d.dcaPaused?'amber':'');
 
   // MA20（戰略線）
   resultHtml += d.ready2 ? ledItem(d.bombard, '加碼觸發') : need(2, '加碼觸發');
@@ -2047,7 +2048,7 @@ function renderOrders(){
   let html = '';
 
   // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價；
-  // 暫停時只顯示執行結果，原因說明統一放在防禦邊界卡片
+  // 暫停時只顯示執行結果，原因說明統一放在訊號明細卡片
   let dcaDetail, dcaCond;
   if(d.dcaPaused){
     dcaDetail = `<span style="color:var(--amber); font-weight:700;">今日暫停</span>`;
@@ -2161,7 +2162,7 @@ function renderOrders(){
     : `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
   html += orderRow(!!d.exit, '停利觸發', exitCondTxt, exitDetail);
 
-  // 現金水位停損：只顯示執行動作，原因說明統一放在防禦邊界卡片
+  // 現金水位停損：只顯示執行動作，原因說明統一放在訊號明細卡片
   let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
   let liqDetail = '';
   if(d.liquidityStopTriggered && d.today){
@@ -2210,7 +2211,7 @@ function getCashStatus(key){
   const unit = asset.currency;
   const sufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
 
-  // 加碼所需金額與夠不夠付：固定顯示，不管今天有沒有真的觸發加碼，都試算給防禦邊界卡片參考
+  // 加碼所需金額與夠不夠付：固定顯示，不管今天有沒有真的觸發加碼，都試算給訊號明細卡片參考
   let bombardTriggered = false, bombardCost = null, bombardSufficient = null, bombardCostTxt = '';
   let layer2Cost = null, layer2CostTxt = '', bombardSufficientBoth = null;
   if(d.today){
@@ -2226,7 +2227,7 @@ function getCashStatus(key){
     // 兩層都觸發時會同時掛單，所以要檢查現金夠不夠同時支付第一層＋第二層
     bombardSufficientBoth = (requiredReserve == null) ? null : ((cur - requiredReserve) >= (bombardCost + layer2Cost));
   }
-  // 這個旗標只用來標記「今天加碼是不是真的有觸發」，只影響「流動現金充足」燈號要不要考慮加碼金額，不影響上面固定顯示的金額試算
+  // 這個旗標只用來標記「今天加碼是不是真的有觸發」，只影響「流動現金」燈號要不要考慮加碼金額，不影響上面固定顯示的金額試算
   bombardTriggered = !!(d.bombard && d.today);
 
   return { requiredReserve, requiredTxt, cur, unit, sufficient, bombardTriggered, bombardCost, bombardCostTxt, bombardSufficient, layer2Cost, layer2CostTxt, bombardSufficientBoth };
@@ -2247,34 +2248,34 @@ function getPriceMa60LedState(d){
 }
 
 function getDefenseLedState(d){
-  if(!d.ready2) return { label:'防禦邊界安全', color:'var(--text-faint)', on:false };
-  if(!d.hasMa60) return { label:'防禦邊界安全', color:'var(--text-faint)', on:false };
-  if(d.defenseOk) return { label:'防禦邊界安全', color:'var(--teal)', on:true };
-  return { label:'防禦邊界安全', color:'var(--red)', on:true };
+  if(!d.ready2) return { label:'防禦邊界', color:'var(--text-faint)', on:false };
+  if(!d.hasMa60) return { label:'防禦邊界', color:'var(--text-faint)', on:false };
+  if(d.defenseOk) return { label:'防禦邊界', color:'var(--teal)', on:true };
+  return { label:'防禦邊界', color:'var(--red)', on:true };
 }
 
 function getMarginLedState(d){
   const ms = d.marginStatus;
   if(!ms || !ms.applicable){
-    return { label:'融資維持率安全', color:'var(--text-faint)' };
+    return { label:'融資維持率', color:'var(--text-faint)' };
   }
   if(!ms.hasPrice){
-    return { label:'融資維持率安全', color:'var(--text-faint)' };
+    return { label:'融資維持率', color:'var(--text-faint)' };
   }
   return ms.safe
-    ? { label:'融資維持率安全', color:'var(--teal)' }
-    : { label:'融資維持率安全', color:'var(--red)' };
+    ? { label:'融資維持率', color:'var(--teal)' }
+    : { label:'融資維持率', color:'var(--red)' };
 }
 
 function getCashLedState(cashStatus){
   if(cashStatus.sufficient == null){
-    return { label:'流動現金充足', color:'var(--text-faint)' };
+    return { label:'流動現金', color:'var(--text-faint)' };
   } else if(cashStatus.sufficient === false){
-    return { label:'流動現金充足', color:'var(--red)' };
+    return { label:'流動現金', color:'var(--red)' };
   } else if(cashStatus.bombardTriggered && (cashStatus.bombardSufficient === false || cashStatus.bombardSufficientBoth === false)){
-    return { label:'流動現金充足', color:'var(--amber)' };
+    return { label:'流動現金', color:'var(--amber)' };
   } else {
-    return { label:'流動現金充足', color:'var(--teal)' };
+    return { label:'流動現金', color:'var(--teal)' };
   }
 }
 
@@ -2282,7 +2283,7 @@ function renderReserve(){
   const key = state.activeTab;
   const asset = getAsset(key);
 
-  document.getElementById('reserveTitle').textContent = '防禦邊界';
+  document.getElementById('reserveTitle').textContent = '訊號明細';
 
   const d = computeForAsset(key);
   if(!d.ready1){
@@ -2306,7 +2307,7 @@ function renderReserve(){
 
   const st = getCashStatus(key);
 
-  // ---- 1. 流動現金充足（對應條件欄第8個燈號） ----
+  // ---- 1. 流動現金（對應條件欄第8個燈號） ----
   const available = (st.requiredReserve != null) ? (st.cur - st.requiredReserve) : null;
   const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（尚無收盤價或股數資料）';
   const avgCostVal = state.avgCost[key] || 0;
@@ -2321,24 +2322,24 @@ function renderReserve(){
     ? `${fmt(lastBombardPriceVal,2)}｜${lastBombardDateVal || '—（未輸入日期）'}`
     : '—（未輸入，加碼節流不會限制第一次觸發）';
   const cashSectionTop = `<span style="color:var(--text-faint); font-size:11px;">根據資料輸入</span><br>` +
-    `<span style="color:var(--text-faint);">目前流動現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股｜平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}</span><br>` +
+    `<span style="color:var(--text-faint);">目前活存現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股｜平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格／日期：${lastBombardTxt}</span><br>`;
-  // 流動現金充足：唯一一行，恆常顯示現金應保留／可動用現金水位，後面依判定訊號燈號的4種狀態補充對應文字
+  // 流動現金：唯一一行，恆常顯示現金應保留／可動用現金水位，後面依判定訊號燈號的4種狀態補充對應文字
   let bombardAffordTxt;
   const affordBase = `現金應保留${st.requiredTxt}｜可動用現金水位${availableTxt}`;
   if(st.sufficient == null){
     const monitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
     const reasonTxt = monitoringDisabled ? '此標的未設定現金水位監控（最低流動現金佔比%=0）' : '尚無資料，無法判斷';
-    bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金充足：${affordBase}｜${reasonTxt}</span>`;
+    bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜${reasonTxt}</span>`;
   } else if(st.sufficient === false){
-    bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位不足</span>`;
+    bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金：${affordBase}｜現金水位不足</span>`;
   } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
-    bombardAffordTxt = `<span style="color:var(--amber); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
+    bombardAffordTxt = `<span style="color:var(--amber); font-weight:700;">→ 流動現金：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
   } else {
-    bombardAffordTxt = `<span style="color:var(--teal); font-weight:700;">→ 流動現金充足：${affordBase}</span>`;
+    bombardAffordTxt = `<span style="color:var(--teal); font-weight:700;">→ 流動現金：${affordBase}</span>`;
   }
 
-  // ---- 2. 融資維持率安全（對應條件欄第9個燈號） ----
+  // ---- 2. 融資維持率（對應條件欄第9個燈號） ----
   let marginLine;
   if(hasMarginPrice){
     const ms = d.marginStatus;
@@ -2350,28 +2351,32 @@ function renderReserve(){
     marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
   }
 
-  // ---- 2.5 防禦邊界安全（對應結果欄第1個燈號） ----
-  let defenseLedTxt;
+  // ---- 2.5 防禦邊界（對應結果欄第1個燈號） ----
+  let defenseLedTxt, defenseLedColor;
   if(!d.ready2 || !d.hasMa60){
     defenseLedTxt = '未確認（資料不足或尚未輸入MA60）';
+    defenseLedColor = 'var(--text-faint)';
   } else if(d.defenseOk){
     defenseLedTxt = '安全';
+    defenseLedColor = 'var(--teal)';
   } else {
     const defenseReasons = [];
     if(!d.ma60upFlat) defenseReasons.push('MA60未持平或向上');
     if(!d.priceAboveMa60) defenseReasons.push('股價未站穩MA60');
     if(d.cashSufficient === false) defenseReasons.push('流動現金不足');
-    if(d.marginSafe === false) defenseReasons.push('融資維持率不安全');
+    if(d.marginSafe === false) defenseReasons.push('融資維持率過低');
     defenseLedTxt = `不安全（${defenseReasons.join('、')}）`;
+    defenseLedColor = 'var(--red)';
   }
-  const defenseLedLine = `<span style="color:var(--text); font-weight:700;">→ 防禦邊界安全：${defenseLedTxt}</span>`;
+  const defenseLedLine = `<span style="color:${defenseLedColor}; font-weight:700;">→ 防禦邊界：${defenseLedTxt}</span>`;
 
   // ---- 3. 定期定額（對應結果欄第2個燈號） ----
+  const dcaLabelReserve = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   let dcaStateHtml;
   if(d.dcaPaused){
-    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ 定期定額：今日暫停（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
   } else {
-    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ 定期定額：今日正常執行</span>`;
+    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
   }
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
@@ -2389,7 +2394,7 @@ function renderReserve(){
     if(!d.ma20upFlat) reasons.push('MA20未持平或向上');
     if(!d.touch) reasons.push('股價未達加碼價位');
     if(d.cashSufficient === false) reasons.push('流動現金不足');
-    if(d.marginSafe === false) reasons.push('融資維持率不安全');
+    if(d.marginSafe === false) reasons.push('融資維持率過低');
     bombardTriggerTxt = `未觸發（${reasons.join('、')}）`;
     bombardColor = 'var(--text-faint)';
   }
@@ -3378,7 +3383,7 @@ document.getElementById('btnSaveManualFields').addEventListener('click', async (
   const lastBombardPriceRaw = document.getElementById('inLastBombardPriceNow').value;
   const lastBombardDateRaw = document.getElementById('inLastBombardDateNow').value;
   if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">流動現金格式錯誤。</span>`;
+    statusEl.innerHTML = `<span style="color:var(--red)">活存現金格式錯誤。</span>`;
     return;
   }
   if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
@@ -3399,7 +3404,7 @@ document.getElementById('btnSaveManualFields').addEventListener('click', async (
     const cashVal = parseFloat(cashRaw);
     state.cash[key] = cashVal;
     await storageSet(KEY_CASH(key), cashVal);
-    msgs.push('流動現金已更新');
+    msgs.push('活存現金已更新');
   }
   if(sharesRaw !== ''){
     const sharesVal = parseFloat(sharesRaw);
