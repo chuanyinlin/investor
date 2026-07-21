@@ -232,15 +232,20 @@
   .hist-stat-label{ font-size:10px; color:var(--text-faint); margin-bottom:2px; }
   .hist-stat-value{ font-family: var(--font-mono); font-size:13px; color:var(--text); }
 
-  /* ---------- 測試機制勾選項目的自訂提示框 ---------- */
-  .test-flag-wrap{ position:relative; display:inline-block; }
-  .test-flag-wrap .test-flag-tip{
+  /* ---------- 測試機制勾選項目的自訂提示框：只有ⓘ圖示本身會觸發顯示 ---------- */
+  .test-flag-wrap{ display:flex; align-items:center; gap:5px; }
+  .test-flag-icon{
+    position:relative; display:inline-flex; align-items:center; justify-content:center;
+    width:14px; height:14px; border-radius:50%; border:1px solid var(--text-faint);
+    color:var(--text-faint); font-size:10px; line-height:1; cursor:help; flex-shrink:0;
+  }
+  .test-flag-icon .test-flag-tip{
     display:none; position:absolute; top:20px; left:0; z-index:20;
     background:var(--panel); border:1px solid var(--hair); border-radius:8px;
     padding:10px 12px; width:280px; font-size:11px; line-height:1.6; color:var(--text);
-    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    box-shadow:0 4px 12px rgba(0,0,0,0.4); cursor:auto;
   }
-  .test-flag-wrap:hover .test-flag-tip{ display:block; }
+  .test-flag-icon:hover .test-flag-tip{ display:block; }
   .empty-hint{
     text-align:left; color:var(--text-faint); font-size:12.5px;
     padding: 14px 6px; line-height:1.6;
@@ -544,20 +549,20 @@
     <div class="card-title"><h3>回測模擬</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="backtestBody" style="display:none;">
     <div class="field">
-      <label style="color:var(--text);">歷史資料：選擇匯入或是下載</label>
-      <label style="color:var(--text); margin-top:8px;">匯入歷史資料<span style="color:var(--text-faint); font-weight:400;">（匯入之前下載的.txt檔）</span></label>
+      <label style="color:var(--text);">歷史資料：選擇下載或是匯入</label>
+      <label style="color:var(--text); margin-top:8px;">下載歷史資料<span style="color:var(--text-faint); font-weight:400;">（選開始日期，下載成.txt檔）</span></label>
+      <input type="text" id="btDownloadStartDate" readonly placeholder="YYYY-MM-DD">
+    </div>
+    <button type="button" class="btn btn-neutral btn-sm" id="btnDownloadBtData" style="margin-top:0; width:100%;">下載歷史資料</button>
+    <div class="footer-note" id="btDownloadStatus" style="text-align:left; margin-top:6px;"></div>
+
+    <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">匯入歷史資料<span style="color:var(--text-faint); font-weight:400;">（匯入之前下載的.txt檔）</span></label>
       <input type="file" id="btImportFile" accept=".txt,text/plain" style="display:none;">
     </div>
     <button type="button" class="btn btn-neutral btn-sm" id="btnBtImportFile" style="margin-top:0; width:100%;">匯入歷史資料</button>
     <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" style="text-align:right;"><span id="btnBtClearImport" style="color:var(--text-faint); text-decoration:underline; cursor:pointer;">清除已匯入資料</span></div>
-
-    <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">下載歷史資料<span style="color:var(--text-faint); font-weight:400;">（選開始日期，下載成.txt檔）</span></label>
-      <input type="text" id="btDownloadStartDate" readonly placeholder="YYYY-MM-DD">
-    </div>
-    <button type="button" class="btn btn-neutral btn-sm" id="btnDownloadBtData" style="margin-top:0; width:100%;">下載歷史資料</button>
-    <div class="footer-note" id="btDownloadStatus" style="text-align:left; margin-top:6px;"></div>
 
     <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
       <div style="font-size:15.5px; font-weight:700; letter-spacing:0.3px; color:var(--text); text-transform:uppercase; font-family:var(--font-mono); margin-bottom:10px;">模擬設定</div>
@@ -594,40 +599,52 @@
       <label style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); display:block;">測試特定機制（會改變模擬結果，不勾選＝跟InvestOS現行機制一致；勾選才是額外測試的新機制，InvestOS沒有）</label>
       <div style="display:flex; flex-direction:column; gap:10px;">
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btDcaPausedByMa60" style="width:auto;">定期定額受防禦邊界(MA60)限制</label>
-          <div class="test-flag-tip">InvestOS現行機制：定期定額不受MA60限制，恆常執行，只有現金不足時才會依MA60趨勢決定要不要暫停。勾選後，只要MA60弱勢（防禦邊界關閉），不管現金水位夠不夠，定期定額都會暫停。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDcaPausedByMa60" style="width:auto;">定期定額受防禦邊界(MA60)限制</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：定期定額不受MA60限制，恆常執行，只有現金不足時才會依MA60趨勢決定要不要暫停。勾選後，只要MA60弱勢（防禦邊界關閉），不管現金水位夠不夠，定期定額都會暫停。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btEnableThrottle" style="width:auto;">加碼節流</label>
-          <div class="test-flag-tip">InvestOS現行機制：加碼沒有節流限制，只要符合條件就會觸發，不管上次成交價位是多少。勾選後，同一層加碼要再次觸發，新算出的限價必須比上一次真的成交的限價再乘上「第二層加碼乘數」才算數，避免同一價格區間反覆加碼。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableThrottle" style="width:auto;">加碼節流</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：加碼沒有節流限制，只要符合條件就會觸發，不管上次成交價位是多少。勾選後，同一層加碼要再次觸發，新算出的限價必須比上一次真的成交的限價再乘上「第二層加碼乘數」才算數，避免同一價格區間反覆加碼。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btDisableDefenseForBombard" style="width:auto;">加碼不受防禦邊界(MA60)限制</label>
-          <div class="test-flag-tip">InvestOS現行機制：加碼需要MA60也安全（防禦邊界打開）才會觸發。勾選後，加碼只看股價/MA20條件與現金是否足夠，不管MA60安不安全都會觸發。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableDefenseForBombard" style="width:auto;">加碼不受防禦邊界(MA60)限制</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：加碼需要MA60也安全（防禦邊界打開）才會觸發。勾選後，加碼只看股價/MA20條件與現金是否足夠，不管MA60安不安全都會觸發。</div></span>
         </div>
-        <div class="test-flag-wrap" style="display:flex; align-items:center; gap:8px;">
-          <div>
-            <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btEnableMa60ObservationForBombard" style="width:auto;">加碼MA60觀察期</label>
-            <div class="test-flag-tip">InvestOS現行機制：股價一跌破MA60，防禦邊界當天立刻關閉，加碼暫停，不管是單日急殺還是連續下跌，反應都一樣。勾選後，跌破MA60的頭N天先當作「觀察期」，加碼維持正常運作（只看現金是否足夠）；只有連續跌破超過N天，才真正確認轉弱、關閉防禦邊界。用意是區分單日急殺可能隔天反彈、跟真正連續破位下跌這兩種情況。</div>
-          </div>
+        <div class="test-flag-wrap">
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableMa60ObservationForBombard" style="width:auto;">加碼MA60觀察期</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：股價一跌破MA60，防禦邊界當天立刻關閉，加碼暫停，不管是單日急殺還是連續下跌，反應都一樣。勾選後，跌破MA60的頭N天先當作「觀察期」，加碼維持正常運作（只看現金是否足夠）；只有連續跌破超過N天，才真正確認轉弱、關閉防禦邊界。用意是區分單日急殺可能隔天反彈、跟真正連續破位下跌這兩種情況。</div></span>
           <input type="number" step="1" min="1" id="inMa60ObservationDays" value="2" style="width:60px;">
           <span style="font-size:12px; color:var(--text-faint);">天</span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btEnableVolumeDefenseForBombard" style="width:auto;">加碼多一層量能異常防禦邊界</label>
-          <div class="test-flag-tip">InvestOS現行機制：加碼不檢查成交量，只看股價/MA20條件與現金是否足夠。勾選後，加碼觸發時會多檢查量能異常警訊——爆量（成交量>過去20天平均量×2倍）且下跌（收盤價<前一天收盤價）同時發生才算警訊，單純爆量或單純下跌但量縮都不算，出現警訊當天暫停加碼。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableVolumeDefenseForBombard" style="width:auto;">加碼多一層量能異常防禦邊界</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：加碼不檢查成交量，只看股價/MA20條件與現金是否足夠。勾選後，加碼觸發時會多檢查量能異常警訊——爆量（成交量>過去20天平均量×2倍）且下跌（收盤價<前一天收盤價）同時發生才算警訊，單純爆量或單純下跌但量縮都不算，出現警訊當天暫停加碼。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btDisableDefenseForMomentum" style="width:auto;">動能觸發不受防禦邊界(MA60)限制</label>
-          <div class="test-flag-tip">InvestOS現行機制：動能觸發需要MA60也安全（防禦邊界打開）才會觸發。勾選後，動能觸發只看MA5/連續三日條件與現金是否足夠，不管MA60安不安全都會觸發。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableAmplitudeDefenseForBombard" style="width:auto;">加碼多一層日振幅異常防禦邊界</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：加碼不檢查單日振幅，只看股價/MA20條件與現金是否足夠。勾選後，加碼觸發時會多檢查振幅異常警訊——日振幅%＝(最高價-最低價)÷前一日收盤價×100%，振幅超過設定門檻 且 下跌，兩者同時發生才算警訊；單純振幅大（可能是急跌後反彈）或單純下跌但振幅正常都不算，出現警訊當天暫停加碼。</div></span>
+          <input type="number" step="0.5" min="0" id="inAmplitudeThresholdPct" value="5" style="width:60px;">
+          <span style="font-size:12px; color:var(--text-faint);">%</span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btDisableTrendForLiqStop" style="width:auto;">現金水位停損不受防禦邊界(MA60)趨勢分流</label>
-          <div class="test-flag-tip">InvestOS現行機制：現金不足時依MA60判斷分流——MA60安全就順勢賣，MA60弱勢則優先暫緩（改暫停定期定額），只有跌破絕對底線才逆勢賣。勾選後，不管MA60安不安全，現金不足就一律當日市價賣出。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableDefenseForMomentum" style="width:auto;">動能觸發不受防禦邊界(MA60)限制</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：動能觸發需要MA60也安全（防禦邊界打開）才會觸發。勾選後，動能觸發只看MA5/連續三日條件與現金是否足夠，不管MA60安不安全都會觸發。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0; cursor:help;"><input type="checkbox" id="btDisableCashGateForTimeStop" style="width:auto;">時間停損不受現金水位門檻限制</label>
-          <div class="test-flag-tip">InvestOS現行機制：現金水位已經足夠時，時間停損暫緩，只有現金真的不夠時才會照時間到了正常出場。勾選後，時間停損只看持有天數，不管現金水位夠不夠都會觸發。</div>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableLiqStop" style="width:auto;" checked>現金水位停損機制<span style="color:var(--text-faint); font-weight:400;">（預設勾選）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS的最高指導原則：現金不足時強制處理（MA60安全順勢賣、弱勢時優先暫緩改暫停定期定額、跌破絕對底線則不管趨勢強制賣）。取消勾選後，整個機制關閉，現金水位再低也不會有任何強制處理動作，用來驗證這個核心機制本身是否有可以優化的空間。</div></span>
+        </div>
+        <div class="test-flag-wrap">
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableTrendForLiqStop" style="width:auto;">現金水位停損不受防禦邊界(MA60)趨勢分流</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：現金不足時依MA60判斷分流——MA60安全就順勢賣，MA60弱勢則優先暫緩（改暫停定期定額），只有跌破絕對底線才逆勢賣。勾選後，不管MA60安不安全，現金不足就一律當日市價賣出。</div></span>
+        </div>
+        <div class="test-flag-wrap">
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableTimeStop" style="width:auto;">時間停損機制</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：時間停損整個機制目前是關閉的，不會觸發（持有再久也不會被強制出場）。勾選後，時間停損機制才會啟用——持有超過設定天數，且現金水位不足時，會建議分批停損。這是用來驗證「時間停損」相對於「現金水位停損」是否還有存在必要的測試開關。</div></span>
+        </div>
+        <div class="test-flag-wrap">
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableCashGateForTimeStop" style="width:auto;">時間停損不受現金水位門檻限制</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：現金水位已經足夠時，時間停損暫緩，只有現金真的不夠時才會照時間到了正常出場。勾選後，時間停損只看持有天數，不管現金水位夠不夠都會觸發。（需搭配上方「時間停損機制」一起勾選才有作用）</div></span>
         </div>
       </div>
     </div>
@@ -700,7 +717,7 @@ const PARAM_META = [
   ['exitMult','停利價位乘數','mult','停利邏輯','股價漲到「MA20×這個倍數」時觸發停利，倍數越高，要漲越多才會出場'],
   ['costExitMult','停利成本乘數（與MA20停利價取高者）','mult','停利邏輯','股價漲到「平均持股成本×這個倍數」時也會觸發停利，跟上面的MA20停利價取兩者較高的門檻，避免賣在成本以下'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的這個比例，不是全部停利，剩下的部位繼續留倉'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場。換算成金額的公式：現金應保留＝這個比例×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保現金補到這個金額後，佔總部位的比例真的精確等於設定值'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場。換算成金額的公式：現金應保留＝這個比例×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保現金補到這個金額後，佔總部位的比例真的精確等於設定值。設為0＝主動關閉整個現金水位監控（現金水位停損、防禦邊界的現金因子、時間停損的現金判斷全部停用，不是門檻變0而已）。等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
@@ -1082,9 +1099,14 @@ async function runBacktest(){
   const MA60_OBSERVATION_DAYS = (MA60_OBSERVATION_DAYS_RAW !== '' && !isNaN(parseInt(MA60_OBSERVATION_DAYS_RAW,10)) && parseInt(MA60_OBSERVATION_DAYS_RAW,10) >= 1) ? parseInt(MA60_OBSERVATION_DAYS_RAW,10) : 2;
   const DISABLE_DEFENSE_FOR_MOMENTUM = document.getElementById('btDisableDefenseForMomentum').checked;
   const DISABLE_CASH_GATE_FOR_TIMESTOP = document.getElementById('btDisableCashGateForTimeStop').checked;
+  const ENABLE_TIME_STOP = document.getElementById('btEnableTimeStop').checked;
   const DISABLE_TREND_FOR_LIQSTOP = document.getElementById('btDisableTrendForLiqStop').checked;
   const DCA_PAUSED_BY_MA60 = document.getElementById('btDcaPausedByMa60').checked;
+  const ENABLE_LIQ_STOP = document.getElementById('btEnableLiqStop').checked;
   const ENABLE_VOLUME_DEFENSE_FOR_BOMBARD = document.getElementById('btEnableVolumeDefenseForBombard').checked;
+  const ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD = document.getElementById('btEnableAmplitudeDefenseForBombard').checked;
+  const AMPLITUDE_THRESHOLD_PCT_RAW = document.getElementById('inAmplitudeThresholdPct').value;
+  const AMPLITUDE_THRESHOLD_PCT = (AMPLITUDE_THRESHOLD_PCT_RAW !== '' && !isNaN(parseFloat(AMPLITUDE_THRESHOLD_PCT_RAW)) && parseFloat(AMPLITUDE_THRESHOLD_PCT_RAW) >= 0) ? parseFloat(AMPLITUDE_THRESHOLD_PCT_RAW) : 5;
   if(isNaN(LIQ_FLOOR_MULT) || LIQ_FLOOR_MULT < 0 || LIQ_FLOOR_MULT > 1){
     statusEl.innerHTML = `<span style="color:var(--red)">現金水位停損絕對底線倍數格式錯誤（需介於0~1之間）。</span>`;
     return;
@@ -1196,6 +1218,16 @@ async function runBacktest(){
         volumeWarning = volumeAbnormal && priceDeclining;
       }
 
+      // 日振幅異常防禦邊界（測試用）：振幅%＝(最高價-最低價)÷前一日收盤價×100%，
+      // 振幅超過設定門檻 且 下跌，兩者同時發生才算警訊；單純振幅大（可能是急跌後反彈或止跌）或單純下跌但振幅正常都不算
+      let amplitudeWarning = false;
+      if(yest.high != null && yest.low != null && yest2 != null && yest2.close != null && yest2.close > 0){
+        const yestAmplitudePct = (yest.high - yest.low) / yest2.close * 100;
+        const amplitudeAbnormal = yestAmplitudePct > AMPLITUDE_THRESHOLD_PCT;
+        const priceDecliningForAmp = yest.close < yest2.close;
+        amplitudeWarning = amplitudeAbnormal && priceDecliningForAmp;
+      }
+
 
       // 現金佔比%防禦邊界：市值用昨天收盤價計算
       const marketValue = totalShares * closeY;
@@ -1209,7 +1241,8 @@ async function runBacktest(){
       const withinMa60ObservationWindow = ENABLE_MA60_OBSERVATION_FOR_BOMBARD && belowMa60Now && (belowMa60Streak <= MA60_OBSERVATION_DAYS);
       const bombardDefenseOk = withinMa60ObservationWindow ? cashSufficient : bombardDefenseOkRaw;
       // 測試用：加碼多一層量能異常防禦邊界，爆量下跌時暫停加碼（即使MA60、現金都正常）
-      const bombardOk = bombardDefenseOk && (!ENABLE_VOLUME_DEFENSE_FOR_BOMBARD || !volumeWarning);
+      // 測試用：加碼多一層日振幅異常防禦邊界，單日暴起暴落又下跌時暫停加碼（即使MA60、現金都正常）
+      const bombardOk = bombardDefenseOk && (!ENABLE_VOLUME_DEFENSE_FOR_BOMBARD || !volumeWarning) && (!ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD || !amplitudeWarning);
       const bombard = touch && ma20upFlat && bombardOk;
 
       const ma5upFlat = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
@@ -1232,12 +1265,13 @@ async function runBacktest(){
         const marketValueForDca = totalShares * closeT;
         const totalWealthForDca = cash + marketValueForDca;
         const cashRatioForDca = totalWealthForDca > 0 ? (cash / totalWealthForDca) : 0;
-        const pctOfThresholdForDca = (P.cashTargetPct > 0) ? (cashRatioForDca / P.cashTargetPct * 100) : 0;
+        // cashTargetPct=0時代表使用者主動關閉現金水位監控，這個百分比失去意義，改用null（顯示端會處理成誠實的文字，不是假的0%）
+        const pctOfThresholdForDca = (P.cashTargetPct > 0) ? (cashRatioForDca / P.cashTargetPct * 100) : null;
         liqDcaShouldPause = true;
         dcaPausedCount++;
         dcaPausedEvents.push({ date: today_.date, pctOfThreshold: pctOfThresholdForDca, byMa60Only: true });
       }
-      if(P.cashTargetPct > 0 && P.cashTargetPct < 1 && totalShares > 0){
+      if(ENABLE_LIQ_STOP && P.cashTargetPct > 0 && P.cashTargetPct < 1 && totalShares > 0){
         const marketValueNow = totalShares * closeT;
         const totalWealthNow = cash + marketValueNow;
         const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -1345,7 +1379,7 @@ async function runBacktest(){
       // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位停損」而完全跳過
       const marketValueForTs = totalShares * closeT;
       const cashSufficientNow = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (cash >= P.cashTargetPct * (cash + marketValueForTs)) : true;
-      const timeStopTrig = ((curDate - lastTsCheck) / 86400000 >= P.timeStopDays) && totalShares > 0 && (DISABLE_CASH_GATE_FOR_TIMESTOP || !cashSufficientNow);
+      const timeStopTrig = ENABLE_TIME_STOP && ((curDate - lastTsCheck) / 86400000 >= P.timeStopDays) && totalShares > 0 && (DISABLE_CASH_GATE_FOR_TIMESTOP || !cashSufficientNow);
 
       let exitFlag = false, tsFlag = false;
       if(exitSignal){
@@ -1429,15 +1463,17 @@ async function runBacktest(){
       ...liquidityStopEvents.map(ev => {
         const profitColor3 = ev.profit >= 0 ? 'var(--teal)' : 'var(--red)';
         const reasonTxt = ev.byFloor ? '（跌破絕對底線，逆勢強制賣出）' : '（MA60安全，順勢賣出）';
+        const pctTxt = (ev.pctOfThreshold != null) ? `${ev.pctOfThreshold.toFixed(1)}%` : '—（現金水位監控已關閉）';
         return {
           date: ev.date, tag: '現金水位停損',
-          detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}${reasonTxt}｜觸發時現金比例為門檻的${ev.pctOfThreshold.toFixed(1)}%`,
+          detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}${reasonTxt}｜觸發時現金比例為門檻的${pctTxt}`,
           profitLine: `<span style="color:${profitColor3};">損益${ev.profit>=0?'+':''}${fmtRaw(ev.profit,0)} ${unit}</span>`,
         };
       }),
       ...dcaPausedEvents.map(ev => {
         const reasonTxt = ev.byMa60Only ? 'MA60弱勢（受防禦邊界限制，不管現金水位夠不夠）' : 'MA60弱勢，現金水位不足但未跌破絕對底線';
-        return { date: ev.date, tag: '暫停定期定額', detail: `${reasonTxt}，暫停今天扣款｜當時現金比例為門檻的${ev.pctOfThreshold.toFixed(1)}%` };
+        const pctTxt = (ev.pctOfThreshold != null) ? `${ev.pctOfThreshold.toFixed(1)}%` : '—（現金水位監控已關閉）';
+        return { date: ev.date, tag: '暫停定期定額', detail: `${reasonTxt}，暫停今天扣款｜當時現金比例為門檻的${pctTxt}` };
       }),
     ].filter(ev => tagVisible[ev.tag]).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
@@ -1466,14 +1502,17 @@ async function runBacktest(){
     // 本次模擬總結：把最重要的幾個數字濃縮在一起，方便直接複製貼給Claude討論，不用自己在一堆明細裡找
     const finalCashRatio = finalWealth > 0 ? (cash / finalWealth * 100) : 0;
     const activeTestFlags = [];
+    if(!ENABLE_LIQ_STOP) activeTestFlags.push('現金水位停損機制（已停用，跟現行機制不同）');
     if(ENABLE_THROTTLE) activeTestFlags.push('加碼節流');
     if(DISABLE_DEFENSE_FOR_BOMBARD) activeTestFlags.push('加碼不受防禦邊界(MA60)限制');
     if(ENABLE_MA60_OBSERVATION_FOR_BOMBARD) activeTestFlags.push(`加碼MA60觀察期(${MA60_OBSERVATION_DAYS}天)`);
     if(DISABLE_DEFENSE_FOR_MOMENTUM) activeTestFlags.push('動能觸發不受防禦邊界(MA60)限制');
+    if(ENABLE_TIME_STOP) activeTestFlags.push('時間停損機制');
     if(DISABLE_CASH_GATE_FOR_TIMESTOP) activeTestFlags.push('時間停損不受現金水位門檻限制');
     if(DISABLE_TREND_FOR_LIQSTOP) activeTestFlags.push('現金水位停損不受防禦邊界(MA60)趨勢分流');
     if(DCA_PAUSED_BY_MA60) activeTestFlags.push('定期定額受防禦邊界(MA60)限制');
     if(ENABLE_VOLUME_DEFENSE_FOR_BOMBARD) activeTestFlags.push('加碼多一層量能異常防禦邊界');
+    if(ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD) activeTestFlags.push(`加碼多一層日振幅異常防禦邊界(門檻${AMPLITUDE_THRESHOLD_PCT}%)`);
     const testFlagsLine = activeTestFlags.length > 0
       ? `<br><span style="color:var(--amber);">本次啟用的測試機制：${activeTestFlags.join('、')}</span>`
       : `<br><span style="color:var(--text-faint);">本次沒有啟用任何測試機制（現行規則）</span>`;
@@ -1594,7 +1633,7 @@ function getRequiredReserve(assetKey){
   const shares = state.shares[assetKey] || 0;
   const marketValue = shares * today.close;
   const pct = P.cashTargetPct;
-  if(pct <= 0) return 0;
+  if(pct <= 0) return null; // cashTargetPct=0：使用者主動關閉現金水位監控，視為「不適用」，不是「門檻是0」
   if(pct >= 1) return null; // 參數不合理（100%以上），無法換算等值金額
   return Math.round(pct * marketValue / (1 - pct));
 }
@@ -1734,7 +1773,10 @@ function computeForAsset(assetKey){
   // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
   // 動能觸發與加碼觸發都會被暫停執行。融資維持率跌破門檻時，同樣視為防禦邊界關閉。
   out.marginSafe = (out.marginStatus && out.marginStatus.hasPrice) ? out.marginStatus.safe : true;
-  out.defenseOk = out.priceDefenseOk && (out.cashSufficient === true) && out.marginSafe;
+  // 現金水位監控關閉時（cashTargetPct=0，cashSufficient為null），這個因子視為自動通過，不卡防禦邊界；
+  // 監控仍在運作時，維持原本「必須明確=true」的嚴格判斷
+  const cashFactorOk = (out.cashSufficient === null) ? true : (out.cashSufficient === true);
+  out.defenseOk = out.priceDefenseOk && cashFactorOk && out.marginSafe;
   out.bombard = out.touch && out.ma20upFlat && out.defenseOk;
 
   if(n >= 3){
@@ -2211,7 +2253,9 @@ function renderReserve(){
   let bombardAffordTxt;
   const affordBase = `現金應保留${st.requiredTxt}｜可動用現金水位${availableTxt}`;
   if(st.sufficient == null){
-    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜尚無資料，無法判斷</span>`;
+    const monitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
+    const reasonTxt = monitoringDisabled ? '此標的未設定現金水位監控（最低流動現金佔比%=0）' : '尚無資料，無法判斷';
+    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜${reasonTxt}</span>`;
   } else if(st.sufficient === false){
     bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位不足</span>`;
   } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
@@ -2828,8 +2872,17 @@ document.getElementById('btImportFile').addEventListener('change', (e)=>{
         return;
       }
       const key = state.activeTab;
-      btImportedData[key] = rows;
-      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已匯入 ${rows[0].date} ~ ${rows[rows.length-1].date}，共 ${rows.length} 筆資料，下次回測會優先使用這份本地資料。</span>`;
+      // 合併進現有已匯入的資料，不是整批取代：用日期當key，同一天的話新資料覆蓋舊的，其餘日期維持原樣，
+      // 這樣才能「只補最近這幾天」而不用每次都重新準備完整歷史檔案（ADR沒有自動下載功能，特別需要這個）
+      const map = {};
+      (btImportedData[key] || []).forEach(r => { map[r.date] = r; });
+      rows.forEach(r => { map[r.date] = r; });
+      const merged = Object.values(map).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      const beforeCount = (btImportedData[key] || []).length;
+      btImportedData[key] = merged;
+      const addedOrUpdated = rows.length;
+      const totalCount = merged.length;
+      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已合併 ${addedOrUpdated} 筆資料，目前共 ${totalCount} 筆（${merged[0].date} ~ ${merged[merged.length-1].date}），下次回測會優先使用這份本地資料。</span>`;
     } catch(err){
       console.error('parse backtest import failed', err);
       statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗：${err.message}</span>`;
