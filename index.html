@@ -98,8 +98,6 @@
   .hero.st-momentum .headline{ color: var(--teal); }
   .hero.st-bombard{ background: linear-gradient(160deg, var(--teal-dim), var(--panel-3)); border-color: rgba(34,211,174,0.35); }
   .hero.st-bombard .headline{ color: var(--teal); }
-  .hero.st-exit{ background: linear-gradient(160deg, var(--red-dim), var(--panel-3)); border-color: rgba(255,92,108,0.4); }
-  .hero.st-exit .headline{ color: var(--red); }
   .hero.st-defense{ background: linear-gradient(160deg, rgba(255,92,108,0.08), var(--panel-3)); border-color: rgba(255,92,108,0.25); }
   .hero.st-defense .headline{ color: var(--red); }
   .hero.st-warn{ background: linear-gradient(160deg, var(--amber-dim), var(--panel-3)); border-color: rgba(255,176,32,0.4); }
@@ -650,7 +648,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-21 20:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-22 04:50</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -1842,62 +1840,56 @@ function renderHero(){
   if(d.liquidityStopTriggered){
     hero.className = 'hero st-warn';
     headline.textContent = '🚨 現金水位停損觸發';
-    sub.textContent = `流動現金不足，建議賣股`;
+    sub.textContent = `流動現金不足，建議分批停損`;
   } else if(d.exit){
     if((state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
-      headline.textContent = '⚠ 停利觸發，但目前股數為0';
-      sub.textContent = `目前無部位，無法停利`;
-    } else {
-      hero.className = 'hero st-exit';
       headline.textContent = '💰 停利觸發';
-      sub.textContent = `股價達停利價位，分批停利${(P.exitPartialFrac*100).toFixed(0)}%`;
+      sub.textContent = `股價達停利價位，但目前無部位`;
+    } else {
+      hero.className = 'hero st-bombard';
+      headline.textContent = '💰 停利觸發';
+      sub.textContent = `股價達停利價位，建議分批停利`;
     }
   } else if(d.timeStopTriggered){
-    if((state.shares[key]||0) <= 0){
-      hero.className = 'hero st-warn';
-      headline.textContent = '⚠ 時間停損觸發，但目前股數為0';
-      sub.textContent = `目前無部位，無法停損`;
-    } else {
-      hero.className = 'hero st-exit';
-      headline.textContent = '⏰ 時間停損觸發';
-      sub.textContent = `已持有${d.holdDays}天，分批停損${(P.timeStopPartialFrac*100).toFixed(0)}%`;
-    }
+    hero.className = 'hero st-warn';
+    headline.textContent = '⏰ 時間停損觸發';
+    sub.textContent = `已持有過長時間，建議分批停損`;
   } else if(d.dcaPaused){
     hero.className = 'hero st-warn';
-    headline.textContent = '⏸ 定期定額今日暫停';
-    sub.textContent = `流動現金不足，今日暫停扣款`;
+    headline.textContent = '⏸ 定期定額';
+    sub.textContent = `流動現金不足，建議暫停扣款`;
   } else if(defenseOff){
     hero.className = 'hero st-defense';
     if(d.marginSafe === false){
-      headline.textContent = '🛡 防禦邊界關閉：融資維持率過低';
-      sub.textContent = `建議減碼融資部位`;
+      headline.textContent = '🛡 防禦邊界關閉';
+      sub.textContent = `融資維持率過低，建議減碼融資`;
     } else {
       headline.textContent = '🛡 防禦邊界關閉';
-      sub.textContent = `暫停動能與加碼，僅維持${dcaLabel}`;
+      sub.textContent = `建議暫停動能與加碼，僅維持${dcaLabel}`;
     }
   } else if(d.bombard){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
       hero.className = 'hero st-warn';
-      headline.textContent = '📈 加碼觸發：流動現金不足支付加碼';
+      headline.textContent = '📈 加碼觸發';
       sub.textContent = `現金不足，無法支付第一層`;
     } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
       hero.className = 'hero st-warn';
-      headline.textContent = '📈 加碼觸發：流動現金不足支付加碼第二層';
+      headline.textContent = '📈 加碼觸發';
       sub.textContent = `現金不足，無法支付第二層`;
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `股價達加碼價位`;
+      sub.textContent = `股價達加碼價位，建議加碼`;
     }
   } else if(d.momentum){
     hero.className = 'hero st-momentum';
-    headline.textContent = '🔷 動能觸發';
-    sub.textContent = '連續三日站穩MA5';
+    headline.textContent = '⚡ 動能觸發';
+    sub.textContent = '連續三日站穩MA5，建議加倍定期定額';
   } else {
     hero.className = 'hero st-idle';
-    headline.textContent = `🟢 ${dcaLabel}`;
+    headline.textContent = `🔄 ${dcaLabel}`;
     sub.textContent = `僅維持${dcaLabel}，無戰術訊號`;
   }
 }
@@ -2096,7 +2088,8 @@ function renderOrders(){
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
-    let suggestedThrottlePrice = null;
+    const cashNow = state.cash[key] || 0;
+    let suggestedThrottlePrice = null, suggestedThrottlePriceL2 = null;
     if(P.bombardThrottleEnabled){
       const lastPrice = state.lastBombardPrice[key];
       throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
@@ -2107,13 +2100,31 @@ function renderOrders(){
         // 不會因為進位而超過門檻、掛了也不算數
         const exactThreshold = lastPrice * P.throttleMult;
         suggestedThrottlePrice = applyTick(exactThreshold, getEffectiveTick(asset, exactThreshold), 'floor');
+        // L2的建議價格＝L1建議價格再乘一次第二層加碼乘數，跟app裡L2永遠是「L1基準價×第二層加碼乘數」這個定價邏輯一致
+        const exactThresholdL2 = suggestedThrottlePrice * P.layer2Mult;
+        suggestedThrottlePriceL2 = applyTick(exactThresholdL2, getEffectiveTick(asset, exactThresholdL2), 'floor');
       }
     }
+    // 節流建議文字：不管防禦邊界開不開，只要節流機制有算出建議價格，都要能看到，
+    // 因為「跌到多少才通過節流」是獨立於防禦邊界之外的參考資訊，不該因為防禦邊界關閉就完全看不到
+    let throttleNote1 = '', throttleNote2 = '';
+    if(throttledL1){
+      if(!throttledL2){
+        const shares2Now = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
+        throttleNote1 = `（加碼節流暫緩，建議改參考第二層${fmtRaw(shares2Now,0)} 股 ＠${fmtRaw(p2, tickDec)}）`;
+      } else {
+        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
+        throttleNote1 = `（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）`;
+      }
+    }
+    if(throttledL2){
+      const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
+      throttleNote2 = `（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）`;
+    }
     if(!d.defenseOk){
-      l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}`;
-      l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}`;
+      l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
+      l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
     } else {
-      const cashNow = state.cash[key] || 0;
       const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
       const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
       // 節流擋下時，股數顯示0（跟防禦邊界關閉的呈現方式一致，不要顯示「算出來但今天不該掛」的數字造成誤會）；
@@ -2121,25 +2132,13 @@ function renderOrders(){
       // 不能只說「還不夠便宜」卻不講便宜到多少、也不講夠便宜之後買得起多少股；
       // L1被擋但L2沒被擋時，L2本身就是現成的替代方案，優先引導去看L2，不用再另外算門檻價
       if(throttledL1){
-        let guideTxt;
-        if(!throttledL2){
-          guideTxt = `，建議改參考第二層${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}`;
-        } else {
-          const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
-          guideTxt = `，建議掛單${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}`;
-        }
-        l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}（加碼節流暫緩${guideTxt}）`;
+        l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
       } else {
         const note1 = shares1 <= 0 ? '（流動現金不足）' : '';
         l1Detail = `${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
       }
       if(throttledL2){
-        // L2的建議價格＝L1建議價格再乘一次第二層加碼乘數，跟app裡L2永遠是「L1基準價×第二層加碼乘數」這個定價邏輯一致，
-        // 不能直接沿用L1的建議價格，那樣等於暗示L1=L2的價格，不合理
-        const exactThresholdL2 = suggestedThrottlePrice * P.layer2Mult;
-        const suggestedThrottlePriceL2 = applyTick(exactThresholdL2, getEffectiveTick(asset, exactThresholdL2), 'floor');
-        const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
-        l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）`;
+        l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
       } else {
         const note2 = shares2 <= 0 ? '（流動現金不足）' : '';
         l2Detail = `${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
@@ -2330,13 +2329,13 @@ function renderReserve(){
   if(st.sufficient == null){
     const monitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
     const reasonTxt = monitoringDisabled ? '此標的未設定現金水位監控（最低流動現金佔比%=0）' : '尚無資料，無法判斷';
-    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜${reasonTxt}</span>`;
+    bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金充足：${affordBase}｜${reasonTxt}</span>`;
   } else if(st.sufficient === false){
-    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位不足</span>`;
+    bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位不足</span>`;
   } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
-    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
+    bombardAffordTxt = `<span style="color:var(--amber); font-weight:700;">→ 流動現金充足：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
   } else {
-    bombardAffordTxt = `<span style="color:var(--text); font-weight:700;">→ 流動現金充足：${affordBase}</span>`;
+    bombardAffordTxt = `<span style="color:var(--teal); font-weight:700;">→ 流動現金充足：${affordBase}</span>`;
   }
 
   // ---- 2. 融資維持率安全（對應條件欄第9個燈號） ----
@@ -2345,7 +2344,8 @@ function renderReserve(){
     const ms = d.marginStatus;
     const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
     const callPriceTicked = applyTick(ms.callPrice, getEffectiveTick(asset, ms.callPrice), 'round');
-    marginLine = `<span style="color:var(--text); font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked,2)}</span>`;
+    const marginColor = ms.safe ? 'var(--teal)' : 'var(--red)';
+    marginLine = `<span style="color:${marginColor}; font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked,2)}</span>`;
   } else {
     marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
   }
@@ -2371,15 +2371,17 @@ function renderReserve(){
   if(d.dcaPaused){
     dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ 定期定額：今日暫停（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
   } else {
-    dcaStateHtml = `<span style="color:var(--text); font-weight:700;">→ 定期定額：今日正常執行</span>`;
+    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ 定期定額：今日正常執行</span>`;
   }
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
-  let bombardTriggerTxt;
+  let bombardTriggerTxt, bombardColor;
   if(!d.ready2){
     bombardTriggerTxt = '未觸發（資料不足，無法判斷）';
+    bombardColor = 'var(--text-faint)';
   } else if(d.bombard){
     bombardTriggerTxt = `已觸發｜第一層所需金額${st.bombardCostTxt}｜第二層所需金額${st.layer2CostTxt}`;
+    bombardColor = 'var(--teal)';
   } else {
     const reasons = [];
     if(!d.ma60upFlat) reasons.push('MA60未持平或向上');
@@ -2389,21 +2391,25 @@ function renderReserve(){
     if(d.cashSufficient === false) reasons.push('流動現金不足');
     if(d.marginSafe === false) reasons.push('融資維持率不安全');
     bombardTriggerTxt = `未觸發（${reasons.join('、')}）`;
+    bombardColor = 'var(--text-faint)';
   }
-  const bombardLine = `<span style="color:var(--text); font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
+  const bombardLine = `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
 
   // ---- 5. 停利觸發（對應結果欄第4個燈號） ----
   const exitThresholdTicked = (d.exitThreshold != null) ? applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round') : null;
   const sharesNow = state.shares[key] || 0;
-  let exitTriggerTxt;
+  let exitTriggerTxt, exitColor;
   if(d.exit && sharesNow <= 0){
     exitTriggerTxt = '已達停利價位，但目前股數為0，無法執行';
+    exitColor = 'var(--amber)';
   } else if(d.exit){
     exitTriggerTxt = '已觸發';
+    exitColor = 'var(--teal)';
   } else {
     exitTriggerTxt = '未觸發';
+    exitColor = 'var(--text-faint)';
   }
-  const costLine = `<span style="color:var(--text); font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}</span>`;
+  const costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}</span>`;
 
   // ---- 6. 現金水位停損觸發（對應結果欄第6個燈號） ----
   let liquidityStopHtml;
@@ -2413,23 +2419,23 @@ function renderReserve(){
     const rebuildMultTxt = (asset.params.liqRebuildMult && asset.params.liqRebuildMult >= 1) ? asset.params.liqRebuildMult : 1;
     liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}，補回到門檻×${rebuildMultTxt}倍${reasonTxt}</span>`;
   } else {
-    liquidityStopHtml = `<span style="color:var(--text); font-weight:700;">→ 現金水位停損觸發：未觸發</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發</span>`;
   }
 
   // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位停損觸發） ----
   const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
   let timeStopHtml;
   if(!d.timeStopEnabled){
-    timeStopHtml = `<span style="color:var(--text); font-weight:700;">→ 時間停損觸發：未觸發（這個標的未啟用時間停損機制）</span>`;
+    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發（這個標的未啟用時間停損機制）</span>`;
   } else if(d.timeStopTriggered === undefined){
-    timeStopHtml = `<span style="color:var(--text); font-weight:700;">→ 時間停損觸發：未觸發（尚未設定建倉起始日，無法判斷）｜建倉起始日：${positionStartTxt}</span>`;
+    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發（尚未設定建倉起始日，無法判斷）｜建倉起始日：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered && d.today){
     const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
     const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
     const tickDec2 = getTickDecimals(getEffectiveTick(asset, tsPrice));
     timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：建議今日分批停損 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec2)}｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
   } else {
-    timeStopHtml = `<span style="color:var(--text); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
+    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
   }
 
   document.getElementById('reserveHint').innerHTML =
