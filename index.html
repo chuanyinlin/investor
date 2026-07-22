@@ -208,7 +208,7 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnExportHist{
+  #btnExportHist, #btnExportReserve{
     display: table; margin: 14px 0 0 auto;
   }
 
@@ -517,6 +517,7 @@
     <div class="card-title"><h3 id="reserveTitle">訊號明細</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="reserveBody" style="display:none;">
     <div class="footer-note" id="reserveHint" style="text-align:left; margin-top:2px; font-size:12.5px;"></div>
+    <button class="btn btn-neutral btn-sm" id="btnExportReserve">下載</button>
     </div>
   </div>
 
@@ -647,7 +648,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-22 22:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 07:00</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -3166,6 +3167,31 @@ document.getElementById('btnBtClearImport').addEventListener('click', ()=>{
   document.getElementById('btImportStatus').innerHTML = `<span style="color:var(--text-faint);">已清除本地資料，下次回測會重新連線抓取。</span>`;
 });
 
+document.getElementById('btnExportReserve').addEventListener('click', ()=>{
+  const asset = getAsset(state.activeTab);
+  // 把訊號明細卡片實際渲染出來的HTML內容，轉成乾淨的純文字：
+  // 先把<br>／<div>換成真正的換行符號，再用textContent去掉其餘標籤（如<span>的顏色樣式）
+  const sourceEl = document.getElementById('reserveHint');
+  const temp = document.createElement('div');
+  temp.innerHTML = sourceEl.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<div[^>]*>/gi, '\n').replace(/<\/div>/gi, '');
+  const plainText = temp.textContent.replace(/\n{2,}/g, '\n').trim();
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const dateOnly = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const content = `${asset.name}　訊號明細\n下載時間：${timestamp}\n\n${plainText}\n`;
+
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${asset.name}_訊號明細_${dateOnly}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const section = (asset)=>{
     const rows = sortedLog(asset.key);
@@ -3184,11 +3210,14 @@ document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const asset = getAsset(state.activeTab);
   let content = section(asset);
 
+  const now = new Date();
+  const dateOnly = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
   const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${asset.name}.txt`;
+  a.download = `${asset.name}_歷史紀錄_${dateOnly}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
