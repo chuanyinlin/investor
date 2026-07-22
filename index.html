@@ -2301,9 +2301,6 @@ function renderReserve(){
   if(!d.ready || !d.ready2){
     noticeHtml += `<div class="empty-hint">目前只有${n}筆資料，部分燈號需要更多天數的資料才能開始判定，資料足夠前一律以「未觸發」顯示。</div>`;
   }
-  if(d.timeStopEnabled && d.timeStopTriggered === undefined){
-    noticeHtml += `<div class="empty-hint">已啟用時間停損機制，但尚未設定建倉起始日，時間停損暫以「未觸發」處理。</div>`;
-  }
 
   const st = getCashStatus(key);
 
@@ -2321,8 +2318,7 @@ function renderReserve(){
   const lastBombardTxt = (lastBombardPriceVal != null && lastBombardPriceVal > 0)
     ? `${fmt(lastBombardPriceVal,2)}｜${lastBombardDateVal || '—（未輸入日期）'}`
     : '—（未輸入，加碼節流不會限制第一次觸發）';
-  const cashSectionTop = `<span style="color:var(--text-faint); font-size:11px;">根據資料輸入</span><br>` +
-    `<span style="color:var(--text-faint);">目前活存現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股｜平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}</span><br>` +
+  const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股｜平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格／日期：${lastBombardTxt}</span><br>`;
   // 流動現金：唯一一行，恆常顯示現金應保留／可動用現金水位，後面依判定訊號燈號的4種狀態補充對應文字
   let bombardAffordTxt;
@@ -2445,15 +2441,12 @@ function renderReserve(){
 
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
+    `<span style="color:var(--text-faint);">根據輸入資料及證交所資料交叉分析：</span><br>` +
     cashSectionTop + bombardAffordTxt + `<br>` +
-    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
-    `<span style="color:var(--text-faint);">根據最近3個交易日的收盤價與均線</span><br>` +
     defenseLedLine + `<br>` +
     dcaStateHtml + `<br>` +
     bombardLine + `<br>` +
     costLine + `<br>` +
-    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
-    `<span style="color:var(--text-faint);">根據資料輸入及最近3個交易日的收盤價與均線</span><br>` +
     liquidityStopHtml + `<br>` +
     timeStopHtml +
     `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
@@ -3493,7 +3486,15 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btnExportAssets').addEventListener('click', ()=>{
-  const content = JSON.stringify({ assets: state.assets }, null, 2);
+  // 融資買進均價／融資股數／建倉起始日，雖然不是asset.params的一部分（存在獨立的state物件裡），
+  // 但因為都是在「設定」畫面裡輸入的，使用者會期待這些資料也一起被匯出/匯入，這裡一併打包進去
+  const assetsWithExtra = state.assets.map(a => ({
+    ...a,
+    marginCost: state.marginCost[a.key] || 0,
+    marginShares: state.marginShares[a.key] || 0,
+    positionStart: state.positionStart[a.key] || '',
+  }));
+  const content = JSON.stringify({ assets: assetsWithExtra }, null, 2);
   const blob = new Blob([content], {type:'application/json;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3520,7 +3521,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       throw new Error('format');
     }
     let addedCount = 0, updatedCount = 0;
-    assetsArr.forEach(imported=>{
+    for(const imported of assetsArr){
       const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
       const paramsSrc = (imported.params && typeof imported.params === 'object') ? imported.params : {};
       const cleanParams = {};
@@ -3550,11 +3551,43 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         state.assets[existIdx] = clean;
         updatedCount++;
       } else {
-        state.assets.push(clean);
-        addedCount++;
+        // key對不上既有標的，但名稱卻重複——很可能是舊版本累積下來的資料，key命名跟現在的版本不一致，
+        // 不要靜默新增造成畫面上出現兩個同名標的，先跳出確認讓使用者自己決定；
+        // 用customConfirm（自製對話框），不用window.confirm，因為沙盒環境會封鎖後者且完全沒有任何提示
+        const nameCollisionIdx = state.assets.findIndex(a=>a.name===clean.name);
+        if(nameCollisionIdx >= 0){
+          const mergeConfirm = await customConfirm(
+            `偵測到「${clean.name}」名稱重複，但識別碼不同（現有：${state.assets[nameCollisionIdx].key}，匯入檔案：${clean.key}）。\n\n` +
+            `按「確定」＝合併成同一個標的（用匯入的策略參數覆蓋現有的「${clean.name}」，識別碼維持現有的不變，現金/股數等每日資料不受影響）\n` +
+            `按「取消」＝當作全新的標的新增，畫面上會出現兩個同名標的`
+          );
+          if(mergeConfirm){
+            clean.key = state.assets[nameCollisionIdx].key; // 保留現有的key，避免現金/股數/歷史紀錄等每日資料對不上
+            state.assets[nameCollisionIdx] = clean;
+            updatedCount++;
+          } else {
+            state.assets.push(clean);
+            addedCount++;
+          }
+        } else {
+          state.assets.push(clean);
+          addedCount++;
+        }
       }
       ensureAssetData(clean.key);
-    });
+      // 融資買進均價／融資股數／建倉起始日：跟asset.params分開存放，等clean.key確定最終值後（可能因合併而改用既有key）才寫入，
+      // 避免合併情境下用到匯入檔案裡舊的key、對不上實際資料
+      const numOr2 = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
+      const importedMarginCost = numOr2(imported.marginCost, 0);
+      const importedMarginShares = numOr2(imported.marginShares, 0);
+      const importedPositionStart = (typeof imported.positionStart === 'string') ? imported.positionStart : '';
+      state.marginCost[clean.key] = importedMarginCost;
+      state.marginShares[clean.key] = importedMarginShares;
+      state.positionStart[clean.key] = importedPositionStart;
+      await storageSet(KEY_MARGIN_COST(clean.key), importedMarginCost);
+      await storageSet(KEY_MARGIN_SHARES(clean.key), importedMarginShares);
+      await storageSet(KEY_POSITION_START(clean.key), importedPositionStart);
+    }
     await storageSet(KEY_ASSETS, state.assets);
 
     renderAssetManage();
@@ -3569,6 +3602,28 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
 });
 
 // 沙盒環境中 window.confirm 可能被封鎖而沒有反應，改用「再次點擊確認」機制
+// 自製確認對話框：不依賴瀏覽器原生window.confirm()，因為沙盒環境會靜默封鎖它（回傳false但完全不顯示任何畫面），
+// 這個問題之前在armConfirmClick已經處理過一次，這裡是另一個需要同樣防範的地方（匯入標的設定時的名稱重複警告）
+function customConfirm(message){
+  return new Promise((resolve)=>{
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop show';
+    backdrop.style.alignItems = 'center';
+    backdrop.innerHTML = `
+      <div class="modal" style="max-width:380px; border-radius:16px; max-height:none;">
+        <div style="font-size:13.5px; color:var(--text); line-height:1.6; white-space:pre-line; margin-bottom:18px;">${message}</div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-neutral btn-sm" id="customConfirmCancel" style="flex:1; width:auto;">取消</button>
+          <button class="btn btn-primary btn-sm" id="customConfirmOk" style="flex:1; width:auto;">確定</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    const cleanup = (result) => { document.body.removeChild(backdrop); resolve(result); };
+    backdrop.querySelector('#customConfirmOk').addEventListener('click', ()=>cleanup(true));
+    backdrop.querySelector('#customConfirmCancel').addEventListener('click', ()=>cleanup(false));
+  });
+}
+
 function armConfirmClick(el, originalText, confirmText, onConfirm){
   let armed = false;
   let timer = null;
