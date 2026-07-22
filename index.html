@@ -244,6 +244,7 @@
     box-shadow:0 4px 12px rgba(0,0,0,0.4); cursor:auto;
   }
   .test-flag-icon:hover .test-flag-tip{ display:block; }
+  .test-flag-tip.js-fixed-pos{ position:fixed !important; top:var(--tip-top,20px) !important; left:var(--tip-left,0) !important; }
   .empty-hint{
     text-align:left; color:var(--text-faint); font-size:12.5px;
     padding: 14px 6px; line-height:1.6;
@@ -648,7 +649,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 07:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 08:50</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -715,7 +716,7 @@ const PARAM_META = [
   ['exitMult','停利價位乘數','mult','停利邏輯','股價漲到「MA20×這個倍數」時觸發停利，倍數越高，要漲越多才會出場'],
   ['costExitMult','停利成本乘數（與MA20停利價取高者）','mult','停利邏輯','股價漲到「平均持股成本×這個倍數」時也會觸發停利，跟上面的MA20停利價取兩者較高的門檻，避免賣在成本以下'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的這個比例，不是全部停利，剩下的部位繼續留倉'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會暫停動能／加碼，並立刻用今日市價賣股票救回這個比例（現金水位停損）；高於這個比例時，時間停損會暫緩，只在現金真的不夠時才正常出場。換算成金額的公式：現金應保留＝這個比例×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保現金補到這個金額後，佔總部位的比例真的精確等於設定值。設為0＝主動關閉整個現金水位監控（現金水位停損、防禦邊界的現金因子、時間停損的現金判斷全部停用，不是門檻變0而已）。等同拆除最後一道防線，不建議設為0'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位停損等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['timeStopEnabled','啟用時間停損機制','bool','時間停損','時間停損預設關閉。勾選後才會啟用：距離「建倉起始日」（下方欄位，勾選後才會顯示）已經超過設定天數，且現金水位不足時，強制分批出場。取消勾選會清空建倉起始日，之後如果重新勾選，需要重新輸入'],
@@ -1910,7 +1911,7 @@ function renderHistory(){
   const body = document.getElementById('histBody');
   const key = state.activeTab;
   const downloadBtn = document.getElementById('btnExportHist');
-  { const btnH = document.getElementById('toggleHist'); btnH.querySelector('.chev').classList.toggle('collapsed', state.histCollapsed); btnH.title = state.histCollapsed ? '展開' : '收合'; }
+  { const btnH = document.getElementById('toggleHist'); const chevH = btnH ? btnH.querySelector('.chev') : null; if(chevH) chevH.classList.toggle('collapsed', state.histCollapsed); if(btnH) btnH.title = state.histCollapsed ? '展開' : '收合'; }
   if(state.histCollapsed){ body.style.display = 'none'; return; }
   body.style.display = 'block';
 
@@ -2329,8 +2330,6 @@ function renderReserve(){
   const st = getCashStatus(key);
 
   // ---- 1. 流動現金（對應條件欄第8個燈號） ----
-  const available = (st.requiredReserve != null) ? (st.cur - st.requiredReserve) : null;
-  const availableTxt = (available != null) ? `${available.toLocaleString()} ${st.unit}` : '—（尚無收盤價或股數資料）';
   const avgCostVal = state.avgCost[key] || 0;
   const positionStartTxt = !d.timeStopEnabled ? '—（未啟用時間停損）' : (state.positionStart[key] || '—（未輸入）');
   const hasMarginPrice = !!(d.marginStatus && d.marginStatus.hasPrice);
@@ -2344,9 +2343,9 @@ function renderReserve(){
     : '—（未輸入，加碼節流不會限制第一次觸發）';
   const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${st.cur.toLocaleString()} ${st.unit}｜目前股數：${(state.shares[key]||0).toLocaleString()} 股｜平均持股成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '—（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格／日期：${lastBombardTxt}</span><br>`;
-  // 流動現金：唯一一行，恆常顯示現金應保留／可動用現金水位，後面依判定訊號燈號的4種狀態補充對應文字
+  // 流動現金：唯一一行，恆常顯示建議現金應保留金額，後面依判定訊號燈號的4種狀態補充對應文字
   let bombardAffordTxt;
-  const affordBase = `現金應保留${st.requiredTxt}｜可動用現金水位${availableTxt}`;
+  const affordBase = `建議現金應保留${st.requiredTxt}`;
   if(!d.hasPersonalData){
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜尚未輸入部位資料，無法判斷</span>`;
   } else if(st.sufficient == null){
@@ -2354,7 +2353,7 @@ function renderReserve(){
     const reasonTxt = monitoringDisabled ? '此標的未設定現金水位監控（最低流動現金佔比%=0）' : '尚無資料，無法判斷';
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜${reasonTxt}</span>`;
   } else if(st.sufficient === false){
-    bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金：${affordBase}｜現金水位不足</span>`;
+    bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金：${affordBase}</span>`;
   } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
     bombardAffordTxt = `<span style="color:var(--amber); font-weight:700;">→ 流動現金：${affordBase}｜現金水位夠，但不夠付加碼</span>`;
   } else {
@@ -2390,7 +2389,7 @@ function renderReserve(){
     if(!d.priceAboveMa60) defenseReasons.push('股價未站穩MA60');
     if(d.cashSufficient === false) defenseReasons.push('流動現金不足');
     if(d.marginSafe === false) defenseReasons.push('融資維持率過低');
-    defenseLedTxt = `不安全（${defenseReasons.join('、')}）`;
+    defenseLedTxt = `不安全｜${defenseReasons.join('｜')}`;
     defenseLedColor = 'var(--red)';
   }
   const defenseLedLine = `<span style="color:${defenseLedColor}; font-weight:700;">→ 防禦邊界：${defenseLedTxt}</span>`;
@@ -2401,7 +2400,7 @@ function renderReserve(){
   if(!d.hasPersonalData){
     dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：尚未輸入部位資料，無法判斷</span>`;
   } else if(d.dcaPaused){
-    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停（MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股）</span>`;
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股</span>`;
   } else {
     dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
   }
@@ -2409,10 +2408,10 @@ function renderReserve(){
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
   let bombardTriggerTxt, bombardColor;
   if(!d.ready2){
-    bombardTriggerTxt = '未觸發（資料不足，無法判斷）';
+    bombardTriggerTxt = '未觸發｜資料不足，無法判斷';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombard){
-    bombardTriggerTxt = `已觸發｜第一層所需金額${st.bombardCostTxt}｜第二層所需金額${st.layer2CostTxt}`;
+    bombardTriggerTxt = `已觸發｜建議第一層掛單${st.bombardCostTxt}｜第二層掛單${st.layer2CostTxt}`;
     bombardColor = 'var(--teal)';
   } else {
     const reasons = [];
@@ -2422,7 +2421,7 @@ function renderReserve(){
     if(!d.touch) reasons.push('股價未達加碼價位');
     if(d.cashSufficient === false) reasons.push('流動現金不足');
     if(d.marginSafe === false) reasons.push('融資維持率過低');
-    bombardTriggerTxt = `未觸發（${reasons.join('、')}）`;
+    bombardTriggerTxt = `未觸發｜${reasons.join('｜')}`;
     bombardColor = 'var(--text-faint)';
   }
   const bombardLine = `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
@@ -2438,7 +2437,7 @@ function renderReserve(){
     exitTriggerTxt = '已達停利價位，但目前股數為0，無法執行';
     exitColor = 'var(--amber)';
   } else if(d.exit){
-    exitTriggerTxt = '已觸發';
+    exitTriggerTxt = '建議分批停利';
     exitColor = 'var(--teal)';
   } else {
     exitTriggerTxt = '未觸發';
@@ -2450,9 +2449,8 @@ function renderReserve(){
   let liquidityStopHtml;
   if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
-    const reasonTxt = d.liquidityStopByFloor ? '（跌破絕對底線，逆勢賣出）' : '（MA60安全，順勢賣出）';
-    const rebuildMultTxt = (asset.params.liqRebuildMult && asset.params.liqRebuildMult >= 1) ? asset.params.liqRebuildMult : 1;
-    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}，補回到門檻×${rebuildMultTxt}倍${reasonTxt}</span>`;
+    const reasonTxt = d.liquidityStopByFloor ? '逆勢賣出（底線已破）' : '順勢賣出';
+    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
   } else {
     liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發</span>`;
   }
@@ -2461,9 +2459,9 @@ function renderReserve(){
   const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
   let timeStopHtml;
   if(!d.timeStopEnabled){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發（這個標的未啟用時間停損機制）</span>`;
+    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜這個標的未啟用時間停損機制</span>`;
   } else if(d.timeStopTriggered === undefined){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發（尚未設定建倉起始日，無法判斷）｜建倉起始日：${positionStartTxt}</span>`;
+    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜尚未設定建倉起始日，無法判斷｜建倉起始日：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered && d.today){
     const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
     const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
@@ -2472,6 +2470,12 @@ function renderReserve(){
   } else {
     timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
   }
+
+  const marginSectionHtml = asset.params.marginDefenseEnabled
+    ? `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
+      `<span style="color:var(--text-faint);">${marginRawTxt}</span><br>` +
+      marginLine
+    : '';
 
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
@@ -2483,10 +2487,7 @@ function renderReserve(){
     costLine + `<br>` +
     liquidityStopHtml + `<br>` +
     timeStopHtml +
-    `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
-    `<span style="color:var(--text-faint); font-size:11px;">根據進階參數</span><br>` +
-    `<span style="color:var(--text-faint);">${marginRawTxt}</span><br>` +
-    marginLine;
+    marginSectionHtml;
 }
 
 function renderTabs(){
@@ -2647,7 +2648,17 @@ function renderAssetManage(){
     if(type==='pct') val = (val*100);
     let catHtml = '';
     if(cat !== lastCat){
-      catHtml = `<div class="param-cat-mini">${cat}</div>`;
+      const catTipMap = {
+        '加碼條件': '加碼要不要有機會觸發，先看四個條件是否同時成立：股價達加碼價位、MA20持平或向上、以及防禦邊界安全（這一項本身又包含MA60趨勢正常、流動現金充足、融資維持率安全、已輸入部位資料，四者都要成立）。這四個條件全部成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
+        '停利邏輯': '先算出停利價位：MA20停利價（今天MA20×停利價位乘數）與持股成本停利價（平均持股成本×停利成本乘數，只有你輸入過持股成本才會算）兩者取高者，確保不會用比較低的那條線誤判。今天收盤價只要達到這個停利價位就觸發，這個判斷完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
+        '現金流動性': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位停損、防禦邊界的現金因子、時間停損的現金判斷全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
+        '時間停損': '第一層：要先同時滿足三個前提，才會開始計算已持有天數——你有勾選啟用這個機制、你有輸入建倉起始日、你目前股數大於0；只要少一個，時間停損就完全不會計算，維持未觸發（不是條件不成立，是根本沒開始判斷）。第二層：已持有天數（今天−建倉起始日）是不是超過設定天數，這是初步觸發。第三層：現金水位夠不夠，決定初步觸發要不要變成真的觸發——現金水位已經足夠就暫緩，不會無謂出場；現金水位仍然不夠才真正觸發，建議分批停損；如果同一天現金水位停損剛好也建議賣股救回現金，這裡會用「假設你真的照做之後」的現金水位來判斷，不是用賣股前的舊現金，避免兩個機制同一天重複觸發、賣過頭。第四層：真正觸發時，只賣掉目前股數的分批比例%，不是一次全部出清，這個比例是固定的，跟現金水位停損補回倍數那種「賣到補回某個目標」的算法不一樣，刻意維持時間停損原本「固定規律性減碼」的性質，不跟現金水位停損混在一起。',
+        '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
+      };
+      const catTip = catTipMap[cat]
+        ? `<span class="test-flag-icon">i<div class="test-flag-tip">${catTipMap[cat]}</div></span>`
+        : '';
+      catHtml = `<div class="param-cat-mini">${cat}${catTip}</div>`;
       lastCat = cat;
     }
     const isLastInCat = !PARAM_META[i+1] || PARAM_META[i+1][3] !== cat;
@@ -3022,6 +3033,37 @@ document.addEventListener('click', (e)=>{
 
 
 // ---------- events ----------
+// .test-flag-tip原本用position:absolute，如果外層剛好在有overflow-y:auto的容器裡（例如「設定」彈出視窗），
+// 提示框超出容器可視範圍的部分會被裁切掉、看不到後半段文字；改用JS在hover當下動態算出正確位置，
+// 用position:fixed（不受任何父層overflow影響），並且根據下方剩餘空間，自動決定往下展開還是往上展開；
+// 用事件委派（捕獲階段）綁在document上，不管icon是靜態HTML還是動態渲染出來的，都不用個別重新綁定
+document.addEventListener('mouseenter', (e)=>{
+  try{
+    const icon = e.target && e.target.closest && e.target.closest('.test-flag-icon');
+    if(!icon) return;
+    const tip = icon.querySelector('.test-flag-tip');
+    if(!tip) return;
+    const iconRect = icon.getBoundingClientRect();
+    tip.classList.add('js-fixed-pos');
+    // 先假設往下展開，量出實際高度，如果下方空間不夠就改成往上展開
+    tip.style.setProperty('--tip-left', Math.max(8, Math.min(iconRect.left, window.innerWidth - 280 - 8)) + 'px');
+    tip.style.setProperty('--tip-top', (iconRect.bottom + 6) + 'px');
+    const tipRect = tip.getBoundingClientRect();
+    if(tipRect.bottom > window.innerHeight - 8){
+      const flippedTop = iconRect.top - tipRect.height - 6;
+      tip.style.setProperty('--tip-top', Math.max(8, flippedTop) + 'px');
+    }
+  } catch(err){ console.warn('tooltip定位失敗，忽略不處理', err); }
+}, true);
+document.addEventListener('mouseleave', (e)=>{
+  try{
+    const icon = e.target && e.target.closest && e.target.closest('.test-flag-icon');
+    if(!icon) return;
+    const tip = icon.querySelector('.test-flag-tip');
+    if(tip) tip.classList.remove('js-fixed-pos');
+  } catch(err){ console.warn('tooltip定位還原失敗，忽略不處理', err); }
+}, true);
+
 // 防止滑鼠滾輪在數字欄位上意外改變數值：欄位取得焦點時先移開焦點再讓頁面正常捲動
 document.addEventListener('wheel', (e)=>{
   const el = document.activeElement;
@@ -3040,7 +3082,7 @@ document.getElementById('toggleInput').addEventListener('click', ()=>{
   const body = document.getElementById('inputBody');
   const btn = document.getElementById('toggleInput');
   body.style.display = state.inputCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.inputCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.inputCollapsed);
   btn.title = state.inputCollapsed ? '展開' : '收合';
 });
 
@@ -3049,7 +3091,7 @@ document.getElementById('toggleAdvancedInput').addEventListener('click', ()=>{
   const body = document.getElementById('advancedInputBody');
   const btn = document.getElementById('toggleAdvancedInput');
   body.style.display = state.advancedInputCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.advancedInputCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.advancedInputCollapsed);
   btn.title = state.advancedInputCollapsed ? '展開' : '收合';
 });
 
@@ -3058,7 +3100,7 @@ document.getElementById('toggleLed').addEventListener('click', ()=>{
   const body = document.getElementById('ledBody');
   const btn = document.getElementById('toggleLed');
   body.style.display = state.ledCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.ledCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.ledCollapsed);
   btn.title = state.ledCollapsed ? '展開' : '收合';
 });
 
@@ -3067,7 +3109,7 @@ document.getElementById('toggleReserve').addEventListener('click', ()=>{
   const body = document.getElementById('reserveBody');
   const btn = document.getElementById('toggleReserve');
   body.style.display = state.reserveCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.reserveCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.reserveCollapsed);
   btn.title = state.reserveCollapsed ? '展開' : '收合';
 });
 
@@ -3076,7 +3118,7 @@ document.getElementById('toggleOrders').addEventListener('click', ()=>{
   const body = document.getElementById('orderBody');
   const btn = document.getElementById('toggleOrders');
   body.style.display = state.ordersCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.ordersCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.ordersCollapsed);
   btn.title = state.ordersCollapsed ? '展開' : '收合';
 });
 
@@ -3085,7 +3127,7 @@ document.getElementById('toggleBacktest').addEventListener('click', ()=>{
   const body = document.getElementById('backtestBody');
   const btn = document.getElementById('toggleBacktest');
   body.style.display = state.backtestCollapsed ? 'none' : 'block';
-  btn.querySelector('.chev').classList.toggle('collapsed', state.backtestCollapsed);
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.backtestCollapsed);
   btn.title = state.backtestCollapsed ? '展開' : '收合';
 });
 
