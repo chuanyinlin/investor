@@ -649,7 +649,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 Error Test</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 11:15</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -2647,6 +2647,16 @@ function renderAssetManage(){
 }
 function renderAssetManageInner(){
   const wrap = document.getElementById('assetManageList');
+  // calendarPop是全站共用的日曆彈出元件，平常待在「進階資料輸入」卡片裡，
+  // 但openCalendar()每次開啟時會把它動態搬到「目前正在使用的日期欄位」旁邊，
+  // 如果使用者曾經點開過「設定」畫面裡的「建倉起始日」日期選擇器，calendarPop就會借住在這個wrap容器裡；
+  // 這時候如果不先移出來，接下來的wrap.innerHTML重新賦值，會把它整個連根摧毀，
+  // 導致之後任何一次點擊畫面，全域的calendarPop點擊監聽器都會找不到這個元素、對null呼叫classList出錯
+  const existingPop = document.getElementById('calendarPop');
+  if(existingPop && wrap && wrap.contains(existingPop)){
+    document.body.appendChild(existingPop);
+    closeCalendar();
+  }
   if(!assetMgmtActiveKey || !state.assets.some(a=>a.key===assetMgmtActiveKey)){
     assetMgmtActiveKey = state.assets[0].key;
   }
@@ -3020,7 +3030,8 @@ function openCalendar(targetId){
   pop.classList.add('show');
 }
 function closeCalendar(){
-  document.getElementById('calendarPop').classList.remove('show');
+  const pop = document.getElementById('calendarPop');
+  if(pop) pop.classList.remove('show');
 }
 
 ['inDate','btStartDate','btEndDate','btDownloadStartDate','inLastBombardDateNow'].forEach(id=>{
@@ -3068,6 +3079,7 @@ document.getElementById('calToday').addEventListener('click', ()=>{
 });
 document.addEventListener('click', (e)=>{
   const pop = document.getElementById('calendarPop');
+  if(!pop) return;
   const field = document.getElementById(calState.targetId);
   if(pop.classList.contains('show') && !pop.contains(e.target) && e.target !== field){
     closeCalendar();
