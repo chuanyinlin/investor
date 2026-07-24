@@ -104,13 +104,23 @@
   .hero.st-warn .headline{ color: var(--amber); }
 
   /* ---------- Tabs ---------- */
+  .tabs-wrap{ display:flex; align-items:center; gap:6px; margin-bottom:16px; height:42px; }
+  .tabs-arrow{
+    width:26px; height:36px; border-radius:8px; background: var(--panel-2);
+    border:1px solid var(--hair-strong); display:flex; align-items:center; justify-content:center;
+    color: var(--text); font-size:16px; font-weight:700; flex-shrink:0;
+  }
+  .tabs-arrow.disabled{ color: var(--text-faint); opacity:0.4; }
+  .tabs-arrow:active{ background: var(--panel-3); }
   .tabs{
     display:flex; background: var(--panel); border:1px solid var(--hair);
-    border-radius: 13px; padding:3px; margin-bottom:16px;
+    border-radius: 13px; padding:3px; margin-bottom:0; flex:1; min-width:0; height:42px; box-sizing:border-box;
   }
   .tab{
-    flex:1; text-align:center; padding:9px 0; border-radius:10px;
-    font-size:13.5px; font-weight:600; color:var(--text-dim);
+    flex:1; height:36px; display:flex; align-items:center; justify-content:center;
+    text-align:center; border-radius:10px; box-sizing:border-box;
+    font-size:13.5px; font-weight:600; line-height:1; color:var(--text-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .tab.active{ background: var(--panel-2); color: var(--text); }
 
@@ -381,7 +391,11 @@
     <div class="sub" id="heroSub">正在讀取資料</div>
   </div>
 
-  <div class="tabs" id="tabsRow"></div>
+  <div class="tabs-wrap">
+    <button class="tabs-arrow" id="tabsArrowLeft" style="display:none;">‹</button>
+    <div class="tabs" id="tabsRow"></div>
+    <button class="tabs-arrow" id="tabsArrowRight" style="display:none;">›</button>
+  </div>
 
   <!-- ============ INPUT CARD ============ -->
   <div class="card">
@@ -623,6 +637,10 @@
           <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：動能觸發需要MA60也安全（防禦邊界打開）才會觸發。勾選後，動能觸發只看MA5/連續三日條件與現金是否足夠，不管MA60安不安全都會觸發。</div></span>
         </div>
         <div class="test-flag-wrap">
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableMa5RecoveryForDefense" style="width:auto;">MA5未轉弱時，允許跌破MA60照樣加碼/動能</label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：防禦邊界需要「股價站穩MA60」才會打開，跌破當天不管其他線怎樣一律關閉。勾選後，如果MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然視為安全；但只要MA5轉弱（今天MA5低於昨天），代表短期動能已經真的鬆動，維持原本規則，防禦邊界照常關閉。用來驗證「用MA5有沒有轉弱，區分健康回檔跟真正反轉」這個想法，長期下來對績效是好是壞。</div></span>
+        </div>
+        <div class="test-flag-wrap">
           <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableLiqStop" style="width:auto;" checked>現金水位停損機制<span style="color:var(--text-faint); font-weight:400;">（預設勾選）</span></label>
           <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS的最高指導原則：現金不足時強制處理（MA60安全順勢賣、弱勢時優先暫緩改暫停定期定額、跌破絕對底線則不管趨勢強制賣）。取消勾選後，整個機制關閉，現金水位再低也不會有任何強制處理動作，用來驗證這個核心機制本身是否有可以優化的空間。</div></span>
         </div>
@@ -649,7 +667,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-24 15:55</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-24 21:45</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -1099,6 +1117,7 @@ async function runBacktest(){
   const MA60_OBSERVATION_DAYS_RAW = document.getElementById('inMa60ObservationDays').value;
   const MA60_OBSERVATION_DAYS = (MA60_OBSERVATION_DAYS_RAW !== '' && !isNaN(parseInt(MA60_OBSERVATION_DAYS_RAW,10)) && parseInt(MA60_OBSERVATION_DAYS_RAW,10) >= 1) ? parseInt(MA60_OBSERVATION_DAYS_RAW,10) : 2;
   const DISABLE_DEFENSE_FOR_MOMENTUM = document.getElementById('btDisableDefenseForMomentum').checked;
+  const ENABLE_MA5_RECOVERY_FOR_DEFENSE = document.getElementById('btEnableMa5RecoveryForDefense').checked;
   const DISABLE_CASH_GATE_FOR_TIMESTOP = document.getElementById('btDisableCashGateForTimeStop').checked;
   const ENABLE_TIME_STOP = document.getElementById('btEnableTimeStop').checked;
   const DISABLE_TREND_FOR_LIQSTOP = document.getElementById('btDisableTrendForLiqStop').checked;
@@ -1204,7 +1223,11 @@ async function runBacktest(){
       const priceAboveMa60 = (ma60Y != null) ? (closeY >= ma60Y) : false;
       const hasMa60 = (ma60Y != null && ma60Y2 != null);
       const ma60upFlat = hasMa60 ? (ma60Y >= ma60Y2) : false;
-      const priceDefenseOk = hasMa60 ? (ma60upFlat && priceAboveMa60) : false;
+      const ma5upFlatForDefense = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
+      // 短暫誤殺判斷：MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然算安全；
+      // 只要MA5已經轉弱（今天MA5比昨天低），代表短期動能已經真的鬆動，不算誤殺，維持原本規則
+      const isFalseAlarmDip = ENABLE_MA5_RECOVERY_FOR_DEFENSE && hasMa60 && ma60upFlat && ma20upFlat && ma5upFlatForDefense && !priceAboveMa60;
+      const priceDefenseOk = hasMa60 ? (ma60upFlat && (priceAboveMa60 || isFalseAlarmDip)) : false;
 
       // MA60觀察期用：更新「連續幾天股價都在MA60之下」，用昨天（yest）的資料判斷；沒有MA60資料時視同「站上MA60」，不累計
       const belowMa60Now = hasMa60 ? !priceAboveMa60 : false;
@@ -1520,6 +1543,7 @@ async function runBacktest(){
     if(DISABLE_DEFENSE_FOR_BOMBARD) activeTestFlags.push('加碼不受防禦邊界(MA60)限制');
     if(ENABLE_MA60_OBSERVATION_FOR_BOMBARD) activeTestFlags.push(`加碼MA60觀察期(${MA60_OBSERVATION_DAYS}天)`);
     if(DISABLE_DEFENSE_FOR_MOMENTUM) activeTestFlags.push('動能觸發不受防禦邊界(MA60)限制');
+    if(ENABLE_MA5_RECOVERY_FOR_DEFENSE) activeTestFlags.push('MA5未轉弱時，允許跌破MA60照樣加碼/動能');
     if(ENABLE_TIME_STOP) activeTestFlags.push('時間停損機制');
     if(DISABLE_CASH_GATE_FOR_TIMESTOP) activeTestFlags.push('時間停損不受現金水位門檻限制');
     if(DISABLE_TREND_FOR_LIQSTOP) activeTestFlags.push('現金水位停損不受防禦邊界(MA60)趨勢分流');
@@ -1824,8 +1848,24 @@ function computeForAsset(assetKey){
   out.defenseOk = out.priceDefenseOk && cashFactorOk && out.marginSafe && out.hasPersonalData;
   out.bombard = out.touch && out.ma20upFlat && out.defenseOk;
 
-  // 加碼節流的門檻計算移到委託清單裡分層獨立判斷（L1、L2各自的限價不同，節流結果可能不一樣，
-  // 不該用同一個全域旗標籠統地把兩層一起擋掉——L1被擋下時，L2本身通常已經更便宜，很可能早就通過節流）
+  // 加碼節流的價位檢查：只要有足夠資料（ready2）且節流機制開啟，就照樣計算，不受bombard是否成立影響——
+  // 這是給委託清單當「預覽」用的（即使今天MA20暫時沒有持平向上、bombard=false，只要防禦邊界正常，
+  // 委託清單依然會試算出「如果條件都成立，可以買多少股」這個預覽數字，這個預覽也該正確反映節流狀態，
+  // 不能因為bombard=false就跳過節流檢查，讓預覽數字看起來像是「沒被節流擋」）
+  out.throttledL1 = false;
+  out.throttledL2 = false;
+  if(n >= 2 && P.bombardThrottleEnabled){
+    const asset = getAsset(assetKey);
+    const basePrice = Math.min(today.close, today.ma20);
+    const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+    const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+    const lastPrice = state.lastBombardPrice[assetKey];
+    out.throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
+    out.throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
+  }
+  // 加碼節流「觸發」（給判定訊號新增的LED跟訊號明細用）：語意是「今天原本真的該加碼，卻被節流擋下」，
+  // 這個要綁定bombard成立才算數，跟上面純粹的價位檢查（給委託清單預覽用）用途不同，不能混用同一個判斷
+  out.throttleTriggered = out.bombard && (out.throttledL1 || out.throttledL2);
 
   if(n >= 3){
     const t2 = rows[n-3];
@@ -1914,7 +1954,7 @@ function renderHero(){
   } else {
     hero.className = 'hero st-idle';
     headline.textContent = `🔄 ${dcaLabel}`;
-    sub.textContent = `僅維持${dcaLabel}，無戰術訊號`;
+    sub.textContent = `僅維持${dcaLabel}，其他訊號皆未觸發`;
   }
 }
 
@@ -2035,10 +2075,20 @@ function renderLeds(){
   // 現金流：定期定額（基本盤，放在防禦邊界之後）；沒有輸入過個人持有部位資料時，這個燈號也改成不亮（灰），
   // 不是「恆常亮燈」，避免在完全沒有真實資料的情況下，誤顯示「正常執行」這種假訊號
   const dcaLabelLed = getAsset(key).dcaMode === 'amount' ? '定期定額' : '定期定股';
-  resultHtml += ledItem(d.hasPersonalData, dcaLabelLed, d.hasPersonalData && d.dcaPaused ? 'amber' : '');
+  const dcaLedOn = d.hasPersonalData && getAsset(key).dcaValue > 0;
+  resultHtml += ledItem(dcaLedOn, dcaLabelLed, dcaLedOn && d.dcaPaused ? 'amber' : '');
 
   // MA20（戰略線）
   resultHtml += d.ready2 ? ledItem(d.bombard, '加碼觸發') : need(2, '加碼觸發');
+  // 加碼節流觸發：功能沒開啟時灰色不亮（跟融資防禦一樣，功能沒開啟就不該顯示狀態）；
+  // 開啟時，只有「原本真的該加碼、卻被節流擋下」才算觸發，用琥珀色（暫緩性質，跟定期定額暫停同一套語意）
+  if(!P.bombardThrottleEnabled){
+    resultHtml += ledItem(false, '加碼節流觸發', '');
+  } else if(!d.ready2){
+    resultHtml += need(2, '加碼節流觸發');
+  } else {
+    resultHtml += ledItem(d.throttleTriggered, '加碼節流觸發', d.throttleTriggered ? 'amber' : '');
+  }
   // 停利觸發：文字固定，觸發且可執行＝綠燈（好消息，達到目標）；觸發但股數為0＝琥珀燈（條件成立但無法執行）；
   // 沒有輸入過個人持有部位資料時，不知道有沒有東西可以賣，這個燈號也灰掉（跟「確認出清、股數真的是0」不同）
   if(!d.hasPersonalData){
@@ -2097,7 +2147,9 @@ function renderOrders(){
     }
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
-  html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail);
+  if(asset.dcaValue > 0){
+    html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail);
+  }
 
   // 動能觸發：限價單，掛在最近一次收盤價（隔天下單用），需要精確股價與股數，不寫「市價」
   let boostDetail = '';
@@ -2115,13 +2167,17 @@ function renderOrders(){
       boostDetail = `買入 ${fmtRaw(boostAmt,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
     }
   }
-  html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
+  // 動能加額＝定期定額(或定期定股)×動能倍數，兩個因子只要有一個是0，結果永遠是0，
+  // 這種情況下整行隱藏，不顯示沒有意義的「買入0」，跟定期定額/加碼L1/L2用同一套邏輯
+  if(asset.dcaValue > 0 && asset.boostMult > 0){
+    html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
+  }
 
   // 加碼觸發(第一層／第二層)（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
   // 股數計算只看「防禦邊界是否安全」，不受股價/MA20趨勢條件影響——因為預約掛單本來就是預先算好，
   // 當天股價是否真的觸及無法預知；只有防禦邊界關閉時，才代表現在不該掛單，股數歸零
   let l1Detail = '', l2Detail = '';
-  let throttledL1 = false, throttledL2 = false;
+  const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
   if(d.ready2){
     const basePrice = Math.min(d.today.close, d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
@@ -2130,8 +2186,6 @@ function renderOrders(){
     let suggestedThrottlePrice = null, suggestedThrottlePriceL2 = null;
     if(P.bombardThrottleEnabled){
       const lastPrice = state.lastBombardPrice[key];
-      throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
-      throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
       if(throttledL1 || throttledL2){
         // 節流門檻＝最近一次加碼價格×獨立的加碼節流門檻（throttleMult，不是L2定價用的layer2Mult）；
         // 用floor（無條件捨去）取整到合法檔位，確保這個建議價格「四捨五入後」依然真的滿足「≤精確門檻」這個條件，
@@ -2148,16 +2202,15 @@ function renderOrders(){
     let throttleNote1 = '', throttleNote2 = '';
     if(throttledL1){
       if(!throttledL2){
-        const shares2Now = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
-        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議改參考第二層${fmtRaw(shares2Now,0)} 股 ＠${fmtRaw(p2, tickDec)}）</span>`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託第二層）</span>`;
       } else {
         const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
-        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       }
     }
     if(throttledL2){
       const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
-      throttleNote2 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
+      throttleNote2 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
     }
     if(!d.defenseOk){
       l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
@@ -2184,8 +2237,14 @@ function renderOrders(){
     }
   }
   const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
-  html += orderRow(!!d.bombard && !throttledL1, '加碼觸發(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
-  html += orderRow(!!d.bombard && !throttledL2, '加碼觸發(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
+  // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
+  // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
+  if(asset.l1Pct > 0){
+    html += orderRow(!!d.bombard && !throttledL1, '加碼觸發(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
+  }
+  if(asset.l2Pct > 0){
+    html += orderRow(!!d.bombard && !throttledL2, '加碼觸發(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
+  }
 
   // 停利：分批停利（每次依分批停利比例%執行，非全部停利）
   let exitDetail = '';
@@ -2430,12 +2489,16 @@ function renderReserve(){
   // ---- 3. 定期定額（對應結果欄第2個燈號） ----
   const dcaLabelReserve = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   let dcaStateHtml;
-  if(!d.hasPersonalData){
-    dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
+  if(asset.dcaValue <= 0){
+    // 金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟「今天判斷結果」無關，
+    // 是一個靜態設定，整行都不顯示，優先於hasPersonalData等其他判斷，跟時間停損/融資防禦處理方式一致
+    dcaStateHtml = '';
+  } else if(!d.hasPersonalData){
+    dcaStateHtml = `<br><span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
   } else if(d.dcaPaused){
-    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股</span>`;
+    dcaStateHtml = `<br><span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股</span>`;
   } else {
-    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
+    dcaStateHtml = `<br><span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
   }
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
@@ -2464,6 +2527,30 @@ function renderReserve(){
     bombardColor = 'var(--text-faint)';
   }
   const bombardLine = `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
+
+  // ---- 4.5 加碼節流觸發（對應結果欄新增的燈號）----
+  // 功能沒開啟時整行不顯示，跟融資防禦、時間停損同一套處理方式
+  let throttleLine = '';
+  if(asset.params.bombardThrottleEnabled && d.ready2){
+    let throttleTxt, throttleColor;
+    if(!d.hasPersonalData){
+      throttleTxt = '（尚未輸入部位資料）';
+      throttleColor = 'var(--text-faint)';
+    } else if(!d.throttleTriggered){
+      throttleTxt = '未觸發';
+      throttleColor = 'var(--text-faint)';
+    } else if(d.throttledL1 && d.throttledL2){
+      throttleTxt = '已觸發｜第一層、第二層都被暫緩';
+      throttleColor = 'var(--amber)';
+    } else if(d.throttledL1){
+      throttleTxt = '已觸發｜第一層被暫緩，第二層正常';
+      throttleColor = 'var(--amber)';
+    } else {
+      throttleTxt = '已觸發｜第二層被暫緩，第一層正常';
+      throttleColor = 'var(--amber)';
+    }
+    throttleLine = `<br><span style="color:${throttleColor}; font-weight:700;">→ 加碼節流觸發：${throttleTxt}</span>`;
+  }
 
   // ---- 5. 停利觸發（對應結果欄第4個燈號） ----
   const exitThresholdTicked = (d.exitThreshold != null) ? applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round') : null;
@@ -2546,17 +2633,25 @@ function renderReserve(){
     `<span style="color:var(--text-faint);">根據輸入資料及證交所資料交叉分析：</span><br>` +
     cashSectionTop + bombardAffordTxt + `<br>` +
     defenseLedLine + `<br>` +
-    dcaStateHtml + `<br>` +
-    bombardLine + `<br>` +
+    dcaStateHtml +
+    bombardLine +
+    throttleLine + `<br>` +
     costLine + `<br>` +
     liquidityStopHtml +
     timeStopHtml +
     marginSectionHtml;
 }
 
+let tabWindowStart = 0; // 主畫面分頁列目前顯示視窗的起始index，固定顯示3個標的，每次點箭頭滑動1格
+const TAB_WINDOW_SIZE = 3;
+
 function renderTabs(){
   const row = document.getElementById('tabsRow');
-  row.innerHTML = state.assets.map(a=>
+  const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+  tabWindowStart = Math.min(Math.max(0, tabWindowStart), maxStart);
+
+  const visible = state.assets.slice(tabWindowStart, tabWindowStart + TAB_WINDOW_SIZE);
+  row.innerHTML = visible.map(a=>
     `<div class="tab ${a.key===state.activeTab?'active':''}" data-tab="${a.key}">${a.name}</div>`
   ).join('');
   row.querySelectorAll('.tab').forEach(t=>{
@@ -2578,6 +2673,30 @@ function renderTabs(){
       renderAll(); // 放在清空之後，讓renderAll()（含回測可用性檢查）套用到乾淨的畫面上
     });
   });
+  updateTabsArrows(tabWindowStart, maxStart, 'tabsArrowLeft', 'tabsArrowRight');
+}
+
+// 只有在「真的點擊某個分頁、切換到新的標的」這個動作發生時，才需要確保新選中的標的落在可見視窗內，
+// 純粹靠箭頭瀏覽視窗（還沒有真的點擊切換）不該被這個校正拉回去，否則會變成視窗永遠滑不動
+function ensureActiveTabVisible(windowStartVar, activeKey){
+  const activeIdx = state.assets.findIndex(a=>a.key===activeKey);
+  if(activeIdx < 0) return windowStartVar;
+  const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+  if(activeIdx < windowStartVar) return activeIdx;
+  if(activeIdx > windowStartVar + TAB_WINDOW_SIZE - 1) return Math.min(activeIdx - TAB_WINDOW_SIZE + 1, maxStart);
+  return windowStartVar;
+}
+
+// 箭頭固定顯示（不因為標的數量少而隱藏），只有在真的滑到底/滑到最左邊、或標的總數不夠3個可以滑動時才disabled；
+// 寫成通用函式，主畫面跟「設定」畫面裡的分頁列都能共用同一套邏輯
+function updateTabsArrows(windowStart, maxStart, leftId, rightId){
+  const leftBtn = document.getElementById(leftId);
+  const rightBtn = document.getElementById(rightId);
+  if(!leftBtn || !rightBtn) return;
+  leftBtn.style.display = 'flex';
+  rightBtn.style.display = 'flex';
+  leftBtn.classList.toggle('disabled', windowStart <= 0);
+  rightBtn.classList.toggle('disabled', windowStart >= maxStart);
 }
 
 // 加碼節流記憶的自動重置：股價脫離加碼容忍區間（touch從true變false）就客觀代表這一輪拉回結束，
@@ -2642,11 +2761,14 @@ function renderAll(){
   safe(()=>{
     const asset = getAsset(state.activeTab);
     const updateHint = document.getElementById('updateHintText');
+    const supportsFetch = assetSupportsAutoFetch(asset);
     if(updateHint){
-      updateHint.textContent = assetSupportsAutoFetch(asset)
+      updateHint.textContent = supportsFetch
         ? '（從證交所抓取最新收盤價與均線，只保留最近3天）'
         : '（「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入）';
     }
+    const updateBtn = document.getElementById('btnUpdateDaily');
+    if(updateBtn) updateBtn.disabled = !supportsFetch;
   }, 'updateHintText');
   safe(renderBacktestAvailability, 'renderBacktestAvailability');
 }
@@ -2701,6 +2823,7 @@ function ensureAssetData(key){
 
 let assetSubTab = {}; // 記錄每個標的目前顯示「基本設定」還是「進階設定」，用key當key
 let assetMgmtActiveKey = null; // 「設定」裡目前選到哪個標的的分頁
+let assetMgmtWindowStart = 0; // 「設定」畫面分頁列目前顯示視窗的起始index，固定顯示3個標的
 
 function renderAssetManage(){
   try{
@@ -2728,9 +2851,17 @@ function renderAssetManageInner(){
   const a = state.assets[idx];
   const sub = assetSubTab[a.key] || 'basic';
 
-  const tabsHtml = `<div class="tabs">` + state.assets.map(x=>
+  const mgmtMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+  assetMgmtWindowStart = Math.min(Math.max(0, assetMgmtWindowStart), mgmtMaxStart);
+  const mgmtVisible = state.assets.slice(assetMgmtWindowStart, assetMgmtWindowStart + TAB_WINDOW_SIZE);
+
+  const tabsHtml = `<div class="tabs-wrap">
+    <button class="tabs-arrow" id="assetMgmtArrowLeft" style="display:none;">‹</button>
+    <div class="tabs" id="assetMgmtTabsRow">` + mgmtVisible.map(x=>
     `<div class="tab ${x.key===assetMgmtActiveKey?'active':''}" data-mgmttab="${x.key}">${x.name}</div>`
-  ).join('') + `</div>`;
+  ).join('') + `</div>
+    <button class="tabs-arrow" id="assetMgmtArrowRight" style="display:none;">›</button>
+  </div>`;
 
   const basicHtml = `
     <div class="grid2">
@@ -2784,7 +2915,8 @@ function renderAssetManageInner(){
     const isTimeStopSubField = (pkey === 'timeStopDays' || pkey === 'timeStopPartialFrac');
     const isMarginSubField = (pkey === 'marginRatio' || pkey === 'marginCallRatio');
     const disabledAttr = (isTimeStopSubField && !timeStopEnabledVal) ? 'disabled'
-      : (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled' : '';
+      : (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
+      : (pkey === 'layer2Mult' && !(a.l2Pct > 0)) ? 'disabled' : '';
     let rowHtml;
     if(type === 'bool'){
       // checkbox放在label左邊、同一行；說明文字放在下一行
@@ -2873,6 +3005,21 @@ function renderAssetManageInner(){
       renderAssetManage();
     });
   });
+  { const mgmtLeft = document.getElementById('assetMgmtArrowLeft');
+    const mgmtRight = document.getElementById('assetMgmtArrowRight');
+    if(mgmtLeft && mgmtRight){
+      mgmtLeft.addEventListener('click', ()=>{
+        assetMgmtWindowStart = Math.max(0, assetMgmtWindowStart - 1);
+        renderAssetManage();
+      });
+      mgmtRight.addEventListener('click', ()=>{
+        const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+        assetMgmtWindowStart = Math.min(maxStart, assetMgmtWindowStart + 1);
+        renderAssetManage();
+      });
+      updateTabsArrows(assetMgmtWindowStart, mgmtMaxStart, 'assetMgmtArrowLeft', 'assetMgmtArrowRight');
+    }
+  }
   wrap.querySelectorAll('[data-subtab]').forEach(el=>{
     el.addEventListener('click', ()=>{
       assetSubTab[a.key] = el.dataset.subtab;
@@ -3152,6 +3299,18 @@ document.addEventListener('click', (e)=>{
 
 
 // ---------- events ----------
+// 分頁列左右箭頭：固定顯示3個標的，每次點擊滑動1格（不是自由捲動），
+// 讓被滑出視窗外的標的最多露出2個熟悉的舊標的+1個新標的，方便辨認位置感
+document.getElementById('tabsArrowLeft').addEventListener('click', ()=>{
+  tabWindowStart = Math.max(0, tabWindowStart - 1);
+  renderTabs();
+});
+document.getElementById('tabsArrowRight').addEventListener('click', ()=>{
+  const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+  tabWindowStart = Math.min(maxStart, tabWindowStart + 1);
+  renderTabs();
+});
+
 // .test-flag-tip原本用position:absolute，如果外層剛好在有overflow-y:auto的容器裡（例如「設定」彈出視窗），
 // 提示框超出容器可視範圍的部分會被裁切掉、看不到後半段文字；改用JS在hover當下動態算出正確位置，
 // 用position:fixed（不受任何父層overflow影響），並且根據下方剩餘空間，自動決定往下展開還是往上展開；
@@ -3698,9 +3857,14 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 
 
 document.getElementById('btnParams').addEventListener('click', ()=>{
+  // 打開「設定」時，直接顯示使用者目前主畫面正在看的標的，不要每次都停留在第一個/上次選過的標的
+  assetMgmtActiveKey = state.activeTab;
+  assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
+  // 一定要先讓彈出視窗真正顯示出來，再渲染內容——renderAssetManage()裡會計算分頁列箭頭要不要顯示，
+  // 這需要量測實際的元素寬度，如果視窗還是display:none，量到的寬度全部都是0，箭頭會永遠判定不需要顯示
+  document.getElementById('paramsBackdrop').classList.add('show');
   renderAssetManage();
   document.getElementById('assetImportStatus').innerHTML = '';
-  document.getElementById('paramsBackdrop').classList.add('show');
   const modalEl = document.querySelector('#paramsBackdrop .modal');
   if(modalEl) modalEl.scrollTop = 0;
 });
@@ -3723,6 +3887,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   assetMgmtActiveKey = newKey;
+  assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
   renderAssetManage();
   renderTabs();
 });
