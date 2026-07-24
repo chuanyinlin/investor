@@ -276,7 +276,7 @@
   }
   .order:last-child{ border-bottom:none; }
   .order .name{ font-size:13.5px; font-weight:600; color: var(--text); }
-  .order .detail{ font-size:12px; color:var(--text-dim); margin-top:2px; font-family:var(--font-mono); }
+  .order .detail{ font-size:12px; color:var(--text); margin-top:2px; font-family:var(--font-mono); }
   .order .cond{ font-size:10.5px; color:var(--text-faint); margin-top:2px; }
 
   /* ---------- Params modal ---------- */
@@ -649,7 +649,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-23 21:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-24 15:55</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -1922,6 +1922,7 @@ function renderHistory(){
   const list = document.getElementById('histList');
   const body = document.getElementById('histBody');
   const key = state.activeTab;
+  const asset = getAsset(key);
   const downloadBtn = document.getElementById('btnExportHist');
   { const btnH = document.getElementById('toggleHist'); const chevH = btnH ? btnH.querySelector('.chev') : null; if(chevH) chevH.classList.toggle('collapsed', state.histCollapsed); if(btnH) btnH.title = state.histCollapsed ? '展開' : '收合'; }
   if(state.histCollapsed){ body.style.display = 'none'; return; }
@@ -1939,18 +1940,19 @@ function renderHistory(){
   const fmtOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
   list.innerHTML = rows.map((r)=>{
     const realIdx = state.log[key].findIndex(x=>x.date===r.date && x.close===r.close && x.ma5===r.ma5 && x.ma20===r.ma20);
-    const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60,2) : '—';
+    const priceDec = (v) => getTickDecimals(getEffectiveTick(asset, v));
+    const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60, priceDec(r.ma60)) : '—';
     return `<div class="hist-entry">
       <div class="hist-entry-head">
         <div class="hist-entry-date">${r.date}</div>
         <div class="hist-entry-del" data-del="${realIdx}" title="清除">✕</div>
       </div>
       <div class="hist-grid2">
-        <div><div class="hist-stat-label">收盤價</div><div class="hist-stat-value">${fmtRaw(r.close,2)}</div></div>
-        <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${fmtRaw(r.ma5,2)}</div></div>
+        <div><div class="hist-stat-label">收盤價</div><div class="hist-stat-value">${fmtRaw(r.close, priceDec(r.close))}</div></div>
+        <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${fmtRaw(r.ma5, priceDec(r.ma5))}</div></div>
       </div>
       <div class="hist-grid2">
-        <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20,2)}</div></div>
+        <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20, priceDec(r.ma20))}</div></div>
         <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
       </div>
       <div class="hist-grid2" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">
@@ -2089,9 +2091,9 @@ function renderOrders(){
   } else {
     dcaCond = d.hasPersonalData ? '恆常執行，不受防禦邊界影響' : '恆常執行，不受防禦邊界影響（尚無現金資料，無法確認是否會被暫停）';
     if(asset.dcaMode === 'amount'){
-      dcaDetail = `${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
+      dcaDetail = `買入 ${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
     } else {
-      dcaDetail = d.ready1 ? `${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `${asset.dcaValue} 股 ＠市價`;
+      dcaDetail = d.ready1 ? `買入 ${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `買入 ${asset.dcaValue} 股 ＠市價`;
     }
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
@@ -2101,14 +2103,16 @@ function renderOrders(){
   let boostDetail = '';
   if(d.ready && d.today){
     const boostPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
-    const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
+    const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額(或定期定股)×倍數
     if(!d.momentum){
-      boostDetail = `0 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+      boostDetail = asset.dcaMode === 'amount'
+        ? `買入 0 ${asset.currency} ＠${fmtRaw(boostPrice, tickDec)}`
+        : `買入 0 股 ＠${fmtRaw(boostPrice, tickDec)}`;
     } else if(asset.dcaMode === 'amount'){
-      const boostShares = boostPrice > 0 ? Math.floor(boostAmt / boostPrice) : 0;
-      boostDetail = `${fmtRaw(boostShares,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+      // 金額模式：動能加額本身就是金額，直接顯示，不換算成股數（跟定期定額同一套呈現邏輯）
+      boostDetail = `買入 ${fmtRaw(boostAmt,0)} ${asset.currency} ＠${fmtRaw(boostPrice, tickDec)}`;
     } else {
-      boostDetail = `${fmtRaw(boostAmt,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
+      boostDetail = `買入 ${fmtRaw(boostAmt,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
     }
   }
   html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
@@ -2145,19 +2149,19 @@ function renderOrders(){
     if(throttledL1){
       if(!throttledL2){
         const shares2Now = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
-        throttleNote1 = `（加碼節流暫緩，建議改參考第二層${fmtRaw(shares2Now,0)} 股 ＠${fmtRaw(p2, tickDec)}）`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議改參考第二層${fmtRaw(shares2Now,0)} 股 ＠${fmtRaw(p2, tickDec)}）</span>`;
       } else {
         const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
-        throttleNote1 = `（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       }
     }
     if(throttledL2){
       const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
-      throttleNote2 = `（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）`;
+      throttleNote2 = `<span style="color:var(--text); font-weight:700;">（加碼節流暫緩，建議掛單${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
     }
     if(!d.defenseOk){
-      l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
-      l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
+      l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
+      l2Detail = `買入 0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
     } else {
       const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
       const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
@@ -2166,16 +2170,16 @@ function renderOrders(){
       // 不能只說「還不夠便宜」卻不講便宜到多少、也不講夠便宜之後買得起多少股；
       // L1被擋但L2沒被擋時，L2本身就是現成的替代方案，優先引導去看L2，不用再另外算門檻價
       if(throttledL1){
-        l1Detail = `0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
+        l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
       } else {
         const note1 = shares1 <= 0 ? '（流動現金不足）' : '';
-        l1Detail = `${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
+        l1Detail = `買入 ${fmtRaw(shares1,0)} 股 ＠${fmtRaw(p1, tickDec)}${note1}`;
       }
       if(throttledL2){
-        l2Detail = `0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
+        l2Detail = `買入 0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
       } else {
         const note2 = shares2 <= 0 ? '（流動現金不足）' : '';
-        l2Detail = `${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
+        l2Detail = `買入 ${fmtRaw(shares2,0)} 股 ＠${fmtRaw(p2, tickDec)}${note2}`;
       }
     }
   }
@@ -2187,13 +2191,8 @@ function renderOrders(){
   let exitDetail = '';
   if(d.ready1){
     const exitPrice = applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round');
-    if(state.shares[key] == null){
-      // 股數從未輸入（不是真的填0），不能顯示「0股」這種假的建議數字，要誠實講清楚原因
-      exitDetail = `—（尚未輸入股數，無法確認）`;
-    } else {
-      const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
-      exitDetail = `${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
-    }
+    const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
+    exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
     ? `股價達（MA20×${P.exitMult} 與 持股成本×${P.costExitMult}）取高者，不受防禦邊界影響`
@@ -2204,37 +2203,36 @@ function renderOrders(){
   let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
   let liqDetail = '';
   if(d.liquidityStopTriggered && d.today){
-    liqDetail = `${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
+    liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
   }
   html += orderRow(!!d.liquidityStopTriggered, '現金水位停損觸發', liqCondTxt, liqDetail);
 
-  const tsShares = Math.round((state.shares[key]||0) * P.timeStopPartialFrac);
-  // 時間停損：建倉起始日起算超過設定天數仍未停利，建議分批出場，限價掛在最近一次收盤價；
-  // 現金水位已經足夠時會暫緩（現金水位停損優先處理現金問題），只在現金水位仍不足時才正常出場
-  let tsCondTxt, tsDetail;
-  if(!d.timeStopEnabled){
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（這個標的未啟用時間停損機制）`;
-    tsDetail = '';
-  } else if((state.shares[key]||0) <= 0){
-    const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數，無法計算' : '目前股數為0，無法計算';
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（${sharesReasonTxt}）`;
-    tsDetail = '';
-  } else if(d.timeStopDateInvalid){
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（建倉起始日晚於目前資料日期，請確認輸入是否正確）`;
-    tsDetail = '';
-  } else if(d.timeStopTriggered === undefined){
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（尚未設定建倉起始日，無法計算）`;
-    tsDetail = '';
-  } else {
-    tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損；現金水位夠時暫緩`;
-    if(d.timeStopTriggered && d.today){
-      const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
-      tsDetail = `${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec)}`;
-    } else {
+  if(d.timeStopEnabled){
+    const tsShares = Math.round((state.shares[key]||0) * P.timeStopPartialFrac);
+    // 時間停損：建倉起始日起算超過設定天數仍未停利，建議分批出場，限價掛在最近一次收盤價；
+    // 現金水位已經足夠時會暫緩（現金水位停損優先處理現金問題），只在現金水位仍不足時才正常出場
+    let tsCondTxt, tsDetail;
+    if((state.shares[key]||0) <= 0){
+      const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數，無法計算' : '目前股數為0，無法計算';
+      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（${sharesReasonTxt}）`;
       tsDetail = '';
+    } else if(d.timeStopDateInvalid){
+      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（建倉起始日晚於目前資料日期，請確認輸入是否正確）`;
+      tsDetail = '';
+    } else if(d.timeStopTriggered === undefined){
+      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（尚未設定建倉起始日，無法計算）`;
+      tsDetail = '';
+    } else {
+      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損；現金水位夠時暫緩`;
+      if(d.timeStopTriggered && d.today){
+        const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
+        tsDetail = `賣出 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec)}`;
+      } else {
+        tsDetail = '';
+      }
     }
+    html += orderRow(!!d.timeStopTriggered, '時間停損觸發', tsCondTxt, tsDetail);
   }
-  html += orderRow(!!d.timeStopTriggered, '時間停損觸發', tsCondTxt, tsDetail);
 
   list.innerHTML = html;
 }
@@ -2265,8 +2263,8 @@ function getCashStatus(key){
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     bombardCost = cur * asset.l1Pct;
     layer2Cost = cur * asset.l2Pct;
-    bombardCostTxt = `${bombardCost.toLocaleString(undefined,{maximumFractionDigits: getTickDecimals(getEffectiveTick(asset, p1))})} ${unit}（流動現金${(asset.l1Pct*100).toFixed(0)}%）`;
-    layer2CostTxt = `${layer2Cost.toLocaleString(undefined,{maximumFractionDigits: getTickDecimals(getEffectiveTick(asset, p2))})} ${unit}（流動現金${(asset.l2Pct*100).toFixed(0)}%）`;
+    bombardCostTxt = fmtRaw(p1, getTickDecimals(getEffectiveTick(asset, p1)));
+    layer2CostTxt = fmtRaw(p2, getTickDecimals(getEffectiveTick(asset, p2)));
     // 可動用資金＝流動現金 - 應保留金額（現金池保留部分不計入可用於加碼的資金）
     bombardSufficient = (requiredReserve == null) ? null : ((cur - requiredReserve) >= bombardCost);
     // 兩層都觸發時會同時掛單，所以要檢查現金夠不夠同時支付第一層＋第二層
@@ -2357,18 +2355,19 @@ function renderReserve(){
 
   // ---- 1. 流動現金（對應條件欄第8個燈號） ----
   const avgCostVal = state.avgCost[key] || 0;
-  const positionStartTxt = !d.timeStopEnabled ? '（未啟用時間停損）' : (state.positionStart[key] || '（未輸入）');
+  const positionStartTxt = state.positionStart[key] || '（未輸入）';
   const hasMarginPrice = !!(d.marginStatus && d.marginStatus.hasPrice);
+  const priceDecFor = (v) => getTickDecimals(getEffectiveTick(asset, v));
   const marginRawTxt = hasMarginPrice
-    ? `融資買進均價：${fmt(d.marginStatus.costPrice,2)}｜融資股數：${(d.marginStatus.shares||0).toLocaleString()} 股`
+    ? `融資買進均價：${fmt(d.marginStatus.costPrice, priceDecFor(d.marginStatus.costPrice))}｜融資股數：${(d.marginStatus.shares||0).toLocaleString()} 股`
     : `融資買進均價：（未輸入）｜融資股數：—`;
   const lastBombardPriceVal = state.lastBombardPrice[key];
   const lastBombardDateVal = state.lastBombardDate[key];
-  const lastBombardPriceTxt = (lastBombardPriceVal != null && lastBombardPriceVal > 0) ? fmt(lastBombardPriceVal,2) : '（未輸入）';
+  const lastBombardPriceTxt = (lastBombardPriceVal != null && lastBombardPriceVal > 0) ? fmt(lastBombardPriceVal, priceDecFor(lastBombardPriceVal)) : '（未輸入）';
   const lastBombardDateTxt = lastBombardDateVal || '（未輸入）';
   const cashTxt = state.cash[key] != null ? `${st.cur.toLocaleString()} ${st.unit}` : '（未輸入）';
   const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
-  const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal,2) : '（未輸入）'}</span><br>` +
+  const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
   // 流動現金：唯一一行，恆常顯示建議現金應保留金額，後面依判定訊號燈號的4種狀態補充對應文字
   let bombardAffordTxt;
@@ -2398,7 +2397,7 @@ function renderReserve(){
     const pctTxt = (ms.maintenanceRatio*100).toFixed(1);
     const callPriceTicked = applyTick(ms.callPrice, getEffectiveTick(asset, ms.callPrice), 'round');
     const marginColor = ms.safe ? 'var(--teal)' : 'var(--red)';
-    marginLine = `<span style="color:${marginColor}; font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked,2)}</span>`;
+    marginLine = `<span style="color:${marginColor}; font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked, priceDecFor(callPriceTicked))}</span>`;
   } else {
     marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
   }
@@ -2448,7 +2447,7 @@ function renderReserve(){
     bombardTriggerTxt = '（尚未輸入部位資料）';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombard){
-    bombardTriggerTxt = `已觸發｜建議第一層掛單${st.bombardCostTxt}｜第二層掛單${st.layer2CostTxt}`;
+    bombardTriggerTxt = `已觸發｜建議第一層價位＠${st.bombardCostTxt}｜第二層價位＠${st.layer2CostTxt}`;
     bombardColor = 'var(--teal)';
   } else {
     // 只顯示最重要、優先層級最高的單一原因；優先順序依照bombard公式本身的判斷順序
@@ -2468,6 +2467,8 @@ function renderReserve(){
 
   // ---- 5. 停利觸發（對應結果欄第4個燈號） ----
   const exitThresholdTicked = (d.exitThreshold != null) ? applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round') : null;
+  // 小數位數依照這個標的實際的價格跳動單位動態決定，不寫死2位——台幣計價的標的通常沒有小數，跟美元計價不一樣
+  const exitPriceTxt = exitThresholdTicked != null ? fmtRaw(exitThresholdTicked, getTickDecimals(getEffectiveTick(asset, exitThresholdTicked))) : '—';
   const sharesNow = state.shares[key] || 0;
   let exitTriggerTxt, exitColor, costLine;
   if(!d.hasPersonalData){
@@ -2477,14 +2478,14 @@ function renderReserve(){
       const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數' : '目前股數為0';
       exitTriggerTxt = `已達停利價位，但${sharesReasonTxt}，無法執行`;
       exitColor = 'var(--amber)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else if(d.exit){
       exitTriggerTxt = '建議分批停利';
       exitColor = 'var(--teal)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜股價未達停利價位：${exitThresholdTicked != null ? fmtRaw(exitThresholdTicked,2) : '—'}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜股價未達停利價位＠${exitPriceTxt}</span>`;
     }
   }
 
@@ -2510,26 +2511,28 @@ function renderReserve(){
   // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位停損觸發） ----
   const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
   let timeStopHtml;
-  if(!d.hasPersonalData){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：（尚未輸入部位資料）</span>`;
-  } else if(!d.timeStopEnabled){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜這個標的未啟用時間停損機制</span>`;
+  if(!d.timeStopEnabled){
+    // 沒有啟用時間停損機制時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
+    // 機制沒開啟這件事，跟有沒有輸入部位資料完全無關，不能讓後者搶先顯示「尚未輸入部位資料」
+    timeStopHtml = '';
+  } else if(!d.hasPersonalData){
+    timeStopHtml = `<br><span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：（尚未輸入部位資料）</span>`;
   } else if((state.shares[key]||0) <= 0){
     // timeStopTriggered算不出來（undefined）可能有兩種完全不同的原因：股數是0，或是沒填建倉起始日；
     // 兩者要分開判斷，不能一律怪罪建倉起始日，否則即使真的填了建倉起始日，也會被誤判成「尚未設定」
     const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數' : '目前股數為0';
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜${sharesReasonTxt}</span>`;
+    timeStopHtml = `<br><span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜${sharesReasonTxt}</span>`;
   } else if(d.timeStopDateInvalid){
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日晚於目前資料日期，請確認輸入是否正確｜建倉起始日：${positionStartTxt}</span>`;
+    timeStopHtml = `<br><span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日晚於目前資料日期，請確認輸入是否正確｜建倉起始日：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered === undefined){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜尚未設定建倉起始日，無法判斷｜建倉起始日：${positionStartTxt}</span>`;
+    timeStopHtml = `<br><span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered && d.today){
     const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
     const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
     const tickDec2 = getTickDecimals(getEffectiveTick(asset, tsPrice));
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：建議今日分批停損 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec2)}｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
+    timeStopHtml = `<br><span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：建議今日分批停損 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec2)}｜已持有：${holdDaysTxt}</span>`;
   } else {
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}｜已持有：${holdDaysTxt}</span>`;
+    timeStopHtml = `<br><span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜已持有：${holdDaysTxt}</span>`;
   }
 
   const marginSectionHtml = asset.params.marginDefenseEnabled
@@ -2546,7 +2549,7 @@ function renderReserve(){
     dcaStateHtml + `<br>` +
     bombardLine + `<br>` +
     costLine + `<br>` +
-    liquidityStopHtml + `<br>` +
+    liquidityStopHtml +
     timeStopHtml +
     marginSectionHtml;
 }
@@ -3336,7 +3339,11 @@ document.getElementById('btnExportReserve').addEventListener('click', ()=>{
 
   const now = new Date();
   const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const dateOnly = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  // 檔名用資料裡最後一天的日期，跟「歷史紀錄」下載的邏輯一致，不是下載當下的真實日期；
+  // 內容裡的「下載時間」則維持用真實時間，因為那是在記錄「你什麼時候下載這份快照」，跟檔名的用途不同
+  const rowsForFilename = sortedLog(state.activeTab);
+  const lastRow = rowsForFilename[rowsForFilename.length - 1];
+  const dateOnly = lastRow ? lastRow.date : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const content = `${asset.name}　訊號明細\n下載時間：${timestamp}\n\n${plainText}\n`;
 
   const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
@@ -3368,8 +3375,14 @@ document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const asset = getAsset(state.activeTab);
   let content = section(asset);
 
-  const now = new Date();
-  const dateOnly = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  // 檔名用資料裡最後一天的日期，不是下載當下的真實日期，才能一眼看出這份紀錄實際涵蓋到哪一天；
+  // 下載按鈕在沒有資料時已經隱藏，這裡可以安全地假設rows至少有1筆
+  const rowsForFilename = sortedLog(asset.key);
+  const lastRow = rowsForFilename[rowsForFilename.length - 1];
+  const dateOnly = lastRow ? lastRow.date : (()=>{
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  })();
 
   const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
