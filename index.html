@@ -681,7 +681,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-25 17:45</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-25 22:15</div>
 </div>
 
 <!-- ============ PARAMS MODAL ============ -->
@@ -743,15 +743,15 @@ const DEFAULT_PARAMS = {
 };
 
 const PARAM_META = [
-  ['tolerance','MA20區間容忍度(上界)','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
-  ['layer2Mult','第二層加碼乘數','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以基準價算出更低的限價，用來承接更深的下跌'],
-  ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉。勾選後才會啟用：同一輪拉回裡，加碼要再次觸發，這次算出的限價必須比「最近一次加碼價格」（下方「資料輸入」卡片手動回報）再乘上下方的「加碼節流門檻」才算數，避免同一價格區間反覆加碼。股價脫離加碼區間時，「最近一次加碼價格／日期」會自動清空，不用手動維護'],
-  ['throttleMult','加碼節流門檻','mult','加碼條件','獨立於第二層加碼乘數，只管節流敏感度：同一輪拉回裡，新算出的限價要比「最近一次加碼價格」再乘上這個倍數才算數。跟第二層加碼乘數分開設定，調整其中一個不會意外連帶影響另一個'],
-  ['exitMult','停利價位乘數','mult','停利邏輯','股價漲到「MA20×這個倍數」時觸發停利，倍數越高，要漲越多才會出場'],
-  ['costExitMult','成本倍數停利','mult','停利邏輯','股價漲到「平均持股成本×這個倍數」時也會觸發停利，跟上面的MA20停利價取兩者較高的門檻，避免賣在成本以下'],
-  ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','勾選後，停利觸發不再參考平均成本（下面的「成本倍數停利」會自動設為0），改成額外要求「MA60持平或向上」且「股價站穩MA60」這兩個條件，要連續N天都成立才觸發（不是當天一次符合就觸發），用回測驗證過這樣可以達到接近平均成本機制的保護效果，同時不用手動輸入/計算平均成本'],
+  ['tolerance','加碼觸發股價相對於MA20區間容忍度','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
+  ['layer2Mult','第二層加碼限價相對於第一層限價比例','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以第一層限價算出更低的限價，用來承接更深的下跌；必須小於1，才能保證第二層永遠比第一層便宜'],
+  ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「資料管理」卡片手動回報；股價脫離加碼區間時會自動清空，不用手動維護'],
+  ['throttleMult','加碼節流門檻','mult','加碼條件','這次要掛的限價，要比「最近一次加碼價格」再便宜到這個比例，才算真的夠低、值得再買一次；沒有便宜到這個程度，就暫緩'],
+  ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
+  ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
+  ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
   ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹，但即時判定只保留最近5天資料，天數不能超過4天（需要多留1天計算MA60本身有沒有比前一天高）'],
-  ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的這個比例，不是全部停利，剩下的部位繼續留倉'],
+  ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
   ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位停損等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
@@ -2625,13 +2625,13 @@ function renderReserve(){
       throttleTxt = '未觸發';
       throttleColor = 'var(--text-faint)';
     } else if(d.throttledL1 && d.throttledL2){
-      throttleTxt = '已觸發｜第一層、第二層都被暫緩';
+      throttleTxt = '觸發｜第一層、第二層都被暫緩';
       throttleColor = 'var(--amber)';
     } else if(d.throttledL1){
-      throttleTxt = '已觸發｜第一層被暫緩，第二層正常';
+      throttleTxt = '觸發｜第一層被暫緩';
       throttleColor = 'var(--amber)';
     } else {
-      throttleTxt = '已觸發｜第二層被暫緩，第一層正常';
+      throttleTxt = '觸發｜第二層被暫緩';
       throttleColor = 'var(--amber)';
     }
     throttleLine = `<span style="color:${throttleColor}; font-weight:700;">→ 加碼節流觸發：${throttleTxt}</span>`;
@@ -2645,24 +2645,19 @@ function renderReserve(){
   let exitTriggerTxt, exitColor, costLine;
   if(!d.hasPersonalData){
     costLine = `<span style="color:var(--text-faint); font-weight:700;">→ 停利觸發：（尚未輸入部位資料）</span>`;
-  } else if(asset.params.useMa60ConfirmForExit && d.exitMa60ConfirmInsufficientData){
-    costLine = `<span style="color:var(--text-faint); font-weight:700;">→ 停利觸發：資料不足，需要至少${(asset.params.exitMa60ConfirmDays||3)+1}天資料才能確認</span>`;
   } else {
     if(d.exit && sharesNow <= 0){
-      const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數' : '目前股數為0';
-      exitTriggerTxt = `已達停利價位，但${sharesReasonTxt}，無法執行`;
+      const sharesReasonTxt = state.shares[key] == null ? '股數未知' : '股數為0';
+      exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
       exitColor = 'var(--amber)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else if(d.exit){
-      exitTriggerTxt = '建議分批停利';
+      exitTriggerTxt = '觸發';
       exitColor = 'var(--teal)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
-    } else if(asset.params.useMa60ConfirmForExit){
-      exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜股價未達停利價位＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
     }
   }
 
@@ -2987,7 +2982,7 @@ function renderAssetManageInner(){
     if(cat !== lastCat){
       const catTipMap = {
         '加碼條件': '加碼要不要有機會觸發，先看四個條件是否同時成立：股價達加碼價位、MA20持平或向上、以及防禦邊界安全（這一項本身又包含MA60趨勢正常、流動現金充足、融資維持率安全、已輸入部位資料，四者都要成立）。這四個條件全部成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
-        '停利邏輯': '先算出停利價位：MA20停利價（今天MA20×停利價位乘數）與持股成本停利價（平均持股成本×停利成本乘數，只有你輸入過持股成本才會算）兩者取高者，確保不會用比較低的那條線誤判。今天收盤價只要達到這個停利價位就觸發，這個判斷完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
+        '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是兩種模式共用的基本門檻。第二關二選一：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者；「MA60條件停利」則不看平均成本，改成額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立才觸發。不管哪種模式，這個判斷都完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
         '現金流動性': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位停損、防禦邊界的現金因子、時間停損的現金判斷全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
         '時間停損': '第一層：要先同時滿足三個前提，才會開始計算已持有天數——你有勾選啟用這個機制、你有輸入建倉起始日、你目前股數大於0；只要少一個，時間停損就完全不會計算，維持未觸發（不是條件不成立，是根本沒開始判斷）。第二層：已持有天數（今天−建倉起始日）是不是超過設定天數，這是初步觸發。第三層：現金水位夠不夠，決定初步觸發要不要變成真的觸發——現金水位已經足夠就暫緩，不會無謂出場；現金水位仍然不夠才真正觸發，建議分批停損；如果同一天現金水位停損剛好也建議賣股救回現金，這裡會用「假設你真的照做之後」的現金水位來判斷，不是用賣股前的舊現金，避免兩個機制同一天重複觸發、賣過頭。第四層：真正觸發時，只賣掉目前股數的分批比例%，不是一次全部出清，這個比例是固定的，跟現金水位停損補回倍數那種「賣到補回某個目標」的算法不一樣，刻意維持時間停損原本「固定規律性減碼」的性質，不跟現金水位停損混在一起。',
         '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
@@ -3054,7 +3049,7 @@ function renderAssetManageInner(){
       rowHtml = `${catHtml}<div class="param-row-mini ${isLastInCat?'cat-end':''}">
       <div class="plabel">${label}</div>
       <div class="pdesc">${desc || ''}</div>
-      <input type="number" step="any" data-aidx="${idx}" data-pfield="${pkey}" data-ptype="${type}" value="${val}" ${disabledAttr}>
+      <input type="number" step="any" ${pkey==='layer2Mult'?'max="0.999"':''} data-aidx="${idx}" data-pfield="${pkey}" data-ptype="${type}" value="${val}" ${disabledAttr}>
     </div>`;
     }
     let extraRow = '';
@@ -3065,7 +3060,7 @@ function renderAssetManageInner(){
       const posStartDisabled = timeStopEnabledVal ? '' : 'disabled';
       extraRow = `<div class="param-row-mini">
         <div class="plabel">建倉起始日</div>
-        <div class="pdesc">計算「已持有天數」的起點；只有你在這裡手動修改才會變動，日常在「資料輸入」卡片更新現金/股數等資料不會影響這個日期</div>
+        <div class="pdesc">計算「已持有天數」的起點；只有你在這裡手動修改才會變動，日常在「資料管理」卡片更新現金/股數等資料不會影響這個日期</div>
         <div class="field date-field" style="margin:0;">
           <input type="text" id="inAssetPositionStart" data-aidx="${idx}" data-positionstart="1" readonly placeholder="YYYY-MM-DD" value="${posStartVal}" ${posStartDisabled}>
         </div>
@@ -3237,6 +3232,13 @@ function renderAssetManageInner(){
       let v = parseFloat(e.target.value);
       if(isNaN(v)) return;
       if(ptype === 'pct') v = v / 100;
+      // 第二層加碼乘數一定要小於1，才能保證第二層永遠比基準價便宜（維持「第二層本來就該比第一層便宜」的設計前提）；
+      // 設成1以上，會讓節流判斷出現「只有第二層被擋、第一層正常」這種原本不該發生的情況
+      if(pfield === 'layer2Mult' && v >= 1){
+        alert('第二層加碼限價相對於第一層限價比例必須小於1（第二層要比第一層便宜才有意義），已還原成原本的數值');
+        e.target.value = (state.assets[i].params.layer2Mult != null ? state.assets[i].params.layer2Mult : DEFAULT_PARAMS.layer2Mult);
+        return;
+      }
       state.assets[i].params[pfield] = v;
       await storageSet(KEY_ASSETS, state.assets);
       renderAll();
@@ -4035,13 +4037,22 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btnExportAssets').addEventListener('click', ()=>{
-  // 融資買進均價／融資股數／建倉起始日，雖然不是asset.params的一部分（存在獨立的state物件裡），
-  // 但因為都是在「設定」畫面裡輸入的，使用者會期待這些資料也一起被匯出/匯入，這裡一併打包進去
+  // 融資買進均價／融資股數／建倉起始日／現金／股數／平均成本／最近一次加碼價格／日期，
+  // 雖然不是asset.params的一部分（存在獨立的state物件裡），但因為都是使用者輸入的部位資料，
+  // 換手機/清除資料後會期待這些也一併還原，這裡一併打包進去；
+  // 現金／股數／平均成本／最近一次加碼價格／日期，這幾個欄位「未輸入」的正確表示方式是null，不是0
+  // （不像融資買進均價／融資股數，那兩個是用0代表未輸入），這裡直接保留原始值，不能用||0，
+  // 否則會把「從未輸入」誤匯出成「已輸入且是0」，匯入後會讓hasPersonalData等判斷失真
   const assetsWithExtra = state.assets.map(a => ({
     ...a,
     marginCost: state.marginCost[a.key] || 0,
     marginShares: state.marginShares[a.key] || 0,
     positionStart: state.positionStart[a.key] || '',
+    cash: state.cash[a.key],
+    shares: state.shares[a.key],
+    avgCost: state.avgCost[a.key],
+    lastBombardPrice: state.lastBombardPrice[a.key],
+    lastBombardDate: state.lastBombardDate[a.key],
   }));
   const content = JSON.stringify({ assets: assetsWithExtra }, null, 2);
   const blob = new Blob([content], {type:'application/json;charset=utf-8'});
@@ -4127,15 +4138,34 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       // 融資買進均價／融資股數／建倉起始日：跟asset.params分開存放，等clean.key確定最終值後（可能因合併而改用既有key）才寫入，
       // 避免合併情境下用到匯入檔案裡舊的key、對不上實際資料
       const numOr2 = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
+      // 現金／股數／平均成本／最近一次加碼價格／日期：跟融資那三個不一樣，「未輸入」要還原成null，不能給0這種fallback，
+      // 否則會讓「從未輸入」被誤判成「已輸入且是0」，連帶影響hasPersonalData等判斷
+      const numOrNull = (v) => (typeof v === 'number' && !isNaN(v)) ? v : null;
+      const strOrNull = (v) => (typeof v === 'string' && v !== '') ? v : null;
       const importedMarginCost = numOr2(imported.marginCost, 0);
       const importedMarginShares = numOr2(imported.marginShares, 0);
       const importedPositionStart = (typeof imported.positionStart === 'string') ? imported.positionStart : '';
+      const importedCash = numOrNull(imported.cash);
+      const importedShares = numOrNull(imported.shares);
+      const importedAvgCost = numOrNull(imported.avgCost);
+      const importedLastBombardPrice = numOrNull(imported.lastBombardPrice);
+      const importedLastBombardDate = strOrNull(imported.lastBombardDate);
       state.marginCost[clean.key] = importedMarginCost;
       state.marginShares[clean.key] = importedMarginShares;
       state.positionStart[clean.key] = importedPositionStart;
+      state.cash[clean.key] = importedCash;
+      state.shares[clean.key] = importedShares;
+      state.avgCost[clean.key] = importedAvgCost;
+      state.lastBombardPrice[clean.key] = importedLastBombardPrice;
+      state.lastBombardDate[clean.key] = importedLastBombardDate;
       await storageSet(KEY_MARGIN_COST(clean.key), importedMarginCost);
       await storageSet(KEY_MARGIN_SHARES(clean.key), importedMarginShares);
       await storageSet(KEY_POSITION_START(clean.key), importedPositionStart);
+      await storageSet(KEY_CASH(clean.key), importedCash);
+      await storageSet(KEY_SHARES(clean.key), importedShares);
+      await storageSet(KEY_AVG_COST(clean.key), importedAvgCost);
+      await storageSet(KEY_LAST_BOMBARD_PRICE(clean.key), importedLastBombardPrice);
+      await storageSet(KEY_LAST_BOMBARD_DATE(clean.key), importedLastBombardDate);
     }
     await storageSet(KEY_ASSETS, state.assets);
 
