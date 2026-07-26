@@ -571,7 +571,7 @@
   <div class="card">
     <div class="card-title"><h3>回測模擬</h3><button class="btn btn-primary btn-sm" id="toggleBacktest" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="backtestBody" style="display:none; margin-top:10px;">
-    <div class="field">
+    <div class="field date-field">
       <label style="color:var(--text);">歷史資料：選擇下載或是匯入</label>
       <label style="color:var(--text); margin-top:8px;">下載歷史資料<span style="color:var(--text-faint); font-weight:400;">（選開始日期，下載成.txt檔）</span></label>
       <input type="text" id="btDownloadStartDate" readonly placeholder="YYYY-MM-DD">
@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 10:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 17:50</div>
   </div>
   </div>
 
@@ -2567,7 +2567,7 @@ function renderReserve(){
     const marginColor = ms.safe ? 'var(--teal)' : 'var(--red)';
     marginLine = `<span style="color:${marginColor}; font-weight:700;">→ 融資維持率：${pctTxt}%｜融資追繳價：${fmtRaw(callPriceTicked, priceDecFor(callPriceTicked))}</span>`;
   } else {
-    marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：—｜融資追繳價：—</span>`;
+    marginLine = `<span style="color:var(--text-faint);">→ 融資維持率：（尚未輸入部位資料）</span>`;
   }
 
   // ---- 2.5 防禦邊界（對應結果欄第1個燈號） ----
@@ -2605,22 +2605,37 @@ function renderReserve(){
   } else if(!d.hasPersonalData){
     dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
   } else if(d.dcaPaused){
-    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜MA60弱勢 且流動現金不足，優先保護現金但不逆勢賣股</span>`;
+    const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜${dcaPausedReason}｜流動現金不足</span>`;
   } else {
     dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
   }
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
   let bombardTriggerTxt, bombardColor;
-  if(!d.ready2){
+  if(asset.l1Pct <= 0 && asset.l2Pct <= 0){
+    // 兩層加碼比例都設成0，代表這個標的完全關閉了加碼機制，整行不顯示——跟「委託清單」裡
+    // l1Pct/l2Pct=0時分別隱藏對應行是同一個道理，這裡兩層都關閉時直接整行不顯示，不是每天都顯示一個沒有意義的判斷
+    bombardTriggerTxt = null;
+  } else if(!d.ready2){
     bombardTriggerTxt = '未觸發｜資料不足，無法判斷';
     bombardColor = 'var(--text-faint)';
   } else if(!d.hasPersonalData){
     bombardTriggerTxt = '（尚未輸入部位資料）';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombard){
-    bombardTriggerTxt = `已觸發｜建議第一層價位＠${st.bombardCostTxt}｜第二層價位＠${st.layer2CostTxt}`;
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}｜加碼第二層價位＠${st.layer2CostTxt}`;
     bombardColor = 'var(--teal)';
+  } else if(d.touch && d.ma20upFlat && d.ma60upFlat && d.priceAboveMa60 && d.cashSufficient === false){
+    // 股價、MA20、MA60都已經符合加碼條件，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
+    // 跟「停利觸發但股數為0」是同一種模式，不該歸類在「未觸發」，因為股價確實已經到了該加碼的價位
+    bombardTriggerTxt = `觸發｜加碼價位＠${st.bombardCostTxt}｜流動現金不足`;
+    bombardColor = 'var(--amber)';
+  } else if(d.touch && d.ma20upFlat && d.ma60upFlat && d.priceAboveMa60 && d.marginSafe === false){
+    // 股價、MA20、MA60、現金都已經符合加碼條件，只差融資維持率這一項——融資維持率是帳戶本身的健康度限制，
+    // 不是市場趨勢判斷，市場條件確實都說「該加碼」，只是帳戶槓桿過高不允許，跟現金不足是同一種「執行能力限制」
+    bombardTriggerTxt = `觸發｜加碼價位＠${st.bombardCostTxt}｜融資維持率過低`;
+    bombardColor = 'var(--amber)';
   } else {
     // 只顯示最重要、優先層級最高的單一原因；優先順序依照bombard公式本身的判斷順序
     // （touch && ma20upFlat && defenseOk，defenseOk內部又是ma60upFlat && priceAboveMa60 && 現金 && 融資）：
@@ -2629,13 +2644,11 @@ function renderReserve(){
     if(!d.touch) reason = '股價未達加碼價位';
     else if(!d.ma20upFlat) reason = 'MA20未持平或向上';
     else if(!d.ma60upFlat) reason = 'MA60未持平或向上';
-    else if(!d.priceAboveMa60) reason = '股價未站穩MA60';
-    else if(d.cashSufficient === false) reason = '流動現金不足';
-    else reason = '融資維持率過低';
+    else reason = '股價未站穩MA60';
     bombardTriggerTxt = `未觸發｜${reason}`;
     bombardColor = 'var(--text-faint)';
   }
-  const bombardLine = `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
+  const bombardLine = (bombardTriggerTxt === null) ? '' : `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
 
   // ---- 4.5 加碼節流觸發（對應結果欄新增的燈號）----
   // 功能沒開啟時整行不顯示，跟融資防禦、時間停損同一套處理方式
@@ -2671,14 +2684,14 @@ function renderReserve(){
     costLine = `<span style="color:var(--text-faint); font-weight:700;">→ 停利觸發：（尚未輸入部位資料）</span>`;
   } else {
     if(d.exit && sharesNow <= 0){
-      const sharesReasonTxt = state.shares[key] == null ? '股數未知' : '股數為0';
+      const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
       exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
       exitColor = 'var(--amber)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else if(d.exit){
-      exitTriggerTxt = '觸發';
+      const exitShares = Math.round((state.shares[key]||0) * asset.params.exitPartialFrac);
       exitColor = 'var(--teal)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
@@ -2687,21 +2700,34 @@ function renderReserve(){
 
   // ---- 6. 現金水位停損觸發（對應結果欄第6個燈號） ----
   let liquidityStopHtml;
-  if(d.liquidityStopTriggered){
+  const liqMonitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
+  if(liqMonitoringDisabled){
+    // 沒有設定現金水位監控時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
+    // 跟時間停損機制沒開啟時的處理方式一致，監控沒設定這件事，跟有沒有輸入部位資料無關
+    liquidityStopHtml = '';
+  } else if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
-    const reasonTxt = d.liquidityStopByFloor ? '逆勢賣出（底線已破）' : '順勢賣出';
-    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：建議今日市價賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
+    const reasonTxt = d.liquidityStopByFloor ? '逆勢' : '順勢';
+    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：市價賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
   } else if(!d.hasPersonalData){
     liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：（尚未輸入部位資料）</span>`;
+  } else if((state.shares[key]||0) <= 0){
+    const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜${sharesReasonTxt}</span>`;
+  } else if(d.cashSufficient === false){
+    if(d.dcaPaused){
+      // MA60弱勢、還沒跌破絕對底線，系統選擇暫緩不逆勢賣股——這不是「股數不足」，而是策略主動判斷
+      // 「現在不該賣」，這件事已經在「定期定額/定期定股」那一行完整說明了，這裡不重複解釋原因；
+      // 原因細節比照定期定股的精確判斷方式，不固定寫死同一句話
+      const liqPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
+      liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜${liqPausedReason}｜暫緩賣股</span>`;
+    } else {
+      // 這才是真正的「想賣卻賣不成」——系統判斷該賣股救急（MA60安全順勢賣，或已跌破絕對底線），
+      // 但持股太少，算出來要賣的股數四捨五入後是0，跟「停利觸發但股數為0」是同一種模式
+      liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位停損觸發：觸發｜目前股數不足</span>`;
+    }
   } else {
-    // 「未觸發」可能有3種不同原因，優先順序：股數是不是0 → 監控有沒有關閉 → 現金真的充足（最常見、最好的情況）
-    const liqMonitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
-    let liquidityReason;
-    if((state.shares[key]||0) <= 0) liquidityReason = (state.shares[key] == null ? '尚未輸入股數' : '目前股數為0');
-    else if(liqMonitoringDisabled) liquidityReason = '此標的未設定現金水位監控';
-    else if(d.cashSufficient === false) liquidityReason = '流動現金不足，股數太少無法執行';
-    else liquidityReason = '流動現金充足';
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜${liquidityReason}</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜流動現金充足</span>`;
   }
 
   // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位停損觸發） ----
@@ -2716,17 +2742,17 @@ function renderReserve(){
   } else if((state.shares[key]||0) <= 0){
     // timeStopTriggered算不出來（undefined）可能有兩種完全不同的原因：股數是0，或是沒填建倉起始日；
     // 兩者要分開判斷，不能一律怪罪建倉起始日，否則即使真的填了建倉起始日，也會被誤判成「尚未設定」
-    const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數' : '目前股數為0';
+    const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
     timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜${sharesReasonTxt}</span>`;
   } else if(d.timeStopDateInvalid){
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日晚於目前資料日期，請確認輸入是否正確｜建倉起始日：${positionStartTxt}</span>`;
+    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日晚於資料日期：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered === undefined){
     timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}</span>`;
   } else if(d.timeStopTriggered && d.today){
     const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
     const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
     const tickDec2 = getTickDecimals(getEffectiveTick(asset, tsPrice));
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：建議今日分批停損 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec2)}｜已持有：${holdDaysTxt}</span>`;
+    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：分批停損${fmtRaw(tsShares,0)}股＠${fmtRaw(tsPrice, tickDec2)}｜已持有：${holdDaysTxt}</span>`;
   } else {
     timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜已持有：${holdDaysTxt}</span>`;
   }
