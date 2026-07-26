@@ -33,6 +33,7 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+  html{ background: var(--bg); }
   body{
     font-family: var(--font-ui);
     background:
@@ -703,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 08:20</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 10:40</div>
   </div>
   </div>
 
@@ -2000,7 +2001,7 @@ function renderHero(){
   if(!d.ready1){
     hero.className = 'hero st-idle';
     headline.textContent = '⏳ 尚無資料';
-    sub.textContent = '請先輸入最近三日的資料';
+    sub.textContent = '請先更新標的最近五日的資料';
     return;
   }
   const defenseOff = d.ready2 && !d.defenseOk;
@@ -2008,7 +2009,7 @@ function renderHero(){
   if(d.liquidityStopTriggered){
     hero.className = 'hero st-warn';
     headline.textContent = '🚨 現金水位停損觸發';
-    sub.textContent = `流動現金不足，建議分批停損`;
+    sub.textContent = `建議分批停損，流動現金不足`;
   } else if(!d.hasPersonalData){
     hero.className = 'hero st-idle';
     headline.textContent = '📝 尚未輸入部位資料';
@@ -2017,52 +2018,52 @@ function renderHero(){
     if((state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
       headline.textContent = '💰 停利觸發';
-      sub.textContent = `股價達停利價位，但目前無部位`;
+      sub.textContent = `建議暫緩執行，目前無部位`;
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '💰 停利觸發';
-      sub.textContent = `股價達停利價位，建議分批停利`;
+      sub.textContent = `建議分批停利，股價達停利價位`;
     }
   } else if(d.timeStopTriggered){
     hero.className = 'hero st-warn';
     headline.textContent = '⏰ 時間停損觸發';
-    sub.textContent = `已持有過長時間，建議分批停損`;
+    sub.textContent = `建議分批停損，已持有過長時間`;
   } else if(d.dcaPaused){
     hero.className = 'hero st-warn';
     headline.textContent = '⏸ 定期定額';
-    sub.textContent = `流動現金不足，建議暫停扣款`;
+    sub.textContent = `建議暫停扣款，流動現金不足`;
   } else if(defenseOff){
     hero.className = 'hero st-defense';
     if(d.marginSafe === false){
-      headline.textContent = '🛡 防禦邊界關閉';
-      sub.textContent = `融資維持率過低，建議減碼融資`;
+      headline.textContent = '🛡 防禦邊界';
+      sub.textContent = `建議減碼融資，融資維持率過低`;
     } else {
-      headline.textContent = '🛡 防禦邊界關閉';
-      sub.textContent = `建議暫停動能與加碼，僅維持${dcaLabel}`;
+      headline.textContent = '🛡 防禦邊界';
+      sub.textContent = `建議暫停加碼動能，維持${dcaLabel}`;
     }
   } else if(d.bombard){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
       hero.className = 'hero st-warn';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `現金不足，無法支付第一層`;
+      sub.textContent = `建議暫緩，現金不足以支付第一層`;
     } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
       hero.className = 'hero st-warn';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `現金不足，無法支付第二層`;
+      sub.textContent = `建議暫緩第二層，現金不足以支付`;
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `股價達加碼價位，建議加碼`;
+      sub.textContent = `建議加碼，股價達加碼價位`;
     }
   } else if(d.momentum){
     hero.className = 'hero st-momentum';
     headline.textContent = '⚡ 動能觸發';
-    sub.textContent = '連續三日站穩MA5，建議加倍定期定額';
+    sub.textContent = `建議加倍${dcaLabel}，站穩MA5`;
   } else {
     hero.className = 'hero st-idle';
     headline.textContent = `🔄 ${dcaLabel}`;
-    sub.textContent = `僅維持${dcaLabel}，其他訊號皆未觸發`;
+    sub.textContent = `建議維持${dcaLabel}，其他未觸發`;
   }
 }
 
