@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 17:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 21:10</div>
   </div>
   </div>
 
@@ -2133,7 +2133,8 @@ function ledItem(on, label, cls=''){
 
 function renderLeds(){
   const key = state.activeTab;
-  const P = getAsset(key).params;
+  const asset = getAsset(key);
+  const P = asset.params;
   const d = computeForAsset(key);
   const grid = document.getElementById('ledGrid');
   const n = (state.log[key]||[]).length;
@@ -2158,7 +2159,10 @@ function renderLeds(){
 
   // MA20（戰略線）
   condHtml += d.ready2 ? ledItem(true, 'MA20持平或向上', d.ma20upFlat?'':'red') : need(2, 'MA20持平或向上');
-  condHtml += ledItem(true, `股價達加碼價位`, d.touch?'':'red');
+  // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
+  // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
+  const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
+  condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
   condHtml += ledItem(true, `股價達停利價位`, d.exit?'':'red');
 
   // MA5（動能線）
@@ -2188,10 +2192,12 @@ function renderLeds(){
   resultHtml += ledItem(dcaLedOn, dcaLabelLed, dcaLedOn && d.dcaPaused ? 'amber' : '');
 
   // MA20（戰略線）
-  resultHtml += d.ready2 ? ledItem(d.bombard, '加碼觸發') : need(2, '加碼觸發');
-  // 加碼節流觸發：功能沒開啟時灰色不亮（跟融資防禦一樣，功能沒開啟就不該顯示狀態）；
-  // 開啟時，只有「原本真的該加碼、卻被節流擋下」才算觸發，用琥珀色（暫緩性質，跟定期定額暫停同一套語意）
-  if(!P.bombardThrottleEnabled){
+  resultHtml += d.ready2 ? ledItem(d.bombard && bombardCondEnabled, '加碼觸發') : need(2, '加碼觸發');
+  // 加碼節流觸發：加碼機制本身沒在用（兩層比例都是0）時，不管節流開關有沒有勾選，都該灰色不亮——
+  // 節流是加碼機制的附加調節，加碼機制都沒開，節流顯示任何狀態都沒有意義；
+  // 機制本身有在用、但節流開關沒勾選時，也是灰色不亮（跟融資防禦一樣，功能沒開啟就不該顯示狀態）；
+  // 兩者都成立時，只有「原本真的該加碼、卻被節流擋下」才算觸發，用琥珀色（暫緩性質，跟定期定額暫停同一套語意）
+  if(!bombardCondEnabled || !P.bombardThrottleEnabled){
     resultHtml += ledItem(false, '加碼節流觸發', '');
   } else if(!d.ready2){
     resultHtml += need(2, '加碼節流觸發');
@@ -2237,7 +2243,7 @@ function renderOrders(){
   const d = computeForAsset(key);
   const list = document.getElementById('orderList');
   const tickDec = getTickDecimals(getEffectiveTick(asset, d.today ? d.today.close : 0));
-  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據這個標的的參數設定、部位資料，以及最近5天的收盤價與均線資料，透過判定訊號推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
+  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據標的的參數設定、部位資料，以及最近5天的收盤價與均線資料，透過判定訊號推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
 
   // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價；
   // 暫停時只顯示建議狀態，原因說明統一放在訊號明細卡片；
@@ -2245,10 +2251,10 @@ function renderOrders(){
   // 但額外註記「尚無現金資料，無法確認是否會被暫停」，避免讓人誤以為現金狀態已經確認正常
   let dcaDetail, dcaCond;
   if(d.dcaPaused){
-    dcaDetail = `<span style="color:var(--amber); font-weight:700;">今日暫停</span>`;
-    dcaCond = '今日不執行';
+    dcaDetail = `<span style="color:var(--amber); font-weight:700;">暫停</span>`;
+    dcaCond = '不執行';
   } else {
-    dcaCond = d.hasPersonalData ? '恆常執行，不受防禦邊界影響' : '恆常執行，不受防禦邊界影響（尚無現金資料，無法確認是否會被暫停）';
+    dcaCond = d.hasPersonalData ? '正常執行，除非MA60與現金同時轉弱' : '正常執行，除非MA60與現金同時轉弱（尚無現金資料，無法確認是否會被暫停）';
     if(asset.dcaMode === 'amount'){
       dcaDetail = `買入 ${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
     } else {
@@ -2606,9 +2612,9 @@ function renderReserve(){
     dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
   } else if(d.dcaPaused){
     const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
-    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：今日暫停｜${dcaPausedReason}｜流動現金不足</span>`;
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：暫停｜${dcaPausedReason}｜流動現金不足</span>`;
   } else {
-    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：今日正常執行</span>`;
+    dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：正常執行</span>`;
   }
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
@@ -2651,9 +2657,10 @@ function renderReserve(){
   const bombardLine = (bombardTriggerTxt === null) ? '' : `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
 
   // ---- 4.5 加碼節流觸發（對應結果欄新增的燈號）----
-  // 功能沒開啟時整行不顯示，跟融資防禦、時間停損同一套處理方式
+  // 加碼機制本身沒在用（兩層比例都是0）時，跟節流開關沒開啟一樣，整行不顯示——
+  // 節流是加碼機制的附加調節，加碼機制都沒開，這裡顯示任何狀態都沒有意義
   let throttleLine = '';
-  if(asset.params.bombardThrottleEnabled && d.ready2){
+  if((asset.l1Pct > 0 || asset.l2Pct > 0) && asset.params.bombardThrottleEnabled && d.ready2){
     let throttleTxt, throttleColor;
     if(!d.hasPersonalData){
       throttleTxt = '（尚未輸入部位資料）';
