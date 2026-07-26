@@ -544,7 +544,7 @@
 
   <!-- ============ LED PANEL ============ -->
   <div class="card">
-    <div class="card-title"><h3>判定訊號</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div class="card-title"><h3>訊號狀態</h3><button class="btn btn-primary btn-sm" id="toggleLed" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="ledBody" style="display:none; margin-top:10px;">
     <div class="led-grid" id="ledGrid"></div>
     </div>
@@ -627,8 +627,8 @@
           <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：定期定額不受MA60限制，恆常執行，只有現金不足時才會依MA60趨勢決定要不要暫停。勾選後，只要MA60弱勢（防禦邊界關閉），不管現金水位夠不夠，定期定額都會暫停。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableThrottle" style="width:auto;">加碼節流</label>
-          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：加碼沒有節流限制，只要符合條件就會觸發，不管上次成交價位是多少。勾選後，同一層加碼要再次觸發，新算出的限價必須比上一次真的成交的限價再乘上「加碼節流門檻」（獨立參數，不是第二層加碼乘數）才算數，避免同一價格區間反覆加碼。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnableThrottle" style="width:auto;" disabled>加碼節流<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「加碼條件」→「啟用加碼節流」調整，這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
           <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableDefenseForBombard" style="width:auto;">加碼不受防禦邊界(MA60)限制</label>
@@ -665,29 +665,29 @@
           <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：防禦邊界需要「股價站穩MA60」才會打開，跌破當天不管其他線怎樣一律關閉。勾選後，如果MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然視為安全；但只要MA5轉弱（今天MA5低於昨天），代表短期動能已經真的鬆動，維持原本規則，防禦邊界照常關閉。用來驗證「用MA5有沒有轉弱，區分健康回檔跟真正反轉」這個想法，長期下來對績效是好是壞。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableMa60UpForExit" style="width:auto;">停利觸發要求MA60持平或向上</label>
-          <span class="test-flag-icon">i<div class="test-flag-tip">用來測試「不再需要輸入平均成本」這件事可不可行。勾選後，停利觸發不再用平均成本×成本乘數當作防護（回測本身雖然能自動算出平均成本，但這是在測試拿掉這個依賴後、改用MA60條件的效果好不好），改成額外要求MA60本身要持平或向上才能觸發。可以跟「停利觸發要求股價站穩MA60」同時勾選，測試更嚴格的組合。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnableMa60UpForExit" style="width:auto;" disabled>停利觸發要求MA60持平或向上<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「停利邏輯」→選「MA60條件停利」調整，這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnablePriceAboveMa60ForExit" style="width:auto;">停利觸發要求股價站穩MA60</label>
-          <span class="test-flag-icon">i<div class="test-flag-tip">用來測試「不再需要輸入平均成本」這件事可不可行。勾選後，停利觸發不再用平均成本×成本乘數當作防護，改成額外要求收盤價要站穩MA60才能觸發。可以跟「停利觸發要求MA60持平或向上」同時勾選，測試更嚴格的組合。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnablePriceAboveMa60ForExit" style="width:auto;" disabled>停利觸發要求股價站穩MA60<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「停利邏輯」→選「MA60條件停利」調整，這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableExitConfirmDays" style="width:auto;">停利觸發要求連續N天確認（股價與MA60條件都要）</label>
-          <input type="number" step="1" min="1" id="inExitConfirmDays" value="3" style="width:60px;">
-          <span class="test-flag-icon">i<div class="test-flag-tip">用來測試能不能把「MA60條件」的保護力，加強到接近平均成本機制的水準。勾選後，不是股價一觸及停利門檻、且當天MA60條件成立就立刻觸發，而是要求「股價超過停利門檻」與「勾選的MA60條件」這兩件事同時連續N天都成立，才真正觸發停利。天數可自訂，不限制在3天，跟「加碼MA60觀察期」用同一套邏輯。需要跟「停利觸發要求MA60持平或向上」或「停利觸發要求股價站穩MA60」至少勾選一個一起使用才有意義。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnableExitConfirmDays" style="width:auto;" disabled>停利觸發要求連續N天確認（股價與MA60條件都要）<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <input type="number" step="1" min="1" id="inExitConfirmDays" value="3" style="width:60px;" disabled>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「停利邏輯」→「MA60條件停利確認天數」調整，這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableLiqStop" style="width:auto;" checked>現金水位停損機制<span style="color:var(--text-faint); font-weight:400;">（預設勾選）</span></label>
-          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS的最高指導原則：現金不足時強制處理（MA60安全順勢賣、弱勢時優先暫緩改暫停定期定額、跌破絕對底線則不管趨勢強制賣）。取消勾選後，整個機制關閉，現金水位再低也不會有任何強制處理動作，用來驗證這個核心機制本身是否有可以優化的空間。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnableLiqStop" style="width:auto;" checked disabled>現金水位回補機制<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「現金流動性」→「最低流動現金佔比%」調整（設為0＝關閉整個機制），這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
           <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableTrendForLiqStop" style="width:auto;">現金水位停損不受防禦邊界(MA60)趨勢分流</label>
           <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：現金不足時依MA60判斷分流——MA60安全就順勢賣，MA60弱勢則優先暫緩（改暫停定期定額），只有跌破絕對底線才逆勢賣。勾選後，不管MA60安不安全，現金不足就一律當日市價賣出。</div></span>
         </div>
         <div class="test-flag-wrap">
-          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btEnableTimeStop" style="width:auto;">時間停損機制</label>
-          <span class="test-flag-icon">i<div class="test-flag-tip">InvestOS現行機制：時間停損整個機制目前是關閉的，不會觸發（持有再久也不會被強制出場）。勾選後，時間停損機制才會啟用——持有超過設定天數，且現金水位不足時，會建議分批停損。這是用來驗證「時間停損」相對於「現金水位停損」是否還有存在必要的測試開關。</div></span>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-faint); margin-bottom:0;"><input type="checkbox" id="btEnableTimeStop" style="width:auto;" disabled>時間停損機制<span style="font-weight:400;">（已改用「進階設定」正式功能）</span></label>
+          <span class="test-flag-icon">i<div class="test-flag-tip">已經成為InvestOS正式功能，請至「進階設定」→「時間停損」→「啟用時間停損機制」調整，這裡先保留但停用，不刪除。</div></span>
         </div>
         <div class="test-flag-wrap">
           <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btDisableCashGateForTimeStop" style="width:auto;">時間停損不受現金水位門檻限制</label>
@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-26 21:10</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 08:30</div>
   </div>
   </div>
 
@@ -750,12 +750,14 @@ const DEFAULT_PARAMS = {
   exitMult: 1.12,
   layer2Mult: 0.99,      // 只管L2定價：L2要比L1基準價便宜多少
   cashTargetPct: 0.10,
+  liqRebuildEnabled: true,
   liqRebuildMult: 1.75,
   liqFloorMult: 0.95,
   marginRatio: 0.60,
   marginCallRatio: 1.20,
   marginDefenseEnabled: false,   // 2026-07 比照時間停損模式：融資防禦預設關閉，需要使用者主動勾選才啟用；融資買進均價/股數也移到這裡一起管理
   costExitMult: 1.10,
+  exitSecondLayerEnabled: false,
   useMa60ConfirmForExit: false,
   exitMa60ConfirmDays: 3,
   timeStopDays: 120,
@@ -767,18 +769,20 @@ const DEFAULT_PARAMS = {
 };
 
 const PARAM_META = [
-  ['tolerance','加碼觸發股價相對於MA20區間容忍度','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
-  ['layer2Mult','第二層加碼限價相對於第一層限價比例','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以第一層限價算出更低的限價，用來承接更深的下跌；必須小於1，才能保證第二層永遠比第一層便宜'],
+  ['tolerance','股價達加碼價位的MA20區間容忍度','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
+  ['layer2Mult','第二層加碼價位相對於第一層價位比例','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以第一層限價算出更低的限價，用來承接更深的下跌；必須小於1，才能保證第二層永遠比第一層便宜'],
   ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「資料管理」卡片手動回報；股價脫離加碼區間時會自動清空，不用手動維護'],
   ['throttleMult','加碼節流門檻','mult','加碼條件','這次要掛的限價，要比「最近一次加碼價格」再便宜到這個比例，才算真的夠低、值得再買一次；沒有便宜到這個程度，就暫緩'],
   ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
+  ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
   ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
   ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹，但即時判定只保留最近5天資料，天數不能超過4天（需要多留1天計算MA60本身有沒有比前一天高）'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位停損等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
-  ['liqRebuildMult','現金水位停損補回倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位停損觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
-  ['liqFloorMult','現金水位停損絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
+  ['liqRebuildEnabled','啟用現金水位回補','bool','現金流動性','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
+  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
+  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['timeStopEnabled','啟用時間停損機制','bool','時間停損','時間停損預設關閉。勾選後才會啟用：距離「建倉起始日」（下方欄位，勾選後才會顯示）已經超過設定天數，且現金水位不足時，強制分批出場。取消勾選會清空建倉起始日，之後如果重新勾選，需要重新輸入'],
   ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
   ['timeStopPartialFrac','時間停損分批比例%','pct','時間停損','時間停損觸發時，一次賣出目前股數的這個比例'],
@@ -1093,7 +1097,17 @@ async function downloadHistoricalData(){
     // 下載完直接存進「已匯入資料」，不用再手動匯入一次；用完整的allRows（含往前抓的MA緩衝區間），比重新讀檔案還完整
     btImportedData[key] = allRows;
 
-    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已下載並匯入 ${allRows[startIdx].date} ~ ${allRows[allRows.length-1].date}，共 ${allRows.length - startIdx} 筆資料，可以直接開始回測。</span>`;
+    const actualStartDate = allRows[startIdx].date;
+    // 比對「你要求的開始日期」跟「實際取得的最早日期」，如果差距超過35天（約一個多月），
+    // 很可能是證交所這個API本身對更早期的資料涵蓋不完整（不是bug），額外提醒一下，
+    // 避免使用者誤以為自己選錯日期或操作有問題
+    const requestedTime = new Date(startStr + 'T00:00:00').getTime();
+    const actualTime = new Date(actualStartDate + 'T00:00:00').getTime();
+    const gapDays = Math.round((actualTime - requestedTime) / 86400000);
+    const gapNote = gapDays > 35
+      ? `<br><span style="color:var(--amber)">⚠ 你選的開始日期是${startStr}，但實際上只抓到${actualStartDate}起的資料——這通常是證交所這個資料來源，對更早期的資料本身就沒有完整涵蓋，不是操作錯誤。</span>`
+      : '';
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已下載並匯入 ${actualStartDate} ~ ${allRows[allRows.length-1].date}，共 ${allRows.length - startIdx} 筆資料，可以直接開始回測。</span>${gapNote}`;
   } catch(err){
     console.error('download historical data failed', err);
     statusEl.innerHTML = `<span style="color:var(--red)">下載失敗：${err.message}</span>`;
@@ -1154,23 +1168,28 @@ async function runBacktest(){
   }
   const liqFloorMultRaw = document.getElementById('btLiqFloorMult').value;
   const LIQ_FLOOR_MULT = liqFloorMultRaw !== '' ? parseFloat(liqFloorMultRaw) : P.liqFloorMult;
-  const ENABLE_THROTTLE = document.getElementById('btEnableThrottle').checked;
+  const ENABLE_THROTTLE = P.bombardThrottleEnabled;
   const DISABLE_DEFENSE_FOR_BOMBARD = document.getElementById('btDisableDefenseForBombard').checked;
   const ENABLE_MA60_OBSERVATION_FOR_BOMBARD = document.getElementById('btEnableMa60ObservationForBombard').checked;
   const MA60_OBSERVATION_DAYS_RAW = document.getElementById('inMa60ObservationDays').value;
   const MA60_OBSERVATION_DAYS = (MA60_OBSERVATION_DAYS_RAW !== '' && !isNaN(parseInt(MA60_OBSERVATION_DAYS_RAW,10)) && parseInt(MA60_OBSERVATION_DAYS_RAW,10) >= 1) ? parseInt(MA60_OBSERVATION_DAYS_RAW,10) : 2;
   const DISABLE_DEFENSE_FOR_MOMENTUM = document.getElementById('btDisableDefenseForMomentum').checked;
   const ENABLE_MA5_RECOVERY_FOR_DEFENSE = document.getElementById('btEnableMa5RecoveryForDefense').checked;
-  const ENABLE_MA60UP_FOR_EXIT = document.getElementById('btEnableMa60UpForExit').checked;
-  const ENABLE_PRICE_ABOVE_MA60_FOR_EXIT = document.getElementById('btEnablePriceAboveMa60ForExit').checked;
-  const ENABLE_EXIT_CONFIRM_DAYS = document.getElementById('btEnableExitConfirmDays').checked;
-  const EXIT_CONFIRM_DAYS_RAW = document.getElementById('inExitConfirmDays').value;
-  const EXIT_CONFIRM_DAYS = (EXIT_CONFIRM_DAYS_RAW !== '' && !isNaN(parseInt(EXIT_CONFIRM_DAYS_RAW,10)) && parseInt(EXIT_CONFIRM_DAYS_RAW,10) >= 1) ? parseInt(EXIT_CONFIRM_DAYS_RAW,10) : 3;
+  // 這3個已經是InvestOS正式功能（MA60條件停利，二選一），不再讀已停用的測試開關，改讀真正的參數，
+  // 確保回測結果跟即時運算的實際設定一致，不會出現「進階設定已開啟、但回測沒套用」的落差；
+  // 同時要先過「啟用第二層閥門」這個總開關，沒開的話，不管useMa60ConfirmForExit本身是什麼值，都當作沒開
+  const ENABLE_MA60UP_FOR_EXIT = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
+  const ENABLE_PRICE_ABOVE_MA60_FOR_EXIT = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
+  const ENABLE_EXIT_CONFIRM_DAYS = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
+  const EXIT_CONFIRM_DAYS = P.exitMa60ConfirmDays || 3;
   const DISABLE_CASH_GATE_FOR_TIMESTOP = document.getElementById('btDisableCashGateForTimeStop').checked;
-  const ENABLE_TIME_STOP = document.getElementById('btEnableTimeStop').checked;
+  // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數
+  const ENABLE_TIME_STOP = P.timeStopEnabled;
   const DISABLE_TREND_FOR_LIQSTOP = document.getElementById('btDisableTrendForLiqStop').checked;
   const DCA_PAUSED_BY_MA60 = document.getElementById('btDcaPausedByMa60').checked;
-  const ENABLE_LIQ_STOP = document.getElementById('btEnableLiqStop').checked;
+  // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數——
+  // 跟即時運算（renderReserve裡的liqMonitoringDisabled）用同一套判斷：cashTargetPct設為0或≥1就代表關閉
+  const ENABLE_LIQ_STOP = P.cashTargetPct > 0 && P.cashTargetPct < 1 && P.liqRebuildEnabled !== false;
   const ENABLE_VOLUME_DEFENSE_FOR_BOMBARD = document.getElementById('btEnableVolumeDefenseForBombard').checked;
   const ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD = document.getElementById('btEnableAmplitudeDefenseForBombard').checked;
   const AMPLITUDE_THRESHOLD_PCT_RAW = document.getElementById('inAmplitudeThresholdPct').value;
@@ -1340,7 +1359,7 @@ async function runBacktest(){
       const momentum = threeDay && ma5upFlat && momentumDefenseOk;
       const closeT = today_.close;
 
-      // 現金水位停損：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
+      // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
       // MA60顯示安全（多頭/強勢）：賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
       // MA60顯示不安全（空頭/弱勢）：優先暫緩、不強制在弱勢中賣股，改成暫停今天的定期定額，只有現金比例已經跌破「絕對底線（門檻的一半）」才不管趨勢強制賣股救急
       // 這段放在定期定額之前執行，因為要決定「今天的定期定額」要不要暫停
@@ -1356,7 +1375,7 @@ async function runBacktest(){
         dcaPausedCount++;
         dcaPausedEvents.push({ date: today_.date, pctOfThreshold: pctOfThresholdForDca, byMa60Only: true });
       }
-      if(ENABLE_LIQ_STOP && P.cashTargetPct > 0 && P.cashTargetPct < 1 && totalShares > 0){
+      if(ENABLE_LIQ_STOP && totalShares > 0){
         const marketValueNow = totalShares * closeT;
         const totalWealthNow = cash + marketValueNow;
         const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -1459,7 +1478,7 @@ async function runBacktest(){
       const useMa60GateInstead = ENABLE_MA60UP_FOR_EXIT || ENABLE_PRICE_ABOVE_MA60_FOR_EXIT;
       // 測試「不再需要平均成本」：勾選任一個MA60條件時，停用平均成本這條防護，
       // 改用MA60條件把關，才能公平比較「拿掉平均成本、改用MA60條件」的效果好不好
-      const costExitPrice = (!useMa60GateInstead && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
+      const costExitPrice = (P.exitSecondLayerEnabled && !useMa60GateInstead && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
       const thresholdY = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
       const ma60GateOk = (!ENABLE_MA60UP_FOR_EXIT || ma60upFlat) && (!ENABLE_PRICE_ABOVE_MA60_FOR_EXIT || priceAboveMa60);
       // 連續確認天數：股價超過停利門檻、且MA60條件成立，這兩件事要同一天都成立才算「確認的一天」，
@@ -1469,8 +1488,8 @@ async function runBacktest(){
       const exitConfirmOk = !ENABLE_EXIT_CONFIRM_DAYS || exitConfirmStreak >= EXIT_CONFIRM_DAYS;
       const exitSignal = closeY >= thresholdY && totalShares > 0 && ma60GateOk && exitConfirmOk;
       const curDate = new Date(today_.date + 'T00:00:00');
-      // 時間停損現在多一個條件：現金水位已經高於最低比例（現金現金水位停損那一段已經處理過緊急狀況）才暫緩；
-      // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位停損」而完全跳過
+      // 時間停損現在多一個條件：現金水位已經高於最低比例（現金現金水位回補那一段已經處理過緊急狀況）才暫緩；
+      // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位回補」而完全跳過
       const marketValueForTs = totalShares * closeT;
       const cashSufficientNow = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (cash >= P.cashTargetPct * (cash + marketValueForTs)) : true;
       const timeStopTrig = ENABLE_TIME_STOP && ((curDate - lastTsCheck) / 86400000 >= P.timeStopDays) && totalShares > 0 && (DISABLE_CASH_GATE_FOR_TIMESTOP || !cashSufficientNow);
@@ -1611,16 +1630,11 @@ async function runBacktest(){
     // 本次模擬總結：把最重要的幾個數字濃縮在一起，方便直接複製貼給Claude討論，不用自己在一堆明細裡找
     const finalCashRatio = finalWealth > 0 ? (cash / finalWealth * 100) : 0;
     const activeTestFlags = [];
-    if(!ENABLE_LIQ_STOP) activeTestFlags.push('現金水位停損機制（已停用，跟現行機制不同）');
-    if(ENABLE_THROTTLE) activeTestFlags.push('加碼節流');
+    if(!ENABLE_LIQ_STOP) activeTestFlags.push('現金水位回補機制（已停用，跟現行機制不同）');
     if(DISABLE_DEFENSE_FOR_BOMBARD) activeTestFlags.push('加碼不受防禦邊界(MA60)限制');
     if(ENABLE_MA60_OBSERVATION_FOR_BOMBARD) activeTestFlags.push(`加碼MA60觀察期(${MA60_OBSERVATION_DAYS}天)`);
     if(DISABLE_DEFENSE_FOR_MOMENTUM) activeTestFlags.push('動能觸發不受防禦邊界(MA60)限制');
     if(ENABLE_MA5_RECOVERY_FOR_DEFENSE) activeTestFlags.push('MA5未轉弱時，允許跌破MA60照樣加碼/動能');
-    if(ENABLE_MA60UP_FOR_EXIT) activeTestFlags.push('停利觸發要求MA60持平或向上（不用平均成本）');
-    if(ENABLE_PRICE_ABOVE_MA60_FOR_EXIT) activeTestFlags.push('停利觸發要求股價站穩MA60（不用平均成本）');
-    if(ENABLE_EXIT_CONFIRM_DAYS) activeTestFlags.push(`停利觸發要求連續${EXIT_CONFIRM_DAYS}天確認`);
-    if(ENABLE_TIME_STOP) activeTestFlags.push('時間停損機制');
     if(DISABLE_CASH_GATE_FOR_TIMESTOP) activeTestFlags.push('時間停損不受現金水位門檻限制');
     if(DISABLE_TREND_FOR_LIQSTOP) activeTestFlags.push('現金水位停損不受防禦邊界(MA60)趨勢分流');
     if(DCA_PAUSED_BY_MA60) activeTestFlags.push('定期定額受防禦邊界(MA60)限制');
@@ -1813,7 +1827,12 @@ function computeForAsset(assetKey){
   const ma20ExitPrice = today.ma20 * P.exitMult;
   const priceAboveMa20Exit = today.close >= ma20ExitPrice; // 第一層：MA20基本門檻，兩種機制都要先通過這關
 
-  if(P.useMa60ConfirmForExit){
+  if(!P.exitSecondLayerEnabled){
+    // 沒有啟用第二層閥門，純粹只看MA20門檻，不疊加成本或MA60的任何額外確認
+    out.exitThreshold = ma20ExitPrice;
+    out.exitThresholdSource = 'ma20';
+    out.exit = priceAboveMa20Exit;
+  } else if(P.useMa60ConfirmForExit){
     // 第二層（MA60條件停利）：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計
     const confirmDays = Math.min(Math.max(1, P.exitMa60ConfirmDays || 3), 4);
     out.exitMa60ConfirmDaysUsed = confirmDays;
@@ -1901,10 +1920,10 @@ function computeForAsset(assetKey){
     out.priceDefenseOk = false;
   }
 
-  // 現金水位停損：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
+  // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
   // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
   // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急
-  if(today.close != null && curShares > 0 && out.cashSufficient === false){
+  if(P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
     const marketValueNow = curShares * today.close;
     const totalWealthNow = cur + marketValueNow;
     const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -1933,8 +1952,8 @@ function computeForAsset(assetKey){
   }
 
   // 時間停損多一個條件：現金水位已經足夠（高於最低比例）時暫緩，避免現金充裕還無謂出場；
-  // 現金水位不夠時才正常照時間到了就出場——但如果今天現金水位停損已經建議賣股救回現金，
-  // 要用「假設採納這個建議之後」的現金水位來判斷，不能用建議前的舊現金，否則會跟現金水位停損同一天重複觸發
+  // 現金水位不夠時才正常照時間到了就出場——但如果今天現金水位回補已經建議賣股救回現金，
+  // 要用「假設採納這個建議之後」的現金水位來判斷，不能用建議前的舊現金，否則會跟現金水位回補同一天重複觸發
   if(out.timeStopTriggered !== undefined){
     let cashSufficientAfterSuggestion = out.cashSufficient;
     if(out.liquidityStopTriggered){
@@ -1972,7 +1991,7 @@ function computeForAsset(assetKey){
     out.throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
     out.throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
   }
-  // 加碼節流「觸發」（給判定訊號新增的LED跟訊號明細用）：語意是「今天原本真的該加碼，卻被節流擋下」，
+  // 加碼節流「觸發」（給訊號狀態新增的LED跟訊號明細用）：語意是「今天原本真的該加碼，卻被節流擋下」，
   // 這個要綁定bombard成立才算數，跟上面純粹的價位檢查（給委託清單預覽用）用途不同，不能混用同一個判斷
   out.throttleTriggered = out.bombard && (out.throttledL1 || out.throttledL2);
 
@@ -2008,8 +2027,8 @@ function renderHero(){
 
   if(d.liquidityStopTriggered){
     hero.className = 'hero st-warn';
-    headline.textContent = '🚨 現金水位停損觸發';
-    sub.textContent = `建議分批停損，流動現金不足`;
+    headline.textContent = '🚨 現金水位回補觸發';
+    sub.textContent = `建議賣股回補，流動現金不足`;
   } else if(!d.hasPersonalData){
     hero.className = 'hero st-idle';
     headline.textContent = '📝 尚未輸入部位資料';
@@ -2063,7 +2082,7 @@ function renderHero(){
   } else {
     hero.className = 'hero st-idle';
     headline.textContent = `🔄 ${dcaLabel}`;
-    sub.textContent = `建議維持${dcaLabel}，其他未觸發`;
+    sub.textContent = `建議維持${dcaLabel}，無其他訊號`;
   }
 }
 
@@ -2159,15 +2178,16 @@ function renderLeds(){
 
   // MA20（戰略線）
   condHtml += d.ready2 ? ledItem(true, 'MA20持平或向上', d.ma20upFlat?'':'red') : need(2, 'MA20持平或向上');
+
+  // MA5（動能線）
+  condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
+  condHtml += d.ready ? ledItem(true, '股價連續三日大於MA5', d.threeDay?'':'red') : need(3, '股價連續三日大於MA5');
+
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
   const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
   condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
   condHtml += ledItem(true, `股價達停利價位`, d.exit?'':'red');
-
-  // MA5（動能線）
-  condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
-  condHtml += d.ready ? ledItem(true, '股價連續三日大於MA5', d.threeDay?'':'red') : need(3, '股價連續三日大於MA5');
 
   // 現金流
   const cashStatus = getCashStatus(key);
@@ -2214,11 +2234,15 @@ function renderLeds(){
     resultHtml += ledItem(d.exit, `停利觸發`, '');
   }
 
+  // 停利閥門觸發：暫時永遠不亮——只是「啟用第二層閥門」這個設定有沒有勾選，不代表真的有東西被擋下，
+  // 跟旁邊其他「XX觸發」LED的語意（真的發生某件事才亮）不一致，真正的觸發邏輯之後再接上
+  resultHtml += ledItem(false, '停利閥門觸發', '');
+
   // MA5（動能線）
   resultHtml += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
 
   // 現金流：其餘後備防線
-  resultHtml += ledItem(!!d.liquidityStopTriggered, '現金水位停損觸發', d.liquidityStopTriggered?'red':'');
+  resultHtml += ledItem(!!d.liquidityStopTriggered, '現金水位回補觸發', d.liquidityStopTriggered?'amber':'');
   resultHtml += ledItem(!!d.timeStopTriggered, '時間停損觸發', d.timeStopTriggered?'amber':'');
 
   grid.innerHTML = noticeHtml +
@@ -2243,7 +2267,7 @@ function renderOrders(){
   const d = computeForAsset(key);
   const list = document.getElementById('orderList');
   const tickDec = getTickDecimals(getEffectiveTick(asset, d.today ? d.today.close : 0));
-  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據標的的參數設定、部位資料，以及最近5天的收盤價與均線資料，透過判定訊號推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
+  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據標的的參數設定、部位資料，以及最近5天的收盤價與均線資料，透過訊號狀態推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
 
   // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價；
   // 暫停時只顯示建議狀態，原因說明統一放在訊號明細卡片；
@@ -2373,18 +2397,22 @@ function renderOrders(){
     : `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
   html += orderRow(!!d.exit && d.hasPersonalData, '停利觸發', exitCondTxt, exitDetail);
 
-  // 現金水位停損：只顯示執行動作，原因說明統一放在訊號明細卡片
-  let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
-  let liqDetail = '';
-  if(d.liquidityStopTriggered && d.today){
-    liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
+  // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
+  // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」時才顯示，
+  // 跟時間停損機制沒開啟時整行不顯示是同一套處理方式
+  if((P.cashTargetPct > 0 && P.cashTargetPct < 1) && P.liqRebuildEnabled !== false){
+    let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
+    let liqDetail = '';
+    if(d.liquidityStopTriggered && d.today){
+      liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
+    }
+    html += orderRow(!!d.liquidityStopTriggered, '現金水位回補觸發', liqCondTxt, liqDetail);
   }
-  html += orderRow(!!d.liquidityStopTriggered, '現金水位停損觸發', liqCondTxt, liqDetail);
 
   if(d.timeStopEnabled){
     const tsShares = Math.round((state.shares[key]||0) * P.timeStopPartialFrac);
     // 時間停損：建倉起始日起算超過設定天數仍未停利，建議分批出場，限價掛在最近一次收盤價；
-    // 現金水位已經足夠時會暫緩（現金水位停損優先處理現金問題），只在現金水位仍不足時才正常出場
+    // 現金水位已經足夠時會暫緩（現金水位回補優先處理現金問題），只在現金水位仍不足時才正常出場
     let tsCondTxt, tsDetail;
     if((state.shares[key]||0) <= 0){
       const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數，無法計算' : '目前股數為0，無法計算';
@@ -2543,7 +2571,7 @@ function renderReserve(){
   const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
   const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
-  // 流動現金：唯一一行，恆常顯示建議現金應保留金額，後面依判定訊號燈號的4種狀態補充對應文字
+  // 流動現金：唯一一行，恆常顯示建議現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字
   let bombardAffordTxt;
   const affordBase = `建議現金應保留${st.requiredTxt}`;
   if(!d.hasPersonalData){
@@ -2705,9 +2733,9 @@ function renderReserve(){
     }
   }
 
-  // ---- 6. 現金水位停損觸發（對應結果欄第6個燈號） ----
+  // ---- 6. 現金水位回補觸發（對應結果欄第6個燈號） ----
   let liquidityStopHtml;
-  const liqMonitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
+  const liqMonitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1) || asset.params.liqRebuildEnabled === false;
   if(liqMonitoringDisabled){
     // 沒有設定現金水位監控時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
     // 跟時間停損機制沒開啟時的處理方式一致，監控沒設定這件事，跟有沒有輸入部位資料無關
@@ -2715,29 +2743,29 @@ function renderReserve(){
   } else if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
     const reasonTxt = d.liquidityStopByFloor ? '逆勢' : '順勢';
-    liquidityStopHtml = `<span style="color:var(--red); font-weight:700;">→ 現金水位停損觸發：市價賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
+    liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：市價賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
   } else if(!d.hasPersonalData){
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：（尚未輸入部位資料）</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：（尚未輸入部位資料）</span>`;
   } else if((state.shares[key]||0) <= 0){
     const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜${sharesReasonTxt}</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜${sharesReasonTxt}</span>`;
   } else if(d.cashSufficient === false){
     if(d.dcaPaused){
       // MA60弱勢、還沒跌破絕對底線，系統選擇暫緩不逆勢賣股——這不是「股數不足」，而是策略主動判斷
       // 「現在不該賣」，這件事已經在「定期定額/定期定股」那一行完整說明了，這裡不重複解釋原因；
       // 原因細節比照定期定股的精確判斷方式，不固定寫死同一句話
       const liqPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
-      liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜${liqPausedReason}｜暫緩賣股</span>`;
+      liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜${liqPausedReason}｜暫緩賣股</span>`;
     } else {
       // 這才是真正的「想賣卻賣不成」——系統判斷該賣股救急（MA60安全順勢賣，或已跌破絕對底線），
       // 但持股太少，算出來要賣的股數四捨五入後是0，跟「停利觸發但股數為0」是同一種模式
-      liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位停損觸發：觸發｜目前股數不足</span>`;
+      liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：觸發｜目前股數不足</span>`;
     }
   } else {
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位停損觸發：未觸發｜流動現金充足</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜流動現金充足</span>`;
   }
 
-  // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位停損觸發） ----
+  // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位回補觸發） ----
   const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
   let timeStopHtml;
   if(!d.timeStopEnabled){
@@ -3055,6 +3083,7 @@ function renderAssetManageInner(){
   const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
   const marginDefenseEnabledVal = !!(a.params || DEFAULT_PARAMS).marginDefenseEnabled;
   const useMa60ConfirmForExitVal = !!(a.params || DEFAULT_PARAMS).useMa60ConfirmForExit;
+  const exitSecondLayerEnabledVal = !!(a.params || DEFAULT_PARAMS).exitSecondLayerEnabled;
   const advHtml = PARAM_META.map(([pkey,label,type,cat,desc], i)=>{
     let val = (a.params || DEFAULT_PARAMS)[pkey];
     if(type==='pct') val = (val*100);
@@ -3063,8 +3092,8 @@ function renderAssetManageInner(){
       const catTipMap = {
         '加碼條件': '加碼要不要有機會觸發，先看四個條件是否同時成立：股價達加碼價位、MA20持平或向上、以及防禦邊界安全（這一項本身又包含MA60趨勢正常、流動現金充足、融資維持率安全、已輸入部位資料，四者都要成立）。這四個條件全部成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
         '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是兩種模式共用的基本門檻。第二關二選一：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者；「MA60條件停利」則不看平均成本，改成額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立才觸發。不管哪種模式，這個判斷都完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
-        '現金流動性': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位停損、防禦邊界的現金因子、時間停損的現金判斷全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
-        '時間停損': '第一層：要先同時滿足三個前提，才會開始計算已持有天數——你有勾選啟用這個機制、你有輸入建倉起始日、你目前股數大於0；只要少一個，時間停損就完全不會計算，維持未觸發（不是條件不成立，是根本沒開始判斷）。第二層：已持有天數（今天−建倉起始日）是不是超過設定天數，這是初步觸發。第三層：現金水位夠不夠，決定初步觸發要不要變成真的觸發——現金水位已經足夠就暫緩，不會無謂出場；現金水位仍然不夠才真正觸發，建議分批停損；如果同一天現金水位停損剛好也建議賣股救回現金，這裡會用「假設你真的照做之後」的現金水位來判斷，不是用賣股前的舊現金，避免兩個機制同一天重複觸發、賣過頭。第四層：真正觸發時，只賣掉目前股數的分批比例%，不是一次全部出清，這個比例是固定的，跟現金水位停損補回倍數那種「賣到補回某個目標」的算法不一樣，刻意維持時間停損原本「固定規律性減碼」的性質，不跟現金水位停損混在一起。',
+        '現金流動性': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位回補、防禦邊界的現金因子、時間停損的現金判斷全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
+        '時間停損': '第一層：要先同時滿足三個前提，才會開始計算已持有天數——你有勾選啟用這個機制、你有輸入建倉起始日、你目前股數大於0；只要少一個，時間停損就完全不會計算，維持未觸發（不是條件不成立，是根本沒開始判斷）。第二層：已持有天數（今天−建倉起始日）是不是超過設定天數，這是初步觸發。第三層：現金水位夠不夠，決定初步觸發要不要變成真的觸發——現金水位已經足夠就暫緩，不會無謂出場；現金水位仍然不夠才真正觸發，建議分批停損；如果同一天現金水位回補剛好也建議賣股救回現金，這裡會用「假設你真的照做之後」的現金水位來判斷，不是用賣股前的舊現金，避免兩個機制同一天重複觸發、賣過頭。第四層：真正觸發時，只賣掉目前股數的分批比例%，不是一次全部出清，這個比例是固定的，跟現金水位回補倍數那種「賣到補回某個目標」的算法不一樣，刻意維持時間停損原本「固定規律性減碼」的性質，不跟現金水位回補混在一起。',
         '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
       };
       const catTip = catTipMap[cat]
@@ -3079,9 +3108,9 @@ function renderAssetManageInner(){
     if(pkey === 'costExitMult'){
       const rowHtml = `${catHtml}<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="cost" ${!useMa60ConfirmForExitVal?'checked':''} style="width:auto;">
+          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="cost" ${!useMa60ConfirmForExitVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${val}" ${useMa60ConfirmForExitVal?'disabled':''} style="width:70px;">
+          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${val}" ${(useMa60ConfirmForExitVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:70px;">
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
       </div>`;
@@ -3315,7 +3344,7 @@ function renderAssetManageInner(){
       // 第二層加碼乘數一定要小於1，才能保證第二層永遠比基準價便宜（維持「第二層本來就該比第一層便宜」的設計前提）；
       // 設成1以上，會讓節流判斷出現「只有第二層被擋、第一層正常」這種原本不該發生的情況
       if(pfield === 'layer2Mult' && v >= 1){
-        alert('第二層加碼限價相對於第一層限價比例必須小於1（第二層要比第一層便宜才有意義），已還原成原本的數值');
+        alert('第二層加碼價位相對於第一層價位比例必須小於1（第二層要比第一層便宜才有意義），已還原成原本的數值');
         e.target.value = (state.assets[i].params.layer2Mult != null ? state.assets[i].params.layer2Mult : DEFAULT_PARAMS.layer2Mult);
         return;
       }
