@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 14:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 17:35</div>
   </div>
   </div>
 
@@ -2667,7 +2667,9 @@ function renderReserve(){
     bombardTriggerTxt = '（尚未輸入部位資料）';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombard){
-    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}｜加碼第二層價位＠${st.layer2CostTxt}`;
+    bombardTriggerTxt = (asset.l2Pct > 0)
+      ? `加碼價位＠${st.bombardCostTxt}｜加碼第二層價位＠${st.layer2CostTxt}`
+      : `加碼價位＠${st.bombardCostTxt}`;
     bombardColor = 'var(--teal)';
   } else if(d.touch && d.ma20upFlat && d.ma60upFlat && d.priceAboveMa60 && d.cashSufficient === false){
     // 股價、MA20、MA60都已經符合加碼條件，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
@@ -2705,14 +2707,29 @@ function renderReserve(){
     } else if(!d.throttleTriggered){
       throttleTxt = '未觸發';
       throttleColor = 'var(--text-faint)';
-    } else if(d.throttledL1 && d.throttledL2){
-      throttleTxt = '觸發｜第一層、第二層都被暫緩';
-      throttleColor = 'var(--amber)';
-    } else if(d.throttledL1){
-      throttleTxt = '觸發｜第一層被暫緩';
-      throttleColor = 'var(--amber)';
     } else {
-      throttleTxt = '觸發｜第二層被暫緩';
+      // 算出節流放行的門檻價位（跟委託清單用同一套公式：最近一次加碼價格×節流門檻，無條件捨去到合法檔位）
+      const P = asset.params;
+      const lastPrice = state.lastBombardPrice[key];
+      const exactThreshold = lastPrice * P.throttleMult;
+      const suggestedThrottlePrice = applyTick(exactThreshold, getEffectiveTick(asset, exactThreshold), 'floor');
+      const exactThresholdL2 = suggestedThrottlePrice * P.layer2Mult;
+      const suggestedThrottlePriceL2 = applyTick(exactThresholdL2, getEffectiveTick(asset, exactThresholdL2), 'floor');
+      const tickDec1 = getTickDecimals(getEffectiveTick(asset, suggestedThrottlePrice));
+      const tickDec2 = getTickDecimals(getEffectiveTick(asset, suggestedThrottlePriceL2));
+      const onlyOneLayerExists = !(asset.l1Pct > 0 && asset.l2Pct > 0); // 只有一層在運作，不需要特別標明「第X層」
+
+      if(d.throttledL1 && d.throttledL2){
+        throttleTxt = `觸發｜兩層都下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}／${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
+      } else if(d.throttledL1){
+        throttleTxt = onlyOneLayerExists
+          ? `觸發｜下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`
+          : `觸發｜第一層下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`;
+      } else {
+        throttleTxt = onlyOneLayerExists
+          ? `觸發｜下修至加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`
+          : `觸發｜第二層下修至加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
+      }
       throttleColor = 'var(--amber)';
     }
     throttleLine = `<span style="color:${throttleColor}; font-weight:700;">→ 加碼節流觸發：${throttleTxt}</span>`;
