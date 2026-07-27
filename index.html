@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 20:20</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 21:50</div>
   </div>
   </div>
 
@@ -2313,7 +2313,7 @@ function renderOrders(){
   // 動能加額＝定期定額(或定期定股)×動能倍數，兩個因子只要有一個是0，結果永遠是0，
   // 這種情況下整行隱藏，不顯示沒有意義的「買入0」，跟定期定額/加碼L1/L2用同一套邏輯
   if(asset.dcaValue > 0 && asset.boostMult > 0){
-    html += orderRow(!!d.momentum, '動能觸發', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
+    html += orderRow(!!d.momentum, '動能', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
   }
 
   // 加碼觸發(第一層／第二層)（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
@@ -2388,10 +2388,10 @@ function renderOrders(){
   // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
   // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
   if(asset.l1Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL1, '加碼觸發(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
+    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
   }
   if(asset.l2Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL2, '加碼觸發(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
+    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
   }
 
   // 停利：分批停利（每次依分批停利比例%執行，非全部停利）
@@ -2404,7 +2404,7 @@ function renderOrders(){
   const exitCondTxt = (d.exitThresholdSource === 'cost')
     ? `股價達（MA20×${P.exitMult} 與 持股成本×${P.costExitMult}）取高者，不受防禦邊界影響`
     : `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
-  html += orderRow(!!d.exit && d.hasPersonalData, '停利觸發', exitCondTxt, exitDetail);
+  html += orderRow(!!d.exit && d.hasPersonalData, '停利', exitCondTxt, exitDetail);
 
   // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
   // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」時才顯示，
@@ -2415,7 +2415,7 @@ function renderOrders(){
     if(d.liquidityStopTriggered && d.today){
       liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
     }
-    html += orderRow(!!d.liquidityStopTriggered, '現金水位回補觸發', liqCondTxt, liqDetail);
+    html += orderRow(!!d.liquidityStopTriggered, '現金水位回補', liqCondTxt, liqDetail);
   }
 
   if(d.timeStopEnabled){
@@ -2442,7 +2442,7 @@ function renderOrders(){
         tsDetail = '';
       }
     }
-    html += orderRow(!!d.timeStopTriggered, '時間停損觸發', tsCondTxt, tsDetail);
+    html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
   }
 
   list.innerHTML = html;
