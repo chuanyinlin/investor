@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 17:35</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 20:20</div>
   </div>
   </div>
 
@@ -2348,17 +2348,17 @@ function renderOrders(){
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託第二層）</span>`;
       } else if(asset.l2Pct > 0){
         const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
-        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares1,0)}股＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       } else {
         // 這個標的沒有設定第二層（l2Pct=0），沒有「改委託第二層」這個替代方案可以建議，
         // 直接給第一層自己的節流建議價位，不能提到一個根本不存在的第二層
         const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
-        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares1,0)}股＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       }
     }
     if(throttledL2){
       const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
-      throttleNote2 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares2,0)} 股 ＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
+      throttleNote2 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares2,0)}股＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
     }
     if(!d.defenseOk){
       l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
@@ -2580,9 +2580,9 @@ function renderReserve(){
   const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
   const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
-  // 流動現金：唯一一行，恆常顯示建議現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字
+  // 流動現金：唯一一行，恆常顯示現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字
   let bombardAffordTxt;
-  const affordBase = `建議現金應保留${st.requiredTxt}`;
+  const affordBase = `現金應保留${st.requiredTxt}`;
   if(!d.hasPersonalData){
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：（尚未輸入部位資料）</span>`;
   } else if(state.shares[key] == null){
@@ -2720,15 +2720,15 @@ function renderReserve(){
       const onlyOneLayerExists = !(asset.l1Pct > 0 && asset.l2Pct > 0); // 只有一層在運作，不需要特別標明「第X層」
 
       if(d.throttledL1 && d.throttledL2){
-        throttleTxt = `觸發｜兩層都下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}／${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
+        throttleTxt = `第一/二層加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}／${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
       } else if(d.throttledL1){
         throttleTxt = onlyOneLayerExists
-          ? `觸發｜下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`
-          : `觸發｜第一層下修至加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`;
+          ? `加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`
+          : `第一層加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`;
       } else {
         throttleTxt = onlyOneLayerExists
-          ? `觸發｜下修至加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`
-          : `觸發｜第二層下修至加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
+          ? `加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`
+          : `第二層加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
       }
       throttleColor = 'var(--amber)';
     }
