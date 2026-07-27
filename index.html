@@ -704,7 +704,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 08:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 14:00</div>
   </div>
   </div>
 
@@ -1985,11 +1985,15 @@ function computeForAsset(assetKey){
   if(n >= 2 && P.bombardThrottleEnabled){
     const asset = getAsset(assetKey);
     const basePrice = Math.min(today.close, today.ma20);
-    const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
-    const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     const lastPrice = state.lastBombardPrice[assetKey];
-    out.throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
-    out.throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
+    if(asset.l1Pct > 0){
+      const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+      out.throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
+    }
+    if(asset.l2Pct > 0){
+      const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+      out.throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
+    }
   }
   // 加碼節流「觸發」（給訊號狀態新增的LED跟訊號明細用）：語意是「今天原本真的該加碼，卻被節流擋下」，
   // 這個要綁定bombard成立才算數，跟上面純粹的價位檢查（給委託清單預覽用）用途不同，不能混用同一個判斷
@@ -2340,9 +2344,14 @@ function renderOrders(){
     // 因為「跌到多少才通過節流」是獨立於防禦邊界之外的參考資訊，不該因為防禦邊界關閉就完全看不到
     let throttleNote1 = '', throttleNote2 = '';
     if(throttledL1){
-      if(!throttledL2){
+      if(!throttledL2 && asset.l2Pct > 0){
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託第二層）</span>`;
+      } else if(asset.l2Pct > 0){
+        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
+        throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       } else {
+        // 這個標的沒有設定第二層（l2Pct=0），沒有「改委託第二層」這個替代方案可以建議，
+        // 直接給第一層自己的節流建議價位，不能提到一個根本不存在的第二層
         const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託${fmtRaw(suggestedShares1,0)} 股 ＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       }
@@ -3014,6 +3023,7 @@ function ensureAssetData(key){
 
 let assetSubTab = {}; // 記錄每個標的目前顯示「基本設定」還是「進階設定」，用key當key
 let assetMgmtActiveKey = null; // 「設定」裡目前選到哪個標的的分頁
+let settingsLockedKey = null; // 這次打開「設定」時，唯一允許編輯的標的key——防止不小心改到別的標的參數
 let assetMgmtWindowStart = 0; // 「設定」畫面分頁列目前顯示視窗的起始index，固定顯示3個標的
 
 function renderAssetManage(){
@@ -3049,7 +3059,7 @@ function renderAssetManageInner(){
   const tabsHtml = `<div class="tabs-wrap">
     <button class="tabs-arrow" id="assetMgmtArrowLeft" style="display:none;">‹</button>
     <div class="tabs" id="assetMgmtTabsRow">` + mgmtVisible.map(x=>
-    `<div class="tab ${x.key===assetMgmtActiveKey?'active':''}" data-mgmttab="${x.key}">${x.name}</div>`
+    `<div class="tab ${x.key===assetMgmtActiveKey?'active':''} ${x.key!==settingsLockedKey?'locked':''}" data-mgmttab="${x.key}" ${x.key!==settingsLockedKey?'style="opacity:0.35; cursor:not-allowed;"':''}>${x.name}</div>`
   ).join('') + `</div>
     <button class="tabs-arrow" id="assetMgmtArrowRight" style="display:none;">›</button>
   </div>`;
@@ -3228,7 +3238,9 @@ function renderAssetManageInner(){
   }
   wrap.querySelectorAll('[data-mgmttab]').forEach(el=>{
     el.addEventListener('click', ()=>{
-      assetMgmtActiveKey = el.dataset.mgmttab;
+      const clickedKey = el.dataset.mgmttab;
+      if(clickedKey !== settingsLockedKey) return; // 被鎖定的分頁，點擊直接沒反應，避免不小心改到別的標的
+      assetMgmtActiveKey = clickedKey;
       renderAssetManage();
     });
   });
@@ -3398,6 +3410,7 @@ function renderAssetManageInner(){
       await storageSet(KEY_ASSETS, state.assets);
       if(state.activeTab === removedKey){ state.activeTab = state.assets[0].key; }
       if(assetMgmtActiveKey === removedKey){ assetMgmtActiveKey = state.assets[0].key; }
+      if(settingsLockedKey === removedKey){ settingsLockedKey = state.assets[0].key; }
       renderAssetManage();
       renderTabs();
       renderAll();
@@ -4112,6 +4125,7 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 document.getElementById('btnParams').addEventListener('click', ()=>{
   // 打開「設定」時，直接顯示使用者目前主畫面正在看的標的，不要每次都停留在第一個/上次選過的標的
   assetMgmtActiveKey = state.activeTab;
+  settingsLockedKey = state.activeTab;
   assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
   // 一定要先讓彈出視窗真正顯示出來，再渲染內容——renderAssetManage()裡會計算分頁列箭頭要不要顯示，
   // 這需要量測實際的元素寬度，如果視窗還是display:none，量到的寬度全部都是0，箭頭會永遠判定不需要顯示
@@ -4140,6 +4154,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   assetMgmtActiveKey = newKey;
+  settingsLockedKey = newKey; // 新增的標的自動解鎖，讓使用者可以馬上設定它
   assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
   renderAssetManage();
   renderTabs();
