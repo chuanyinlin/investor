@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 18:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 19:10</div>
   </div>
   </div>
 
@@ -802,7 +802,7 @@ const PARAM_META = [
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位、以及一整組獨立的策略參數
 const DEFAULT_ASSETS = [
   { key:'spot', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'2330', params:{...DEFAULT_PARAMS} },
-  { key:'adr',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', params:{...DEFAULT_PARAMS} },
+  { key:'asset2',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', params:{...DEFAULT_PARAMS} },
 ];
 
 // ---------- 證交所自動抓取（僅台股上市股票） ----------
@@ -2930,6 +2930,8 @@ function renderTabs(){
       document.getElementById('inAvgCostNow').value = '';
       document.getElementById('inLastBombardPriceNow').value = '';
       document.getElementById('inLastBombardDateNow').value = '';
+      document.getElementById('inPasteParse').value = '';
+      document.getElementById('parsePasteStatus').innerHTML = '';
       document.getElementById('importStatus').innerHTML = '';
       document.getElementById('updateDailyStatus').innerHTML = '';
       document.getElementById('saveManualFieldsStatus').innerHTML = '';
