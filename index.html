@@ -186,12 +186,13 @@
   .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; }
   .field{ margin-bottom:9px; }
   .field label{ display:block; font-size:11px; color:var(--text-faint); margin-bottom:4px; }
-  .field input{
+  .field input, .field textarea{
     width:100%; background: var(--panel-3); border:1px solid var(--hair);
     border-radius:10px; padding:10px 11px; color:var(--text);
     font-family: var(--font-mono); font-size:14.5px;
   }
-  .field input:focus{ outline:none; border-color: var(--teal); }
+  .field textarea{ resize:vertical; min-height:52px; }
+  .field input:focus, .field textarea:focus{ outline:none; border-color: var(--teal); }
   .field input:disabled{ opacity:0.4; cursor:not-allowed; }
   .field input[type="checkbox"]{
     width:16px; height:16px; padding:0; background:none; border:1px solid var(--hair-strong);
@@ -471,6 +472,13 @@
       </div>
     </div>
 
+    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">貼上訊號明細快速填入<span style="color:var(--text-faint); font-weight:400;">（從其他裝置的「訊號明細」複製「目前活存現金…」那兩行貼過來，自動解析填入上面欄位）</span></label>
+      <textarea id="inPasteParse" rows="2" placeholder="目前活存現金：12,069.88 美元｜股數：135 股｜平均成本：439.00&#10;最近一次加碼價格391.31／日期：2026-07-27"></textarea>
+      <button class="btn btn-neutral btn-sm" id="btnParsePaste" style="width:100%; margin-top:6px;">解析並回填部位資訊</button>
+      <div class="footer-note" id="parsePasteStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
     <button class="btn btn-neutral btn-sm" id="btnSaveManualFields" style="width:100%; margin-top:6px;">儲存</button>
     <div class="footer-note" id="saveManualFieldsStatus" style="text-align:left; margin-top:6px;"></div>
 
@@ -704,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-27 21:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 15:30</div>
   </div>
   </div>
 
@@ -2254,10 +2262,11 @@ function renderLeds(){
     `<div class="led-col"><div class="led-col-title">結果</div>${resultHtml}</div>`;
 }
 
-function orderRow(active, name, cond, detail){
+function orderRow(active, name, cond, detail, tip){
+  const tipHtml = tip ? `<span class="test-flag-icon" style="margin-left:5px;">i<div class="test-flag-tip">${tip}</div></span>` : '';
   return `<div class="order ${active?'active':''}">
     <div style="flex:1">
-      <div class="name">${name}</div>
+      <div class="name" style="display:flex; align-items:center;">${name}${tipHtml}</div>
       <div class="cond">${cond}</div>
       <div class="detail">${detail || '—'}</div>
     </div>
@@ -2290,8 +2299,11 @@ function renderOrders(){
     }
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
+  const dcaTip = asset.dcaMode === 'amount'
+    ? `買入金額為標的設定的固定值＝${asset.dcaValue.toLocaleString()} ${asset.currency}，不受現金水位影響，永遠用市價執行。<br><br>是否暫停：只有「MA60未持平或向上（或股價未站穩MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`
+    : `買入股數為標的設定的固定值＝${asset.dcaValue} 股，不受現金水位影響；股價已知時掛前一天收盤價，否則用市價。<br><br>是否暫停：只有「MA60未持平或向上（或股價未站穩MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`;
   if(asset.dcaValue > 0){
-    html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail);
+    html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail, dcaTip);
   }
 
   // 動能觸發：限價單，掛在最近一次收盤價（隔天下單用），需要精確股價與股數，不寫「市價」
@@ -2320,6 +2332,7 @@ function renderOrders(){
   // 股數計算只看「防禦邊界是否安全」，不受股價/MA20趨勢條件影響——因為預約掛單本來就是預先算好，
   // 當天股價是否真的觸及無法預知；只有防禦邊界關閉時，才代表現在不該掛單，股數歸零
   let l1Detail = '', l2Detail = '';
+  let tip1 = '', tip2 = '';
   const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
   if(d.ready2){
     const basePrice = Math.min(d.today.close, d.today.ma20);
@@ -2360,6 +2373,16 @@ function renderOrders(){
       const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
       throttleNote2 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares2,0)}股＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
     }
+    // 「第一層/第二層」旁邊i圖示的完整計算過程說明，滑鼠移過去才顯示，平常不佔畫面空間
+    const tickDecForTip = tickDec;
+    let tipBase1 = `原本掛單價：基準價＝min(收盤價＠${fmtRaw(d.today.close, tickDecForTip)}, MA20＠${fmtRaw(d.today.ma20, tickDecForTip)})＝${fmtRaw(basePrice, tickDecForTip)}，第一層價位＝基準價無條件進位＝${fmtRaw(p1, tickDecForTip)}`;
+    let tipBase2 = `原本掛單價：第二層價位＝基準價${fmtRaw(basePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件進位＝${fmtRaw(p2, tickDecForTip)}`;
+    tip1 = tipBase1; tip2 = tipBase2;
+    if(P.bombardThrottleEnabled && suggestedThrottlePrice != null){
+      const lastPriceForTip = state.lastBombardPrice[key];
+      tip1 += `<br><br>節流建議價：最近一次加碼價格${fmtRaw(lastPriceForTip, tickDecForTip)}×節流門檻${P.throttleMult}，無條件捨去＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第一層比例${(asset.l1Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+      tip2 += `<br><br>節流建議價：第一層節流價${fmtRaw(suggestedThrottlePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件捨去＝${fmtRaw(suggestedThrottlePriceL2, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第二層比例${(asset.l2Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+    }
     if(!d.defenseOk){
       l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
       l2Detail = `買入 0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
@@ -2388,10 +2411,10 @@ function renderOrders(){
   // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
   // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
   if(asset.l1Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail);
+    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail, tip1);
   }
   if(asset.l2Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail);
+    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail, tip2);
   }
 
   // 停利：分批停利（每次依分批停利比例%執行，非全部停利）
@@ -2404,7 +2427,16 @@ function renderOrders(){
   const exitCondTxt = (d.exitThresholdSource === 'cost')
     ? `股價達（MA20×${P.exitMult} 與 持股成本×${P.costExitMult}）取高者，不受防禦邊界影響`
     : `股價大於MA20×${P.exitMult}，不受防禦邊界影響`;
-  html += orderRow(!!d.exit && d.hasPersonalData, '停利', exitCondTxt, exitDetail);
+  let exitTip = `MA20停利價＝今日MA20×停利價位倍數${P.exitMult}＝${fmtRaw((d.today ? d.today.ma20 * P.exitMult : 0), tickDec)}`;
+  if(!P.exitSecondLayerEnabled){
+    exitTip += `<br><br>沒有啟用第二層閥門，只看MA20停利價，達標就觸發。`;
+  } else if(P.useMa60ConfirmForExit){
+    exitTip += `<br><br>已啟用「MA60條件停利」：股價達MA20停利價後，還要連續${P.exitMa60ConfirmDays}天都符合「MA60持平或向上」且「站穩MA60」才真正觸發，不看持股成本。`;
+  } else {
+    exitTip += `<br><br>已啟用「成本倍數停利」：持股成本停利價＝平均成本×成本倍數${P.costExitMult}（沒輸入過平均成本則不計算這條）。取MA20停利價與持股成本停利價兩者較高者為準。`;
+  }
+  exitTip += `<br><br>觸發時賣出股數＝目前股數×停利分批比例${(P.exitPartialFrac*100).toFixed(0)}%，四捨五入。`;
+  html += orderRow(!!d.exit && d.hasPersonalData, '停利', exitCondTxt, exitDetail, exitTip);
 
   // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
   // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」時才顯示，
@@ -2415,7 +2447,17 @@ function renderOrders(){
     if(d.liquidityStopTriggered && d.today){
       liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
     }
-    html += orderRow(!!d.liquidityStopTriggered, '現金水位回補', liqCondTxt, liqDetail);
+    let liqTip = `觸發門檻：流動現金佔比＜最低流動現金佔比${P.cashTargetPct*100}%`;
+    if(d.today && state.shares[key] != null){
+      const marketValueNow = (state.shares[key]||0) * d.today.close;
+      const cashNowForTip = state.cash[key] || 0;
+      const totalWealthNow = cashNowForTip + marketValueNow;
+      const targetCashForTip = Math.min(P.cashTargetPct * P.liqRebuildMult, 1) * totalWealthNow;
+      liqTip += `<br><br>回補目標：min(最低比例${P.cashTargetPct*100}%×回補倍數${P.liqRebuildMult}, 100%)×總財富${fmtRaw(totalWealthNow,0)}＝${fmtRaw(targetCashForTip,0)}`;
+      liqTip += `<br>賣出股數＝(回補目標－目前現金${fmtRaw(cashNowForTip,0)})÷今日收盤價，四捨五入`;
+    }
+    liqTip += `<br><br>MA60安全（順勢）就直接賣；MA60弱勢但還沒跌破絕對底線（最低比例×${P.liqFloorMult}）先暫緩，改暫停定期定額；跌破絕對底線則不管趨勢強制賣。`;
+    html += orderRow(!!d.liquidityStopTriggered, '現金水位回補', liqCondTxt, liqDetail, liqTip);
   }
 
   if(d.timeStopEnabled){
@@ -4048,6 +4090,46 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
   renderAll();
 });
 
+// 貼上「訊號明細」文字，自動解析出現金／股數／平均成本／最近一次加碼價格／日期，填入對應欄位——
+// 只解析有值的欄位，「（未輸入）」不會匹配到任何規則，維持該欄位空白，不會誤把使用者已經打好的其他欄位清空
+function parsePastedSignalText(text){
+  const result = {};
+  const cashM = text.match(/目前活存現金：([\d,]+\.?\d*)/);
+  if(cashM) result.cash = cashM[1].replace(/,/g,'');
+  const sharesM = text.match(/股數：([\d,]+)\s*股/);
+  if(sharesM) result.shares = sharesM[1].replace(/,/g,'');
+  const avgCostM = text.match(/平均成本：([\d,]+\.?\d*)/);
+  if(avgCostM) result.avgCost = avgCostM[1].replace(/,/g,'');
+  const lbPriceM = text.match(/最近一次加碼價格([\d,]+\.?\d*)/);
+  if(lbPriceM) result.lastBombardPrice = lbPriceM[1].replace(/,/g,'');
+  const lbDateM = text.match(/日期：(\d{4}-\d{2}-\d{2})/);
+  if(lbDateM) result.lastBombardDate = lbDateM[1];
+  return result;
+}
+function applyParsedPasteResult(){
+  const text = document.getElementById('inPasteParse').value;
+  const statusEl = document.getElementById('parsePasteStatus');
+  if(!text.trim()){
+    statusEl.innerHTML = `<span style="color:var(--text-faint)">請先貼上文字。</span>`;
+    return;
+  }
+  const parsed = parsePastedSignalText(text);
+  const filledFields = [];
+  if(parsed.cash !== undefined){ document.getElementById('inCashNow').value = parsed.cash; filledFields.push('活存現金'); }
+  if(parsed.shares !== undefined){ document.getElementById('inSharesNow').value = parsed.shares; filledFields.push('股數'); }
+  if(parsed.avgCost !== undefined){ document.getElementById('inAvgCostNow').value = parsed.avgCost; filledFields.push('平均成本'); }
+  if(parsed.lastBombardPrice !== undefined){ document.getElementById('inLastBombardPriceNow').value = parsed.lastBombardPrice; filledFields.push('最近一次加碼價格'); }
+  if(parsed.lastBombardDate !== undefined){ document.getElementById('inLastBombardDateNow').value = parsed.lastBombardDate; filledFields.push('最近一次加碼日期'); }
+  statusEl.innerHTML = filledFields.length > 0
+    ? `<span style="color:var(--teal)">已解析並填入：${filledFields.join('、')}，請確認無誤後按下方「儲存」。</span>`
+    : `<span style="color:var(--red)">沒有解析到任何欄位，請確認貼上的文字格式是否正確。</span>`;
+}
+document.getElementById('btnParsePaste').addEventListener('click', applyParsedPasteResult);
+document.getElementById('inPasteParse').addEventListener('paste', ()=>{
+  // 貼上事件觸發時，瀏覽器還沒把內容真正塞進textarea，要延遲一個tick再讀取
+  setTimeout(applyParsedPasteResult, 0);
+});
+
 document.getElementById('btnSaveManualFields').addEventListener('click', async ()=>{
   document.getElementById('clearAssetDataStatus').innerHTML = '';
   const key = state.activeTab;
@@ -4111,6 +4193,8 @@ document.getElementById('btnSaveManualFields').addEventListener('click', async (
   document.getElementById('inAvgCostNow').value = '';
   document.getElementById('inLastBombardPriceNow').value = '';
   document.getElementById('inLastBombardDateNow').value = '';
+  document.getElementById('inPasteParse').value = '';
+  document.getElementById('parsePasteStatus').innerHTML = '';
   renderAll();
   if(msgs.length === 0){
     statusEl.innerHTML = `<span style="color:var(--text-faint)">沒有欄位需要儲存。</span>`;
