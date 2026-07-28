@@ -226,7 +226,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest{
+  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -428,7 +428,7 @@
 
     <!-- 日常操作：每天收盤後第一件事，先更新最新股價/均線，後面的判斷都依賴這個資料 -->
     <div class="field">
-      <label style="color:var(--text);">更新標的資料<span id="updateHintText" style="color:var(--text-faint); font-weight:400;">（「更新」會從證交所更新最近3個交易日的資料）</span></label>
+      <label style="color:var(--text);">更新標的資料<span id="updateHintText" style="color:var(--text-faint); font-weight:400;">（「更新」會抓取最近3個交易日的資料）</span></label>
     </div>
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 22:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 23:00</div>
   </div>
   </div>
 
@@ -725,26 +725,31 @@
     </div>
     <div id="assetManageList"></div>
 
-    <div style="display:flex; justify-content:center; margin:6px 0 14px;">
-      <button class="btn btn-neutral btn-sm" id="btnAddAsset">＋ 新增投資標的</button>
-    </div>
-
     <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
-      <div class="param-cat-mini" style="text-align:center; margin-top:0;">美股資料來源</div>
-      <label style="color:var(--text); margin-top:6px;">Twelve Data API Key<span style="color:var(--text-faint); font-weight:400;">（用於自動抓取美股歷史價格，免費申請：twelvedata.com）</span></label>
-      <input type="text" id="inTwelveDataApiKey" placeholder="貼上你的API key">
-      <button class="btn btn-neutral btn-sm" id="btnSaveTwelveDataKey" style="width:100%; margin-top:6px;">儲存</button>
-      <div class="footer-note" id="twelveDataKeyStatus" style="text-align:left; margin-top:6px;"></div>
-    </div>
-
-    <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
-      <div class="param-cat-mini" style="text-align:center; margin-top:0;">備份與還原</div>
-      <div style="display:flex; justify-content:center; gap:10px; margin-top:4px;">
-        <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
-        <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
-        <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets">匯入</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <button class="btn btn-neutral btn-sm" id="btnAddAsset">＋ 新增投資標的</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
+          <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
+          <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets">匯入</button>
+        </div>
       </div>
       <div class="footer-note" id="assetImportStatus" style="text-align:center; margin-top:6px;"></div>
+    </div>
+
+    <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="param-cat-mini" style="margin:0;">美股資料來源</div>
+        <button class="btn btn-primary btn-sm" id="toggleTwelveDataKey" title="展開"><span class="chev collapsed">▾</span></button>
+      </div>
+      <div id="twelveDataKeyBody" style="display:none; margin-top:6px;">
+        <label style="color:var(--text);">Twelve Data API Key<span style="color:var(--text-faint); font-weight:400;">（用於自動抓取美股歷史價格，免費申請：twelvedata.com）</span></label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="inTwelveDataApiKey" placeholder="貼上你的API key" style="flex:1; min-width:0;">
+          <button class="btn btn-neutral btn-sm" id="btnSaveTwelveDataKey" style="flex-shrink:0;">儲存</button>
+        </div>
+        <div class="footer-note" id="twelveDataKeyStatus" style="text-align:left; margin-top:6px;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -814,7 +819,7 @@ const DEFAULT_ASSETS = [
   { key:'asset2',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', params:{...DEFAULT_PARAMS} },
 ];
 
-// ---------- 證交所自動抓取（僅台股上市股票） ----------
+// ---------- 自動抓取（台股走證交所，美股走Twelve Data，依代號內容自動判斷） ----------
 // 注意：openapi.twse.com.tw / www.twse.com.tw 沒有開放CORS給任意網域，
 // 瀏覽器端需透過中介代理伺服器轉發請求。
 // 使用自己架設的Cloudflare Worker（穩定、不受第三方免費服務狀況影響）。
@@ -936,7 +941,7 @@ async function fetchTwelveDataRange(ticker, fromDate, toDate){
 }
 
 // 判斷stockNo這個欄位裡的內容，是台股數字代號還是美股英文代號——
-// 台股代號永遠是純數字（2330、2308這種），美股代號永遠含有英文字母（GLW、TSM這種），
+// 台股代號永遠是純數字（2330、2308這種），美股代號永遠含有英文字母（TSM、AAPL這種），
 // 兩者天生不會混淆，不需要額外的欄位或使用者手動選擇市場
 function isUsTicker(stockNo){
   return /[A-Za-z]/.test(String(stockNo||''));
@@ -1735,6 +1740,7 @@ let state = {
   inputCollapsed: true,
   advancedInputCollapsed: true,
   ledCollapsed: true,
+  twelveDataKeyCollapsed: true,
   reserveCollapsed: true,
   ordersCollapsed: true,
   backtestCollapsed: true,
@@ -2927,7 +2933,7 @@ function renderReserve(){
 
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
-    `<span style="color:var(--text-faint);">根據輸入資料及證交所資料交叉分析：</span><br>` +
+    `<span style="color:var(--text-faint);">根據輸入資料及證交所/Twelve Data資料交叉分析：</span><br>` +
     cashSectionTop + bombardAffordTxt + `<br>` +
     judgmentLines.join('<br>') +
     marginSectionHtml;
@@ -3080,7 +3086,7 @@ function renderAll(){
     const supportsFetch = assetSupportsAutoFetch(asset);
     if(updateHint){
       updateHint.textContent = supportsFetch
-        ? '（從證交所抓取最新收盤價與均線，只保留最近5天）'
+        ? '（從證交所/Twelve Data抓取最新收盤資料，只保留最近5天）'
         : '（「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入）';
     }
     const updateBtn = document.getElementById('btnUpdateDaily');
@@ -3203,7 +3209,7 @@ function renderAssetManageInner(){
       <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}"></div>
       <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
     </div>
-    <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如GLW，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 GLW"></div>
+    <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如TSM，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
   `;
   let lastCat = null;
   const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
@@ -3765,6 +3771,15 @@ document.getElementById('toggleLed').addEventListener('click', ()=>{
   body.style.display = state.ledCollapsed ? 'none' : 'block';
   const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.ledCollapsed);
   btn.title = state.ledCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('toggleTwelveDataKey').addEventListener('click', ()=>{
+  state.twelveDataKeyCollapsed = !state.twelveDataKeyCollapsed;
+  const body = document.getElementById('twelveDataKeyBody');
+  const btn = document.getElementById('toggleTwelveDataKey');
+  body.style.display = state.twelveDataKeyCollapsed ? 'none' : 'block';
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.twelveDataKeyCollapsed);
+  btn.title = state.twelveDataKeyCollapsed ? '展開' : '收合';
 });
 
 document.getElementById('toggleReserve').addEventListener('click', ()=>{
