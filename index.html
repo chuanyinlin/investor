@@ -920,7 +920,7 @@ async function fetchTwelveDataRange(ticker, fromDate, toDate){
   if(!apiKey) throw new Error('尚未設定Twelve Data API Key，請至「設定」→「美股資料來源」輸入');
   const fromStr = fromDate.toISOString().slice(0,10);
   const toStr = toDate.toISOString().slice(0,10);
-  const target = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&start_date=${fromStr}&end_date=${toStr}&apikey=${encodeURIComponent(apiKey)}`;
+  const target = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&start_date=${fromStr}&end_date=${toStr}&dp=4&apikey=${encodeURIComponent(apiKey)}`;
   const res = await fetch(CORS_PROXY + encodeURIComponent(target));
   if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
   const json = await res.json();
