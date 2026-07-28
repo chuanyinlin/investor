@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 16:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 18:00</div>
   </div>
   </div>
 
@@ -2378,10 +2378,16 @@ function renderOrders(){
     let tipBase1 = `原本掛單價：基準價＝min(收盤價＠${fmtRaw(d.today.close, tickDecForTip)}, MA20＠${fmtRaw(d.today.ma20, tickDecForTip)})＝${fmtRaw(basePrice, tickDecForTip)}，第一層價位＝基準價無條件進位＝${fmtRaw(p1, tickDecForTip)}`;
     let tipBase2 = `原本掛單價：第二層價位＝基準價${fmtRaw(basePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件進位＝${fmtRaw(p2, tickDecForTip)}`;
     tip1 = tipBase1; tip2 = tipBase2;
-    if(P.bombardThrottleEnabled && suggestedThrottlePrice != null){
+    if(P.bombardThrottleEnabled && throttledL1 && suggestedThrottlePrice != null){
       const lastPriceForTip = state.lastBombardPrice[key];
       tip1 += `<br><br>節流建議價：最近一次加碼價格${fmtRaw(lastPriceForTip, tickDecForTip)}×節流門檻${P.throttleMult}，無條件捨去＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第一層比例${(asset.l1Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+    } else if(P.bombardThrottleEnabled && !throttledL1){
+      tip1 += `<br><br>此價位＠${fmtRaw(p1, tickDecForTip)}已經比節流門檻更便宜，不需要下修，直接照原價位掛單。`;
+    }
+    if(P.bombardThrottleEnabled && throttledL2 && suggestedThrottlePriceL2 != null){
       tip2 += `<br><br>節流建議價：第一層節流價${fmtRaw(suggestedThrottlePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件捨去＝${fmtRaw(suggestedThrottlePriceL2, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第二層比例${(asset.l2Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+    } else if(P.bombardThrottleEnabled && !throttledL2){
+      tip2 += `<br><br>此價位＠${fmtRaw(p2, tickDecForTip)}已經比節流門檻更便宜，不需要下修，直接照原價位掛單。`;
     }
     if(!d.defenseOk){
       l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
@@ -3216,10 +3222,13 @@ function renderAssetManageInner(){
     let rowHtml;
     if(type === 'bool'){
       // checkbox放在label左邊、同一行；說明文字放在下一行
+      const throttleTipHtml = (pkey === 'bombardThrottleEnabled')
+        ? `<span class="test-flag-icon" style="margin-left:5px;">i<div class="test-flag-tip">節流門檻應設在「第一層(等同1.0)」跟「第二層乘數」中間，否則股價還沒真的跌夠深，兩層可能同時被擋，第二層就失去往下承接的意義了。</div></span>`
+        : '';
       rowHtml = `<div class="param-row-mini ${isLastInCat?'cat-end':''}">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
           <input type="checkbox" data-aidx="${idx}" data-pfield="${pkey}" data-ptype="${type}" ${val?'checked':''} style="width:auto;">
-          <span class="plabel" style="margin:0;">${label}</span>
+          <span class="plabel" style="margin:0;">${label}</span>${throttleTipHtml}
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
       </div>`;
