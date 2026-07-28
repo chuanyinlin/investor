@@ -475,7 +475,7 @@
     <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
       <label style="color:var(--text);">貼上訊號明細快速填入<span style="color:var(--text-faint); font-weight:400;">（複製「訊號明細」內容貼上，自動解析回填）</span></label>
       <textarea id="inPasteParse" rows="2" placeholder="複製「訊號明細」裡面的「目前活存現金…」兩行文字並且貼上，自動解析並回填部位資訊"></textarea>
-      <button class="btn btn-neutral btn-sm" id="btnParsePaste" style="width:100%; margin-top:6px;">解析並回填部位資訊</button>
+      <button class="btn btn-neutral btn-sm" id="btnParsePaste" style="width:100%; margin-top:6px;">回填</button>
       <div class="footer-note" id="parsePasteStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
 
@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 18:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 18:40</div>
   </div>
   </div>
 
@@ -2378,7 +2378,10 @@ function renderOrders(){
     let tipBase1 = `原本掛單價：基準價＝min(收盤價＠${fmtRaw(d.today.close, tickDecForTip)}, MA20＠${fmtRaw(d.today.ma20, tickDecForTip)})＝${fmtRaw(basePrice, tickDecForTip)}，第一層價位＝基準價無條件進位＝${fmtRaw(p1, tickDecForTip)}`;
     let tipBase2 = `原本掛單價：第二層價位＝基準價${fmtRaw(basePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件進位＝${fmtRaw(p2, tickDecForTip)}`;
     tip1 = tipBase1; tip2 = tipBase2;
-    if(P.bombardThrottleEnabled && throttledL1 && suggestedThrottlePrice != null){
+    if(P.bombardThrottleEnabled && throttledL1 && !throttledL2 && asset.l2Pct > 0){
+      const lastPriceForTip1 = state.lastBombardPrice[key];
+      tip1 += `<br><br>此層被節流擋下：最近一次加碼價格${fmtRaw(lastPriceForTip1, tickDecForTip)}×節流門檻${P.throttleMult}＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}，第一層價位${fmtRaw(p1, tickDecForTip)}大於這個門檻，還不夠便宜。<br><br>但第二層價位＠${fmtRaw(p2, tickDecForTip)}本身已經比節流門檻更便宜、不用等待，系統直接建議改委託第二層，不會另外算一個「第一層下修價」。`;
+    } else if(P.bombardThrottleEnabled && throttledL1 && suggestedThrottlePrice != null){
       const lastPriceForTip = state.lastBombardPrice[key];
       tip1 += `<br><br>節流建議價：最近一次加碼價格${fmtRaw(lastPriceForTip, tickDecForTip)}×節流門檻${P.throttleMult}，無條件捨去＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第一層比例${(asset.l1Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
     } else if(P.bombardThrottleEnabled && !throttledL1){
