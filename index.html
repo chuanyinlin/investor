@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 19:10</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 19:35</div>
   </div>
   </div>
 
@@ -2193,7 +2193,7 @@ function renderLeds(){
 
   // MA5（動能線）
   condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
-  condHtml += d.ready ? ledItem(true, '股價連續三日大於MA5', d.threeDay?'':'red') : need(3, '股價連續三日大於MA5');
+  condHtml += d.ready ? ledItem(true, '股價連3日>MA5', d.threeDay?'':'red') : need(3, '股價連3日>MA5');
 
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
