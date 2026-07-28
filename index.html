@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 23:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 23:15</div>
   </div>
   </div>
 
@@ -1794,10 +1794,10 @@ function getTwseTickSize(price){
 }
 
 // 取得某個標的、在某個價位下實際該用的取整單位：
-// 有股票代號的台股標的一律自動依官方升降單位表計算（忽略手動設定），不用手動填也不怕股價漲跌跨越區間；
-// 沒有股票代號的標的（如ADR）維持使用手動設定的roundTick
+// 有台股數字代號的標的一律自動依官方升降單位表計算（忽略手動設定），不用手動填也不怕股價漲跌跨越區間；
+// 美股代號（含英文字母）與沒有股票代號的標的（如ADR），一律固定用0.01（美元最小單位是分）
 function getEffectiveTick(asset, price){
-  return asset.stockNo ? getTwseTickSize(price) : 0.01;
+  return (asset.stockNo && !isUsTicker(asset.stockNo)) ? getTwseTickSize(price) : 0.01;
 }
 
 // 依取整單位大小，決定顯示時要留幾位小數
