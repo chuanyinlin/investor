@@ -712,7 +712,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 19:35</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 22:00</div>
   </div>
   </div>
 
@@ -730,6 +730,14 @@
     </div>
 
     <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
+      <div class="param-cat-mini" style="text-align:center; margin-top:0;">美股資料來源</div>
+      <label style="color:var(--text); margin-top:6px;">Twelve Data API Key<span style="color:var(--text-faint); font-weight:400;">（用於自動抓取美股歷史價格，免費申請：twelvedata.com）</span></label>
+      <input type="text" id="inTwelveDataApiKey" placeholder="貼上你的API key">
+      <button class="btn btn-neutral btn-sm" id="btnSaveTwelveDataKey" style="width:100%; margin-top:6px;">儲存</button>
+      <div class="footer-note" id="twelveDataKeyStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
       <div class="param-cat-mini" style="text-align:center; margin-top:0;">備份與還原</div>
       <div style="display:flex; justify-content:center; gap:10px; margin-top:4px;">
         <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
@@ -743,6 +751,7 @@
 
 <script>
 const KEY_ASSETS = 'tsmos:assets';
+const KEY_TWELVEDATA_APIKEY = 'tsmos:twelvedataapikey';
 const KEY_LOG = k => 'tsmos:log:' + k;
 const KEY_CASH = k => 'tsmos:cash:' + k;
 const KEY_SHARES = k => 'tsmos:shares:' + k;
@@ -899,9 +908,46 @@ function assetSupportsAutoFetch(asset){
   return !!asset.stockNo;
 }
 
-// 統一的抓取入口：目前僅支援台股（證交所），保留這層包裝方便未來如果又要接其他資料源
+// 抓美股歷史資料（Twelve Data，透過現有的CORS代理轉發），格式對齊fetchMonthRangeCloses的回傳結構——
+// Twelve Data沒有提供成交金額/漲跌價差/成交筆數，這幾個欄位填null，沿用app既有的「缺值顯示—」機制
+async function fetchTwelveDataRange(ticker, fromDate, toDate){
+  const apiKey = await storageGet(KEY_TWELVEDATA_APIKEY, '');
+  if(!apiKey) throw new Error('尚未設定Twelve Data API Key，請至「設定」→「美股資料來源」輸入');
+  const fromStr = fromDate.toISOString().slice(0,10);
+  const toStr = toDate.toISOString().slice(0,10);
+  const target = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&start_date=${fromStr}&end_date=${toStr}&apikey=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+  if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
+  const json = await res.json();
+  if(json.status === 'error') throw new Error(`Twelve Data錯誤：${json.message || '未知錯誤'}`);
+  if(!Array.isArray(json.values)) return [];
+  // Twelve Data回傳「最新在前」，這裡反轉成「舊到新」，跟fetchMonthRangeCloses的順序一致
+  return json.values.map(row => ({
+    date: row.datetime,
+    open: parseFloat(row.open),
+    high: parseFloat(row.high),
+    low: parseFloat(row.low),
+    close: parseFloat(row.close),
+    volume: row.volume != null ? parseFloat(row.volume) : null,
+    amount: null,
+    change: null,
+    tradeCount: null,
+  })).filter(r => r.date && !isNaN(r.close)).sort((a,b) => a.date < b.date ? -1 : 1);
+}
+
+// 判斷stockNo這個欄位裡的內容，是台股數字代號還是美股英文代號——
+// 台股代號永遠是純數字（2330、2308這種），美股代號永遠含有英文字母（GLW、TSM這種），
+// 兩者天生不會混淆，不需要額外的欄位或使用者手動選擇市場
+function isUsTicker(stockNo){
+  return /[A-Za-z]/.test(String(stockNo||''));
+}
+
+// 統一的抓取入口：依stockNo的內容自動判斷要打台股證交所還是Twelve Data（美股）
 async function fetchAssetRange(asset, fromDate, toDate, onProgress){
   if(asset.stockNo){
+    if(isUsTicker(asset.stockNo)){
+      return await fetchTwelveDataRange(asset.stockNo, fromDate, toDate);
+    }
     return await fetchMonthRangeCloses(asset.stockNo, fromDate, toDate, onProgress);
   }
   return [];
@@ -3157,7 +3203,7 @@ function renderAssetManageInner(){
       <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}"></div>
       <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
     </div>
-    <div class="field"><label>證交所股票代號（僅台股上市股票可自動抓取，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330" ${a.currency==='美元'?'disabled':''}></div>
+    <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如GLW，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 GLW"></div>
   `;
   let lastCat = null;
   const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
@@ -4247,6 +4293,9 @@ document.getElementById('btnParams').addEventListener('click', ()=>{
   document.getElementById('paramsBackdrop').classList.add('show');
   renderAssetManage();
   document.getElementById('assetImportStatus').innerHTML = '';
+  storageGet(KEY_TWELVEDATA_APIKEY, '').then(k => {
+    document.getElementById('inTwelveDataApiKey').value = k || '';
+  });
   const modalEl = document.querySelector('#paramsBackdrop .modal');
   if(modalEl) modalEl.scrollTop = 0;
 });
@@ -4259,6 +4308,15 @@ document.getElementById('paramsBackdrop').addEventListener('click', (e)=>{
     document.getElementById('paramsBackdrop').classList.remove('show');
     document.getElementById('assetImportStatus').innerHTML = '';
   }
+});
+
+document.getElementById('btnSaveTwelveDataKey').addEventListener('click', async ()=>{
+  const val = document.getElementById('inTwelveDataApiKey').value.trim();
+  await storageSet(KEY_TWELVEDATA_APIKEY, val);
+  const statusEl = document.getElementById('twelveDataKeyStatus');
+  statusEl.innerHTML = val
+    ? `<span style="color:var(--teal)">✅ 已儲存。</span>`
+    : `<span style="color:var(--text-faint)">已清空（美股標的將無法自動抓取）。</span>`;
 });
 
 document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
