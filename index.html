@@ -723,7 +723,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 10:10</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 20:20</div>
   </div>
   </div>
 
@@ -4321,14 +4321,26 @@ document.getElementById('btnParams').addEventListener('click', ()=>{
   const modalEl = document.querySelector('#paramsBackdrop .modal');
   if(modalEl) modalEl.scrollTop = 0;
 });
+// 讓主畫面的分頁列，重新置中顯示目前選中的標的——用在「設定」視窗關閉的時候，
+// 因為使用者在設定裡可能用上下箭頭調整過標的順序，這個新位置不會自動反映在主畫面的
+// tabWindowStart上（那是主畫面自己獨立的捲動狀態），需要手動同步一次
+function recenterMainTabsOnActiveAsset(){
+  const activeIdx = state.assets.findIndex(a=>a.key===state.activeTab);
+  if(activeIdx < 0) return;
+  const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+  tabWindowStart = Math.max(0, Math.min(maxStart, activeIdx - 1));
+  renderTabs();
+}
 document.getElementById('btnCloseParamsX').addEventListener('click', ()=>{
   document.getElementById('paramsBackdrop').classList.remove('show');
   document.getElementById('assetImportStatus').innerHTML = '';
+  recenterMainTabsOnActiveAsset();
 });
 document.getElementById('paramsBackdrop').addEventListener('click', (e)=>{
   if(e.target.id === 'paramsBackdrop'){
     document.getElementById('paramsBackdrop').classList.remove('show');
     document.getElementById('assetImportStatus').innerHTML = '';
+    recenterMainTabsOnActiveAsset();
   }
 });
 
@@ -4399,6 +4411,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       throw new Error('format');
     }
     let addedCount = 0, updatedCount = 0;
+    const finalKeysInOrder = []; // 追蹤每筆匯入項目最終實際生效的key（可能因合併而改用既有key，不是原始imported.key），供匯入完成後重新排序用
     for(const imported of assetsArr){
       const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
       const paramsSrc = (imported.params && typeof imported.params === 'object') ? imported.params : {};
@@ -4484,6 +4497,19 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       await storageSet(KEY_AVG_COST(clean.key), importedAvgCost);
       await storageSet(KEY_LAST_BOMBARD_PRICE(clean.key), importedLastBombardPrice);
       await storageSet(KEY_LAST_BOMBARD_DATE(clean.key), importedLastBombardDate);
+      finalKeysInOrder.push(clean.key);
+    }
+    // 依照匯入檔案的順序，重新排列整個state.assets——這次匯入有提到的標的，
+    // 按照匯入檔案裡的順序排在前面；沒提到的標的（例如這個平台自己額外新增過的），
+    // 維持原本的相對順序，接在最後面
+    {
+      const inImportFile = [], notInImportFile = [];
+      state.assets.forEach(a => {
+        if(finalKeysInOrder.includes(a.key)) inImportFile.push(a);
+        else notInImportFile.push(a);
+      });
+      inImportFile.sort((a,b) => finalKeysInOrder.indexOf(a.key) - finalKeysInOrder.indexOf(b.key));
+      state.assets = [...inImportFile, ...notInImportFile];
     }
     await storageSet(KEY_ASSETS, state.assets);
 
