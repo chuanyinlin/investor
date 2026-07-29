@@ -123,11 +123,11 @@
   .hero.st-warn .headline{ color: var(--amber); }
 
   /* ---------- Tabs ---------- */
-  .tabs-wrap{ display:flex; align-items:center; gap:5px; margin-bottom:16px; height:42px; }
+  .tabs-wrap{ display:flex; align-items:center; gap:5px; margin-bottom:16px; height:42px; user-select:none; }
   #mainTabsWrap{ height:54px; background:var(--panel); border:1px solid var(--hair); border-radius:16px; padding:12px 14px; }
   #tabsRow{ background:transparent; border:none; border-radius:0; padding:0; height:52px; width:360px; }
   #tabsRow .tab{ height:52px; font-size:12.5px; }
-  #tabsRow .tab.active{ font-size:27.5px; flex-grow:0; flex-basis:200px; background:transparent; }
+  #tabsRow .tab.active{ font-size:24px; background:transparent; flex-grow:1; }
   .tabs-arrow{
     width:16px; height:36px; border-radius:8px; background: var(--panel-2);
     border:1px solid var(--hair-strong); display:flex; align-items:center; justify-content:center;
@@ -723,7 +723,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 09:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 10:10</div>
   </div>
   </div>
 
@@ -3196,15 +3196,18 @@ function renderAssetManageInner(){
   const sub = assetSubTab[a.key] || 'basic';
 
   const mgmtMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
-  assetMgmtWindowStart = Math.min(Math.max(0, assetMgmtWindowStart), mgmtMaxStart);
+  // 拿掉箭頭後，設定視窗的分頁列不再支援手動捲動，改成每次渲染都強制置中目前鎖定的標的；
+  // Math.max(0,...)跟Math.min(mgmtMaxStart,...)天生就會處理邊界情況（鎖定標的剛好是第一個/最後一個時自然貼邊）
+  const activeIdxForCenter = state.assets.findIndex(a=>a.key===assetMgmtActiveKey);
+  assetMgmtWindowStart = activeIdxForCenter >= 0
+    ? Math.max(0, Math.min(mgmtMaxStart, activeIdxForCenter - 1))
+    : Math.min(Math.max(0, assetMgmtWindowStart), mgmtMaxStart);
   const mgmtVisible = state.assets.slice(assetMgmtWindowStart, assetMgmtWindowStart + TAB_WINDOW_SIZE);
 
   const tabsHtml = `<div class="tabs-wrap">
-    <button class="tabs-arrow" id="assetMgmtArrowLeft" style="display:none;">‹</button>
     <div class="tabs" id="assetMgmtTabsRow">` + mgmtVisible.map(x=>
     `<div class="tab ${x.key===assetMgmtActiveKey?'active':''} ${x.key!==settingsLockedKey?'locked':''}" data-mgmttab="${x.key}" ${x.key!==settingsLockedKey?'style="opacity:0.35; cursor:not-allowed;"':''}>${x.name}</div>`
   ).join('') + `</div>
-    <button class="tabs-arrow" id="assetMgmtArrowRight" style="display:none;">›</button>
   </div>`;
 
   const basicHtml = `
@@ -3390,21 +3393,6 @@ function renderAssetManageInner(){
       renderAssetManage();
     });
   });
-  { const mgmtLeft = document.getElementById('assetMgmtArrowLeft');
-    const mgmtRight = document.getElementById('assetMgmtArrowRight');
-    if(mgmtLeft && mgmtRight){
-      mgmtLeft.addEventListener('click', ()=>{
-        assetMgmtWindowStart = Math.max(0, assetMgmtWindowStart - 1);
-        renderAssetManage();
-      });
-      mgmtRight.addEventListener('click', ()=>{
-        const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
-        assetMgmtWindowStart = Math.min(maxStart, assetMgmtWindowStart + 1);
-        renderAssetManage();
-      });
-      updateTabsArrows(assetMgmtWindowStart, mgmtMaxStart, 'assetMgmtArrowLeft', 'assetMgmtArrowRight');
-    }
-  }
   wrap.querySelectorAll('[data-subtab]').forEach(el=>{
     el.addEventListener('click', ()=>{
       assetSubTab[a.key] = el.dataset.subtab;
@@ -4322,9 +4310,8 @@ document.getElementById('btnParams').addEventListener('click', ()=>{
   // 打開「設定」時，直接顯示使用者目前主畫面正在看的標的，不要每次都停留在第一個/上次選過的標的
   assetMgmtActiveKey = state.activeTab;
   settingsLockedKey = state.activeTab;
-  assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
-  // 一定要先讓彈出視窗真正顯示出來，再渲染內容——renderAssetManage()裡會計算分頁列箭頭要不要顯示，
-  // 這需要量測實際的元素寬度，如果視窗還是display:none，量到的寬度全部都是0，箭頭會永遠判定不需要顯示
+  // 一定要先讓彈出視窗真正顯示出來，再渲染內容——renderAssetManage()裡的分頁列置中計算
+  // 需要量測實際的元素寬度，如果視窗還是display:none，量到的寬度全部都是0，會影響計算結果
   document.getElementById('paramsBackdrop').classList.add('show');
   renderAssetManage();
   document.getElementById('assetImportStatus').innerHTML = '';
@@ -4363,7 +4350,6 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   ensureAssetData(newKey);
   assetMgmtActiveKey = newKey;
   settingsLockedKey = newKey; // 新增的標的自動解鎖，讓使用者可以馬上設定它
-  assetMgmtWindowStart = ensureActiveTabVisible(assetMgmtWindowStart, assetMgmtActiveKey);
   renderAssetManage();
   renderTabs();
 });
