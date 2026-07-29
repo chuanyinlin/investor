@@ -124,6 +124,10 @@
 
   /* ---------- Tabs ---------- */
   .tabs-wrap{ display:flex; align-items:center; gap:5px; margin-bottom:16px; height:42px; }
+  #mainTabsWrap{ height:54px; background:var(--panel); border:1px solid var(--hair); border-radius:16px; padding:12px 14px; }
+  #tabsRow{ background:transparent; border:none; border-radius:0; padding:0; height:52px; width:360px; }
+  #tabsRow .tab{ height:52px; font-size:12.5px; }
+  #tabsRow .tab.active{ font-size:27.5px; flex-grow:0; flex-basis:240px; background:transparent; }
   .tabs-arrow{
     width:16px; height:36px; border-radius:8px; background: var(--panel-2);
     border:1px solid var(--hair-strong); display:flex; align-items:center; justify-content:center;
@@ -140,8 +144,9 @@
     text-align:center; border-radius:10px; box-sizing:border-box;
     font-size:15px; font-weight:600; line-height:1; color:var(--text-dim);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    transition: flex-grow 0.2s ease, font-size 0.2s ease;
   }
-  .tab.active{ background: var(--panel-2); color: var(--text); }
+  .tab.active{ background: var(--panel-2); color: var(--text); flex-grow:1.5; font-size:16.5px; }
 
   .subtabs{
     display:flex; background: var(--panel); border:1px solid var(--hair);
@@ -226,7 +231,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey{
+  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleInputPosition{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -411,10 +416,8 @@
         <div class="sub" id="heroSub">正在讀取資料</div>
       </div>
 
-      <div class="tabs-wrap">
-        <button class="tabs-arrow" id="tabsArrowLeft" style="display:none;">‹</button>
+      <div class="tabs-wrap" id="mainTabsWrap">
         <div class="tabs" id="tabsRow"></div>
-        <button class="tabs-arrow" id="tabsArrowRight" style="display:none;">›</button>
       </div>
     </div>
   </div>
@@ -433,14 +436,13 @@
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
-    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">上傳歷史紀錄<span style="color:var(--text-faint); font-weight:400;">（上傳「歷史紀錄」下載的檔案，只會保留最近5天）</span></label>
-      <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
-      <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="width:100%;">上傳</button>
-      <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <h3 style="font-size:13px;">部位管理</h3>
+      <button class="btn btn-primary btn-sm" id="toggleInputPosition" title="展開"><span class="chev collapsed">▾</span></button>
     </div>
+    <div id="inputPositionBody" style="display:none;">
 
-    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+    <div class="field">
       <label style="color:var(--text);">目前活存現金／股數／平均成本<span style="color:var(--text-faint); font-weight:400;">（計算現金水位與停利基準）</span></label>
     </div>
     <div class="grid3">
@@ -482,6 +484,8 @@
     <button class="btn btn-neutral btn-sm" id="btnSaveManualFields" style="width:100%; margin-top:6px;">儲存</button>
     <div class="footer-note" id="saveManualFieldsStatus" style="text-align:left; margin-top:6px;"></div>
 
+    </div>
+
     <!-- 進階/例外處理：收合，平常不會用到 -->
     <div class="card-title" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);">
       <h3 style="font-size:13px;">進階資料管理</h3>
@@ -489,7 +493,14 @@
     </div>
     <div id="advancedInputBody" style="display:none;">
 
-    <div class="field date-field">
+    <div class="field">
+      <label style="color:var(--text);">上傳歷史紀錄<span style="color:var(--text-faint); font-weight:400;">（上傳「歷史紀錄」下載的檔案，只會保留最近5天）</span></label>
+      <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
+      <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="width:100%;">上傳</button>
+      <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
+    <div class="field date-field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <label style="color:var(--text);">手動新增特定日期資料<span style="color:var(--text-faint); font-weight:400;">（僅收盤價與均線，不影響其他欄位）</span></label>
       <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
       <div class="calendar-pop" id="calendarPop">
@@ -545,7 +556,7 @@
   <div class="card">
     <div class="card-title"><h3>歷史紀錄</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="histBody" style="display:none; margin-top:10px;">
-    <div id="histList"></div>
+    <div id="histList" style="max-height:307px; overflow-y:auto;"></div>
     <button class="btn btn-neutral btn-sm" id="btnExportHist">下載</button>
     </div>
   </div>
@@ -712,7 +723,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-28 23:15</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 09:15</div>
   </div>
   </div>
 
@@ -791,10 +802,10 @@ const DEFAULT_PARAMS = {
 };
 
 const PARAM_META = [
-  ['tolerance','股價達加碼價位的MA20區間容忍度','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
-  ['layer2Mult','第二層加碼價位相對於第一層價位比例','mult','加碼條件','第二層加碼要比第一層再便宜多少才掛單，乘以第一層限價算出更低的限價，用來承接更深的下跌；必須小於1，才能保證第二層永遠比第一層便宜'],
+  ['tolerance','股價達加碼價位的MA20區間容忍度%','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
+  ['layer2Mult','第二層價位為第一層價位的百分比%','pct','加碼條件','第二層加碼要比第一層便宜才掛單，這裡設定第二層是第一層的幾%，例如設98代表第二層價位是第一層的98%（也就是便宜2%）；必須小於100，才能保證第二層永遠比第一層便宜'],
   ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「資料管理」卡片手動回報；股價脫離加碼區間時會自動清空，不用手動維護'],
-  ['throttleMult','加碼節流門檻','mult','加碼條件','這次要掛的限價，要比「最近一次加碼價格」再便宜到這個比例，才算真的夠低、值得再買一次；沒有便宜到這個程度，就暫緩'],
+  ['throttleMult','加碼節流門檻%','pct','加碼條件','這次要掛的限價，要低於「最近一次加碼價格」的這個百分比，才算真的夠低、值得再買一次，例如設99代表新價格要&lt;最近一次加碼價格的99%（也就是至少便宜1%）；沒有便宜到這個程度，就暫緩'],
   ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
   ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
@@ -803,8 +814,8 @@ const PARAM_META = [
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
   ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildEnabled','啟用現金水位回補','bool','現金流動性','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
-  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金佔比%）','mult','現金流動性','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
-  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金佔比%）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
+  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金流動性','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
+  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['timeStopEnabled','啟用時間停損機制','bool','時間停損','時間停損預設關閉。勾選後才會啟用：距離「建倉起始日」（下方欄位，勾選後才會顯示）已經超過設定天數，且現金水位不足時，強制分批出場。取消勾選會清空建倉起始日，之後如果重新勾選，需要重新輸入'],
   ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
   ['timeStopPartialFrac','時間停損分批比例%','pct','時間停損','時間停損觸發時，一次賣出目前股數的這個比例'],
@@ -1740,6 +1751,7 @@ let state = {
   inputCollapsed: true,
   advancedInputCollapsed: true,
   ledCollapsed: true,
+  inputPositionCollapsed: true,
   twelveDataKeyCollapsed: true,
   reserveCollapsed: true,
   ordersCollapsed: true,
@@ -1837,7 +1849,7 @@ function getRequiredReserve(assetKey){
 // 加碼節流檢查（單一層）：門檻沿用第二層加碼乘數；沒有「最近一次加碼價格」的記憶時，永遠放行（沒有東西可比較）
 function isThrottled(priceNow, lastPrice, throttleMult){
   if(lastPrice == null || lastPrice <= 0) return false;
-  return priceNow > lastPrice * throttleMult;
+  return priceNow >= lastPrice * throttleMult;
 }
 
 function getMarginStatus(assetKey){
@@ -2062,7 +2074,7 @@ function computeForAsset(assetKey){
   if(n >= 3){
     const t2 = rows[n-3];
     out.t2 = t2;
-    out.threeDay = today.close > today.ma5 && t1.close > t1.ma5 && t2.close > t2.ma5;
+    out.threeDay = today.close >= today.ma5 && t1.close >= t1.ma5 && t2.close >= t2.ma5;
     out.momentum = out.threeDay && out.ma5upFlat && out.defenseOk;
   }
   return out;
@@ -2245,7 +2257,7 @@ function renderLeds(){
 
   // MA5（動能線）
   condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
-  condHtml += d.ready ? ledItem(true, '股價連3日>MA5', d.threeDay?'':'red') : need(3, '股價連3日>MA5');
+  condHtml += d.ready ? ledItem(true, '股價連3日≥MA5', d.threeDay?'':'red') : need(3, '股價連3日≥MA5');
 
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
@@ -2352,8 +2364,8 @@ function renderOrders(){
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   const dcaTip = asset.dcaMode === 'amount'
-    ? `買入金額為標的設定的固定值＝${asset.dcaValue.toLocaleString()} ${asset.currency}，不受現金水位影響，永遠用市價執行。<br><br>是否暫停：只有「MA60未持平或向上（或股價未站穩MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`
-    : `買入股數為標的設定的固定值＝${asset.dcaValue} 股，不受現金水位影響；股價已知時掛前一天收盤價，否則用市價。<br><br>是否暫停：只有「MA60未持平或向上（或股價未站穩MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`;
+    ? `買入金額為標的設定的固定值＝${asset.dcaValue.toLocaleString()} ${asset.currency}，不受現金水位影響，永遠用市價執行。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`
+    : `買入股數為標的設定的固定值＝${asset.dcaValue} 股，不受現金水位影響；股價已知時掛前一天收盤價，否則用市價。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`;
   if(asset.dcaValue > 0){
     html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail, dcaTip);
   }
@@ -2377,7 +2389,7 @@ function renderOrders(){
   // 動能加額＝定期定額(或定期定股)×動能倍數，兩個因子只要有一個是0，結果永遠是0，
   // 這種情況下整行隱藏，不顯示沒有意義的「買入0」，跟定期定額/加碼L1/L2用同一套邏輯
   if(asset.dcaValue > 0 && asset.boostMult > 0){
-    html += orderRow(!!d.momentum, '動能', 'MA5持平或向上 且股價連續三日大於MA5 且防禦邊界安全', boostDetail);
+    html += orderRow(!!d.momentum, '動能', 'MA5持平或向上 且股價連續三日不低於MA5 且防禦邊界安全', boostDetail);
   }
 
   // 加碼觸發(第一層／第二層)（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
@@ -2492,7 +2504,7 @@ function renderOrders(){
   if(!P.exitSecondLayerEnabled){
     exitTip += `<br><br>沒有啟用第二層閥門，只看MA20停利價，達標就觸發。`;
   } else if(P.useMa60ConfirmForExit){
-    exitTip += `<br><br>已啟用「MA60條件停利」：股價達MA20停利價後，還要連續${P.exitMa60ConfirmDays}天都符合「MA60持平或向上」且「站穩MA60」才真正觸發，不看持股成本。`;
+    exitTip += `<br><br>已啟用「MA60條件停利」：股價達MA20停利價後，還要連續${P.exitMa60ConfirmDays}天都符合「MA60持平或向上」且「股價≥MA60」才真正觸發，不看持股成本。`;
   } else {
     exitTip += `<br><br>已啟用「成本倍數停利」：持股成本停利價＝平均成本×成本倍數${P.costExitMult}（沒輸入過平均成本則不計算這條）。取MA20停利價與持股成本停利價兩者較高者為準。`;
   }
@@ -2598,10 +2610,10 @@ function getMa60UpLedState(d){
 }
 
 function getPriceMa60LedState(d){
-  if(!d.hasMa60Today) return { label:'股價站穩MA60', color:'var(--text-faint)', on:false };
+  if(!d.hasMa60Today) return { label:'股價≥MA60', color:'var(--text-faint)', on:false };
   return d.priceAboveMa60
-    ? { label:'股價站穩MA60', color:'var(--teal)', on:true }
-    : { label:'股價站穩MA60', color:'var(--red)', on:true };
+    ? { label:'股價≥MA60', color:'var(--teal)', on:true }
+    : { label:'股價≥MA60', color:'var(--red)', on:true };
 }
 
 function getDefenseLedState(d){
@@ -2733,7 +2745,7 @@ function renderReserve(){
     // 這個順序跟defenseOk本身的&&判斷順序一致
     let defenseReason;
     if(!d.ma60upFlat) defenseReason = 'MA60未持平或向上';
-    else if(!d.priceAboveMa60) defenseReason = '股價未站穩MA60';
+    else if(!d.priceAboveMa60) defenseReason = '股價&lt;MA60';
     else if(d.cashSufficient === false) defenseReason = '流動現金不足';
     else defenseReason = '融資維持率過低';
     defenseLedTxt = `不安全｜${defenseReason}`;
@@ -2751,7 +2763,7 @@ function renderReserve(){
   } else if(!d.hasPersonalData){
     dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
   } else if(d.dcaPaused){
-    const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
+    const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價&lt;MA60';
     dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：暫停｜${dcaPausedReason}｜流動現金不足</span>`;
   } else {
     dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：正常執行</span>`;
@@ -2792,7 +2804,7 @@ function renderReserve(){
     if(!d.touch) reason = '股價未達加碼價位';
     else if(!d.ma20upFlat) reason = 'MA20未持平或向上';
     else if(!d.ma60upFlat) reason = 'MA60未持平或向上';
-    else reason = '股價未站穩MA60';
+    else reason = '股價&lt;MA60';
     bombardTriggerTxt = `未觸發｜${reason}`;
     bombardColor = 'var(--text-faint)';
   }
@@ -2883,7 +2895,7 @@ function renderReserve(){
       // MA60弱勢、還沒跌破絕對底線，系統選擇暫緩不逆勢賣股——這不是「股數不足」，而是策略主動判斷
       // 「現在不該賣」，這件事已經在「定期定額/定期定股」那一行完整說明了，這裡不重複解釋原因；
       // 原因細節比照定期定股的精確判斷方式，不固定寫死同一句話
-      const liqPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價未站穩MA60';
+      const liqPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價&lt;MA60';
       liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜${liqPausedReason}｜暫緩賣股</span>`;
     } else {
       // 這才是真正的「想賣卻賣不成」——系統判斷該賣股救急（MA60安全順勢賣，或已跌破絕對底線），
@@ -2977,6 +2989,14 @@ function renderTabs(){
   row.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       state.activeTab = t.dataset.tab;
+      // 切換分頁後，讓新選中的標的盡量置中顯示（視窗3格，置中＝往左讓1格）；
+      // Math.max(0,...)跟Math.min(maxStart,...)天生就會處理邊界情況——
+      // 選到第一個標的時算出負數會被夾到0（自然貼左），選到最後一個會被夾到maxStart（自然貼右）
+      const newActiveIdx = state.assets.findIndex(a=>a.key===state.activeTab);
+      if(newActiveIdx >= 0){
+        const newMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+        tabWindowStart = Math.max(0, Math.min(newMaxStart, newActiveIdx - 1));
+      }
       document.getElementById('inCashNow').value = '';
       document.getElementById('inSharesNow').value = '';
       document.getElementById('inAvgCostNow').value = '';
@@ -2995,7 +3015,8 @@ function renderTabs(){
       renderAll(); // 放在清空之後，讓renderAll()（含回測可用性檢查）套用到乾淨的畫面上
     });
   });
-  updateTabsArrows(tabWindowStart, maxStart, 'tabsArrowLeft', 'tabsArrowRight');
+  // 主畫面拿掉左右箭頭：連續點擊目前畫面上最左/最右邊的分頁，配合上面的置中邏輯，
+  // 一樣能一步步捲到看不見的標的，不需要額外的箭頭按鈕
 }
 
 // 只有在「真的點擊某個分頁、切換到新的標的」這個動作發生時，才需要確保新選中的標的落在可見視窗內，
@@ -3481,7 +3502,7 @@ function renderAssetManageInner(){
       // 第二層加碼乘數一定要小於1，才能保證第二層永遠比基準價便宜（維持「第二層本來就該比第一層便宜」的設計前提）；
       // 設成1以上，會讓節流判斷出現「只有第二層被擋、第一層正常」這種原本不該發生的情況
       if(pfield === 'layer2Mult' && v >= 1){
-        alert('第二層加碼價位相對於第一層價位比例必須小於1（第二層要比第一層便宜才有意義），已還原成原本的數值');
+        alert('第二層價位為第一層價位的百分比%必須小於100（第二層要比第一層便宜才有意義），已還原成原本的數值');
         e.target.value = (state.assets[i].params.layer2Mult != null ? state.assets[i].params.layer2Mult : DEFAULT_PARAMS.layer2Mult);
         return;
       }
@@ -3690,17 +3711,34 @@ document.addEventListener('click', (e)=>{
 
 
 // ---------- events ----------
-// 分頁列左右箭頭：固定顯示3個標的，每次點擊滑動1格（不是自由捲動），
-// 讓被滑出視窗外的標的最多露出2個熟悉的舊標的+1個新標的，方便辨認位置感
-document.getElementById('tabsArrowLeft').addEventListener('click', ()=>{
-  tabWindowStart = Math.max(0, tabWindowStart - 1);
-  renderTabs();
-});
-document.getElementById('tabsArrowRight').addEventListener('click', ()=>{
-  const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
-  tabWindowStart = Math.min(maxStart, tabWindowStart + 1);
-  renderTabs();
-});
+
+// 標的分頁列支援手指觸控左右滑動（拿掉箭頭後，滑動是除了「點擊最左/最右邊分頁」以外，
+// 另一種捲動視窗看到更多標的的方式，比較符合手機使用者的直覺）；
+// 只看水平方向的滑動距離，滑動距離要超過一個門檻(40px)才算數，避免不小心點一下也觸發
+(function(){
+  const wrapEl = document.getElementById('mainTabsWrap');
+  let touchStartX = null;
+  wrapEl.addEventListener('touchstart', (e)=>{
+    touchStartX = e.touches[0].clientX;
+  }, { passive:true });
+  wrapEl.addEventListener('touchend', (e)=>{
+    if(touchStartX == null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchEndX - touchStartX;
+    touchStartX = null;
+    const threshold = 40;
+    if(Math.abs(diff) < threshold) return;
+    const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
+    if(diff < 0){
+      // 手指往左滑（畫面內容往左移）＝看更右邊、更後面的標的
+      tabWindowStart = Math.min(maxStart, tabWindowStart + 1);
+    } else {
+      // 手指往右滑＝看更左邊、更前面的標的
+      tabWindowStart = Math.max(0, tabWindowStart - 1);
+    }
+    renderTabs();
+  });
+})();
 
 // .test-flag-tip原本用position:absolute，如果外層剛好在有overflow-y:auto的容器裡（例如「設定」彈出視窗），
 // 提示框超出容器可視範圍的部分會被裁切掉、看不到後半段文字；改用JS在hover當下動態算出正確位置，
@@ -3764,6 +3802,15 @@ document.getElementById('toggleAdvancedInput').addEventListener('click', ()=>{
   btn.title = state.advancedInputCollapsed ? '展開' : '收合';
 });
 
+document.getElementById('toggleInputPosition').addEventListener('click', ()=>{
+  state.inputPositionCollapsed = !state.inputPositionCollapsed;
+  const body = document.getElementById('inputPositionBody');
+  const btn = document.getElementById('toggleInputPosition');
+  body.style.display = state.inputPositionCollapsed ? 'none' : 'block';
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.inputPositionCollapsed);
+  btn.title = state.inputPositionCollapsed ? '展開' : '收合';
+});
+
 document.getElementById('toggleLed').addEventListener('click', ()=>{
   state.ledCollapsed = !state.ledCollapsed;
   const body = document.getElementById('ledBody');
@@ -3825,6 +3872,7 @@ document.getElementById('btStartCapital').addEventListener('input', ()=>{
 const collapseStateKeyMap = {
   toggleHist: 'histCollapsed', toggleInput: 'inputCollapsed', toggleAdvancedInput: 'advancedInputCollapsed',
   toggleLed: 'ledCollapsed', toggleReserve: 'reserveCollapsed', toggleOrders: 'ordersCollapsed', toggleBacktest: 'backtestCollapsed',
+  toggleInputPosition: 'inputPositionCollapsed',
 };
 Object.keys(collapseStateKeyMap).forEach(id=>{
   const btn = document.getElementById(id);
