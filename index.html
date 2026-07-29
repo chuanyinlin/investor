@@ -127,7 +127,7 @@
   #mainTabsWrap{ height:54px; background:var(--panel); border:1px solid var(--hair); border-radius:16px; padding:12px 14px; }
   #tabsRow{ background:transparent; border:none; border-radius:0; padding:0; height:52px; width:360px; }
   #tabsRow .tab{ height:52px; font-size:12.5px; }
-  #tabsRow .tab.active{ font-size:27.5px; flex-grow:0; flex-basis:240px; background:transparent; }
+  #tabsRow .tab.active{ font-size:27.5px; flex-grow:0; flex-basis:200px; background:transparent; }
   .tabs-arrow{
     width:16px; height:36px; border-radius:8px; background: var(--panel-2);
     border:1px solid var(--hair-strong); display:flex; align-items:center; justify-content:center;
@@ -723,7 +723,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 09:15</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-29 09:40</div>
   </div>
   </div>
 
@@ -3711,34 +3711,6 @@ document.addEventListener('click', (e)=>{
 
 
 // ---------- events ----------
-
-// 標的分頁列支援手指觸控左右滑動（拿掉箭頭後，滑動是除了「點擊最左/最右邊分頁」以外，
-// 另一種捲動視窗看到更多標的的方式，比較符合手機使用者的直覺）；
-// 只看水平方向的滑動距離，滑動距離要超過一個門檻(40px)才算數，避免不小心點一下也觸發
-(function(){
-  const wrapEl = document.getElementById('mainTabsWrap');
-  let touchStartX = null;
-  wrapEl.addEventListener('touchstart', (e)=>{
-    touchStartX = e.touches[0].clientX;
-  }, { passive:true });
-  wrapEl.addEventListener('touchend', (e)=>{
-    if(touchStartX == null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchEndX - touchStartX;
-    touchStartX = null;
-    const threshold = 40;
-    if(Math.abs(diff) < threshold) return;
-    const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
-    if(diff < 0){
-      // 手指往左滑（畫面內容往左移）＝看更右邊、更後面的標的
-      tabWindowStart = Math.min(maxStart, tabWindowStart + 1);
-    } else {
-      // 手指往右滑＝看更左邊、更前面的標的
-      tabWindowStart = Math.max(0, tabWindowStart - 1);
-    }
-    renderTabs();
-  });
-})();
 
 // .test-flag-tip原本用position:absolute，如果外層剛好在有overflow-y:auto的容器裡（例如「設定」彈出視窗），
 // 提示框超出容器可視範圍的部分會被裁切掉、看不到後半段文字；改用JS在hover當下動態算出正確位置，
