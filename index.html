@@ -495,7 +495,7 @@
     <div id="advancedInputBody" style="display:none;">
 
     <div class="field">
-      <label style="color:var(--text);">上傳歷史紀錄<span style="color:var(--text-faint); font-weight:400;">（上傳「歷史紀錄」下載的檔案，只會保留最近5天）</span></label>
+      <label style="color:var(--text);">上傳歷史紀錄<span style="color:var(--text-faint); font-weight:400;">（上傳「歷史紀錄」下載的檔案，只會保留該標的設定的天數，見「設定」→「基本設定」→「更新標的資料保留天數」）</span></label>
       <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
       <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="width:100%;">上傳</button>
       <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
@@ -642,7 +642,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-31 11:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-31 13:00</div>
   </div>
   </div>
 
@@ -746,7 +746,7 @@ const PARAM_META = [
   ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
   ['bombardRequirePriceAboveMa60','加碼要求股價≥MA60','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，股價一定要站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，加碼不再檢查股價是否站上MA60，只看其他還有勾選的條件——例如只勾選MA60趨勢、不勾選這項，就能讓加碼在股價短暫跌破MA60、但長期趨勢仍健康時依然有機會觸發'],
   ['bombardMa60ObservationEnabled','啟用加碼MA60觀察期','bool','加碼條件','預設關閉。只有上面「加碼要求股價≥MA60」有勾選時才會生效（沒有這項要求，觀察期就沒有東西可以救濟）。啟用後，股價跌破MA60的頭幾天先當作「觀察期」，視同還符合「股價≥MA60」這項要求；只有連續跌破超過設定天數，才真正確認轉弱、判定不符合。用意是區分「單日急殺、可能隔天就反彈」跟「真正連續破位下跌」'],
-  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼條件','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。即時判定只保留最近5天資料，天數不能超過4天'],
+  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼條件','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1，改變保留天數後這個上限會跟著調整'],
   ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
   ['bombardRequireCash','加碼要求流動現金充足','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
   ['tolerance','股價達加碼價位的MA20區間容忍度%','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
@@ -765,7 +765,7 @@ const PARAM_META = [
   ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
   ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
-  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹，但即時判定只保留最近5天資料，天數不能超過4天（需要多留1天計算MA60本身有沒有比前一天高）'],
+  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1（需要多留1天計算MA60本身有沒有比前一天高），改變保留天數後這個上限會跟著調整'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
   ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildEnabled','啟用現金水位回補','bool','現金流動性','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
@@ -935,13 +935,16 @@ async function fetchLast5DaysCore(){
     return { ok:false, msg:'此標的無自動更新收盤價與均線功能，請至「進階」手動輸入。' };
   }
   try{
+    const keepDays = asset.dataKeepDays || 5;
     const today = new Date();
-    const fromDate = new Date(today.getFullYear(), today.getMonth() - 4, 1);
+    // 往前抓的緩衝：要讓「保留天數」裡最早的那一天，也能有完整60個交易日的歷史資料回溯算出MA60；
+    // 60個交易日約當3個月，多留1個月當安全邊際；保留天數本身也要換算成月份一併往前推
+    const bufferMonths = 4 + Math.ceil(keepDays / 21);
+    const fromDate = new Date(today.getFullYear(), today.getMonth() - bufferMonths, 1);
     const allRows = await fetchAssetRange(asset, fromDate, today);
-    if(allRows.length < 8){ throw new Error('回傳資料不足，可能是股票代號/Yahoo代號錯誤或近期無交易資料'); }
-    // 取最近5個交易日，每一天的MA都只用「截至該日（含）」的資料計算，避免用到未來資料；
-    // 保留5天（不是3天）是為了讓「停利連續3天確認」這個機制，能有足夠的MA60數值回溯比較
-    const last5 = allRows.slice(-5);
+    if(allRows.length < Math.min(keepDays, 8)){ throw new Error('回傳資料不足，可能是股票代號/Yahoo代號錯誤或近期無交易資料'); }
+    // 取最近N個交易日（N＝這個標的設定的保留天數），每一天的MA都只用「截至該日（含）」的資料計算，避免用到未來資料
+    const last5 = allRows.slice(-keepDays);
     const closes = allRows.map(r => r.close);
     last5.forEach(target => {
       const idx = allRows.findIndex(r => r.date === target.date);
@@ -969,8 +972,8 @@ async function fetchLast5DaysCore(){
         state.log[key].push(entry);
       }
     });
-    // 只保留最近5天的紀錄，跟手動新增走同一套規則
-    state.log[key] = sortedLog(key).slice(-5);
+    // 只保留設定的天數，跟手動新增走同一套規則
+    state.log[key] = sortedLog(key).slice(-keepDays);
     await storageSet(KEY_LOG(key), state.log[key]);
     const dateList = last5.map(r => r.date).join('、');
     return { ok:true, msg:`已寫入歷史紀錄：${dateList}` };
@@ -1966,8 +1969,10 @@ function computeForAsset(assetKey){
     out.exitThresholdSource = 'ma20';
     out.exit = priceAboveMa20Exit;
   } else if(P.useMa60ConfirmForExit){
-    // 第二層（MA60條件停利）：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計
-    const confirmDays = Math.min(Math.max(1, P.exitMa60ConfirmDays || 3), 4);
+    // 第二層（MA60條件停利）：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計；
+    // 天數上限＝這個標的設定的保留天數−1（多留1天用來比較「今天vs昨天」），確保永遠有足夠資料可以回溯確認
+    const keepDaysForConfirm = getAsset(assetKey).dataKeepDays || 5;
+    const confirmDays = Math.min(Math.max(1, P.exitMa60ConfirmDays || 3), keepDaysForConfirm - 1);
     out.exitMa60ConfirmDaysUsed = confirmDays;
     out.exitThreshold = ma20ExitPrice;
     out.exitThresholdSource = 'ma20';
@@ -2112,12 +2117,12 @@ function computeForAsset(assetKey){
   // 這兩項不受這次的選擇影響，繼續強制檢查
   out.bombardMa20Ok = (P.bombardRequireMa20 === false) ? true : out.ma20upFlat;
   out.bombardMa60Ok = (P.bombardRequireMa60 === false) ? true : out.ma60upFlat;
-  // MA60觀察期：跌破MA60的頭幾天先當觀察期，視同還符合「股價≥MA60」；即時判定只保留最近5天資料，
-  // 天數上限鎖在4天（跟「MA60條件停利確認天數」用同一個限制），確保5天視窗內一定能精確判斷「有沒有超過」，
-  // 不會有資料不夠、無法確認的模糊地帶
+  // MA60觀察期：跌破MA60的頭幾天先當觀察期，視同還符合「股價≥MA60」；
+  // 天數上限＝這個標的設定的保留天數−1，確保視窗內一定能精確判斷「有沒有超過」，不會有資料不夠、無法確認的模糊地帶
   let bombardMa60ObservationOk = false;
   if(P.bombardMa60ObservationEnabled && P.bombardRequirePriceAboveMa60 !== false && out.priceAboveMa60 === false){
-    const obsDaysLive = Math.min(Math.max(1, P.bombardMa60ObservationDays || 2), 4);
+    const keepDaysForObs = getAsset(assetKey).dataKeepDays || 5;
+    const obsDaysLive = Math.min(Math.max(1, P.bombardMa60ObservationDays || 2), keepDaysForObs - 1);
     let belowStreak = 0;
     for(let idx = n-1; idx >= 0 && belowStreak <= obsDaysLive; idx--){
       const row = rows[idx];
@@ -2431,7 +2436,7 @@ function renderOrders(){
   const d = computeForAsset(key);
   const list = document.getElementById('orderList');
   const tickDec = getTickDecimals(getEffectiveTick(asset, d.today ? d.today.close : 0));
-  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據標的的參數設定、部位資料，以及最近5天的收盤價與均線資料，透過訊號狀態推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
+  let html = `<div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">根據標的的參數設定、部位資料，以及最近${asset.dataKeepDays||5}天的收盤價與均線資料，透過訊號狀態推算、彙整訊號明細，整理出以下建議委託清單：</div>`;
 
   // 定期定額/股：金額模式恆常以市價執行；股數模式顯示前一日收盤價；
   // 暫停時只顯示建議狀態，原因說明統一放在訊號明細卡片；
@@ -3211,7 +3216,7 @@ function renderAll(){
     const supportsFetch = assetSupportsAutoFetch(asset);
     if(updateHint){
       updateHint.textContent = supportsFetch
-        ? '（從證交所/Twelve Data抓取最新收盤資料，只保留最近5天）'
+        ? `（從證交所/Twelve Data抓取最新收盤資料，只保留最近${asset.dataKeepDays||5}天）`
         : '（「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入）';
     }
     const updateBtn = document.getElementById('btnUpdateDaily');
@@ -3332,7 +3337,16 @@ function renderAssetManageInner(){
       <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}"></div>
       <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
     </div>
-    <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如TSM，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
+    <div class="grid2">
+      <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如TSM，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
+      <div class="field"><label>更新標的資料保留天數<span style="color:var(--text-faint); font-weight:400;">（從證交所/Twelve Data抓取最新收盤資料時，保留最近幾天）</span></label>
+        <select data-aidx="${idx}" data-afield="dataKeepDays">
+          <option value="5" ${(a.dataKeepDays||5)===5?'selected':''}>5天</option>
+          <option value="20" ${(a.dataKeepDays||5)===20?'selected':''}>20天</option>
+          <option value="60" ${(a.dataKeepDays||5)===60?'selected':''}>60天</option>
+        </select>
+      </div>
+    </div>
   `;
   let lastCat = null;
   const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
@@ -3364,11 +3378,12 @@ function renderAssetManageInner(){
     }
     if(pkey === 'useMa60ConfirmForExit'){
       const confirmDaysVal = (a.params || DEFAULT_PARAMS).exitMa60ConfirmDays || 3;
+      const confirmDaysMax = (a.dataKeepDays || 5) - 1;
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
           <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="ma60" ${useMa60ConfirmForExitVal?'checked':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="1" min="1" max="4" data-aidx="${idx}" data-pfield="exitMa60ConfirmDays" data-ptype="int" value="${confirmDaysVal}" ${!useMa60ConfirmForExitVal?'disabled':''} style="width:50px;">
+          <input type="number" step="1" min="1" max="${confirmDaysMax}" data-aidx="${idx}" data-pfield="exitMa60ConfirmDays" data-ptype="int" value="${confirmDaysVal}" ${!useMa60ConfirmForExitVal?'disabled':''} style="width:50px;">
           <span style="font-size:12px; color:var(--text-dim);">天</span>
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
@@ -3498,6 +3513,7 @@ function renderAssetManageInner(){
       const field = e.target.dataset.afield;
       let v = e.target.value;
       if(['dcaValue','boostMult'].includes(field)) v = parseFloat(v) || 0;
+      if(field === 'dataKeepDays') v = parseInt(v, 10) || 5;
       if(['l1Pct','l2Pct'].includes(field)) v = (parseFloat(v) || 0) / 100;
       state.assets[i][field] = v;
       // 幣別改成美元時，這個標的不可能是台股上市股票，股票代號自動清空
@@ -4133,7 +4149,8 @@ function mergeImportedLog(key, importedRows){
   (state.log[key]||[]).forEach(r=>{ map[r.date] = r; });
   importedRows.forEach(r=>{ map[r.date] = r; });
   const merged = Object.values(map).sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  return merged.slice(-5);
+  const keepDays = (getAsset(key).dataKeepDays) || 5;
+  return merged.slice(-keepDays);
 }
 
 document.getElementById('btnImportFile').addEventListener('click', ()=>{
@@ -4207,7 +4224,7 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
       const curCount = perKeyCount[curKey] || 0;
       const curName = getAsset(curKey).name;
       if(curCount > 0){
-        statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，${curName}讀取 ${curCount} 筆資料（只保留最近5天）。</span>`;
+        statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，${curName}讀取 ${curCount} 筆資料（只保留最近${getAsset(curKey).dataKeepDays||5}天）。</span>`;
       } else {
         statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，但檔案中沒有${curName}的資料（已更新其他分頁）。</span>`;
       }
@@ -4286,8 +4303,8 @@ document.getElementById('btnAdd').addEventListener('click', async ()=>{
   } else {
     state.log[key].push(entry);
   }
-  // 只保留最近5天的紀錄，超過的自動移除
-  state.log[key] = sortedLog(key).slice(-5);
+  // 只保留設定的天數，超過的自動移除
+  state.log[key] = sortedLog(key).slice(-(getAsset(key).dataKeepDays || 5));
   await storageSet(KEY_LOG(key), state.log[key]);
 
   document.getElementById('inClose').value = '';
@@ -4586,6 +4603,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         l1Pct: numOr(imported.l1Pct, 0.06),
         l2Pct: numOr(imported.l2Pct, 0.08),
         stockNo: imported.stockNo || '',
+        dataKeepDays: [5,20,60].includes(imported.dataKeepDays) ? imported.dataKeepDays : 5,
         params: cleanParams,
       };
       const existIdx = state.assets.findIndex(a=>a.key===clean.key);
