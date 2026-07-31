@@ -627,7 +627,7 @@
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowBombard" style="width:auto;">加碼</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowExit" style="width:auto;">停利</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowTimeStop" style="width:auto;">時間停損</label>
-        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLiqStop" style="width:auto;">現金水位停損</label>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLiqStop" style="width:auto;">現金水位回補</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowDcaPause" style="width:auto;">暫停定期定額</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLowCashRatio" style="width:auto;">現金佔比低於門檻</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowExitBelowCost" style="width:auto;">停利觸發時價格低於平均成本</label>
@@ -635,14 +635,14 @@
     </div>
 
     <button class="btn btn-neutral btn-sm" id="btnRunBacktest" style="width:100%; margin-top:14px;">開始模擬</button>
-    <div class="footer-note" style="text-align:left; margin-top:6px;">回測會模擬：定期定額(市價單，今天成交)／動能・加碼・停利・時間停損(限價單，掛前一天算出的價位，今天最高/最低價要觸及才成交)／現金水位停損(市價單，現金比例不足當天立刻成交)，並套用目前參數設定裡的所有數值</div>
+    <div class="footer-note" style="text-align:left; margin-top:6px;">回測會模擬：定期定額(市價單，今天成交)／動能・加碼・停利・時間停損(限價單，掛前一天算出的價位，今天最高/最低價要觸及才成交)／現金水位回補(市價單，現金比例不足當天立刻成交)，並套用目前參數設定裡的所有數值</div>
 
     <div class="footer-note" id="backtestStatus" style="text-align:left; margin-top:6px;"></div>
     <div id="backtestResult"></div>
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-31 13:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-31 19:30</div>
   </div>
   </div>
 
@@ -735,8 +735,10 @@ const DEFAULT_PARAMS = {
   bombardOpenHighCloseLowDays: 3,
   timeStopIgnoreCashGate: false,  // 2026-07 從回測「測試特定機制」轉正：時間停損不受現金水位門檻限制，只看持有天數；預設關閉（維持現行規則：時間停損是現金水位的從屬機制，現金充足時暫緩）
   momentumIgnoreDefense: false,  // 2026-07 從回測「測試特定機制」轉正：動能觸發不受MA60防禦邊界限制，只看現金是否充足；預設關閉（維持現行規則）
-  liqStopIgnoreTrend: false,  // 2026-07 從回測「測試特定機制」轉正：現金水位停損不管MA60趨勢安不安全，一律當天市價強制賣股救急，不分流成「暫緩改暫停定期定額」；預設關閉（維持現行規則的趨勢分流）
+  liqStopIgnoreTrend: false,  // 2026-07 從回測「測試特定機制」轉正：現金水位回補不管MA60趨勢安不安全，一律當天市價強制賣股救急，不分流成「暫緩改暫停定期定額」；預設關閉（維持現行規則的趨勢分流）
   exitPartialFrac: 0.70,
+  exitVolumeConfirmEnabled: false,  // 2026-07 新機制：停利第二層三選一之一——量能確認停利，股價達MA20門檻時，還要「昨天有放量」才觸發；預設關閉
+  exitVolumeMult: 1.2,  // 量能確認的放量倍數：昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量
   timeStopPartialFrac: 0.30,
 };
 
@@ -766,12 +768,14 @@ const PARAM_META = [
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
   ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
   ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1（需要多留1天計算MA60本身有沒有比前一天高），改變保留天數後這個上限會跟著調整'],
+  ['exitVolumeConfirmEnabled','量能確認停利','bool','停利邏輯','股價達到MA20門檻時，還要「昨天有放量」（昨天成交量超過昨天之前20天均量的設定倍數）才真正觸發；不需要手動輸入任何資料（成交量本身就是股價資料的一部分），也沒有MA60條件停利那種要連續多天的延遲問題，只看昨天一天'],
+  ['exitVolumeMult','放量倍數','mult','停利邏輯','上面「量能確認停利」用的放量倍數，只有那項有勾選才會生效——昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量、真正觸發停利'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
   ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
   ['liqRebuildEnabled','啟用現金水位回補','bool','現金流動性','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
   ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金流動性','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
-  ['liqStopIgnoreTrend','現金水位停損不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金流動性','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
+  ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金流動性','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
   ['timeStopEnabled','啟用時間停損機制','bool','時間停損','時間停損預設關閉。勾選後才會啟用：距離「建倉起始日」（下方欄位，勾選後才會顯示）已經超過設定天數，且現金水位不足時，強制分批出場。取消勾選會清空建倉起始日，之後如果重新勾選，需要重新輸入'],
   ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
   ['timeStopPartialFrac','時間停損分批比例%','pct','時間停損','時間停損觸發時，一次賣出目前股數的這個比例'],
@@ -1203,6 +1207,9 @@ async function runBacktest(){
   const ENABLE_PRICE_ABOVE_MA60_FOR_EXIT = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
   const ENABLE_EXIT_CONFIRM_DAYS = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
   const EXIT_CONFIRM_DAYS = P.exitMa60ConfirmDays || 3;
+  // 停利第二層三選一之三：量能確認停利，跟MA60條件停利互斥（useMa60ConfirmForExit=true時，量能確認一律不生效）
+  const ENABLE_VOLUME_CONFIRM_FOR_EXIT = P.exitSecondLayerEnabled && P.exitVolumeConfirmEnabled && !P.useMa60ConfirmForExit;
+  const EXIT_VOLUME_MULT = P.exitVolumeMult || 1.2;
   const DISABLE_CASH_GATE_FOR_TIMESTOP = P.timeStopIgnoreCashGate;
   // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數
   const ENABLE_TIME_STOP = P.timeStopEnabled;
@@ -1215,7 +1222,7 @@ async function runBacktest(){
   const ENABLE_OPEN_HIGH_CLOSE_LOW_PAUSE = P.bombardOpenHighCloseLowEnabled;
   const OPEN_HIGH_CLOSE_LOW_DAYS = Math.max(1, P.bombardOpenHighCloseLowDays || 3);
   if(isNaN(LIQ_FLOOR_MULT) || LIQ_FLOOR_MULT < 0 || LIQ_FLOOR_MULT > 1){
-    statusEl.innerHTML = `<span style="color:var(--red)">現金水位停損絕對底線倍數格式錯誤（需介於0~1之間）。</span>`;
+    statusEl.innerHTML = `<span style="color:var(--red)">現金水位回補絕對底線倍數格式錯誤（需介於0~1之間）。</span>`;
     return;
   }
 
@@ -1310,6 +1317,11 @@ async function runBacktest(){
       if(ma5Y == null || ma20Y == null) continue;
 
       const touch = closeY <= ma20Y * (1 + P.tolerance);
+      // 今天開盤前的現金快照：所有今天要「預約委託」的金額（目前只有加碼第一/二層用「現金×比例%」計算），
+      // 都必須用「昨天收盤時」這個固定基準去算，不能用「今天稍早已經執行過其他交易（定期定額、動能）」後
+      // 才知道的現金餘額——否則等於用了下單當下還不存在的未來資訊，違反「次一交易日預約委託」的設計原則。
+      // 「錢夠不夠真的執行」這件事，才用即時的cash去檢查（現金是共用資源，先扣先贏，這是真實限制，不是未來函數）
+      const cashAtDayStart = cash;
       // 加碼節流：只要股價脫離加碼區間過一次（touch=false），視為這一輪拉回結束，重置節流記憶
       if(!touch){
         lastBombardLimit = null;
@@ -1507,63 +1519,60 @@ async function runBacktest(){
       // 避免調整L2定價時意外連帶影響節流敏感度）才算數，不是隨便低一點點就算，避免同一價格區間反覆買
       if(bombard){
         const basePrice = Math.min(closeY, ma20Y);
-        const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
-        const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+        const p1Natural = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+        const p2Natural = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
         // 節流是否要檢查：預設「只要啟用節流就一律檢查」；如果額外開了「僅在MA60向下且股價<MA60時啟用」，
         // 就只在明確的下跌訊號時才檢查節流，MA60健康時直接跳過節流限制、用原始限價
         const ma60WeakForThrottle = hasMa60 && !ma60upFlat && !priceAboveMa60;
         const shouldCheckThrottle = ENABLE_THROTTLE && (!P.bombardThrottleConditionalOnMa60 || ma60WeakForThrottle);
-        const throttleOk = !shouldCheckThrottle || (lastBombardLimit === null) || (p1 <= lastBombardLimit * P.throttleMult);
-        if(throttleOk){
-          const cashSnapshot = cash;
-          const cost1 = cashSnapshot * asset.l1Pct;
-          const cost2 = cashSnapshot * asset.l2Pct;
-          const p1Touched = today_.low != null && today_.low <= p1;
-          // 防呆：算出來的加碼金額，要至少能買到最近收盤價的1股，太小的金額（現金被榨乾到極低時常見）
-          // 買不到有意義的股數，直接跳過，避免現金被一連串無意義的微額交易一點一滴榨乾
-          const cost1BigEnough = cost1 >= closeT;
-          if(p1Touched && cost1BigEnough && cash >= cost1){
-            const shares1 = cost1 / p1;
-            totalShares += shares1; totalCost += cost1; cash -= cost1; b1Exec++;
-            bombardL1Events.push({ date: today_.date, shares: shares1, price: p1, cost: cost1 });
-            lastBombardLimit = p1; // 真的成交才記住這次限價，掛單沒成交不鎖住這個價位
-          } else {
-            b1Skip++;
-            if(p1Touched && cost1 > 0 && !cost1BigEnough){
-              b1SkipTooSmall++;
-            } else if(p1Touched && cost1 > 0 && cash < cost1){
-              b1SkipCashShort++;
-              // 價格條件有觸及，但現金不夠支付這次金額，記下來方便區分原因
-              bombardL1CashSkipEvents.push({ date: today_.date, needed: cost1, cash });
-            } else {
-              b1SkipNotTouched++;
-            }
-          }
-          const p2Touched = today_.low != null && today_.low <= p2;
-          const cost2BigEnough = cost2 >= closeT;
-          if(p2Touched && cost2BigEnough && cash >= cost2){
-            totalShares += cost2 / p2; totalCost += cost2; cash -= cost2; b2Exec++;
-          } else {
-            b2Skip++;
-            if(p2Touched && cost2 > 0 && !cost2BigEnough) b2SkipTooSmall++;
-            else if(p2Touched && cost2 > 0 && cash < cost2) b2SkipCashShort++;
-            else b2SkipNotTouched++;
-          }
-        } else {
-          // 限價沒有比上次觸發時更低，視為同一區間，暫緩不重複買
+        const throttleOk = !shouldCheckThrottle || (lastBombardLimit === null) || (p1Natural <= lastBombardLimit * P.throttleMult);
+        // 節流被觸發時，不是整輪直接放棄，改用「節流下修後的價位」試著掛單、用今天最低價檢查有沒有觸及——
+        // 跟即時運算「委託清單」給使用者的建議完全一致（建議下修至加碼節流價位，委託X股＠Y元）；
+        // 下修價＝上一次真的成交的限價×節流門檻%，L2下修價＝L1下修價×第二層加碼乘數
+        let p1 = p1Natural, p2 = p2Natural, priceWasAdjusted = false;
+        if(!throttleOk){
           bombardThrottleSkip++;
-          b1Skip++; b2Skip++;
-          b1SkipThrottle++; b2SkipThrottle++;
-          // 額外判斷：如果沒有節流限制，這次原本價格有沒有觸及、現金夠不夠——用來回答
-          // 「節流擋下的這些次數裡，有多少其實本來就會成交，是被節流真正攔下來的，
-          // 不是本來就不會成交（限價沒觸及或現金不夠）」
-          const cashSnapshotThrottled = cash;
-          const cost1Throttled = cashSnapshotThrottled * asset.l1Pct;
-          const cost2Throttled = cashSnapshotThrottled * asset.l2Pct;
-          const p1TouchedThrottled = today_.low != null && today_.low <= p1;
-          const p2TouchedThrottled = today_.low != null && today_.low <= p2;
-          if(p1TouchedThrottled && cost1Throttled > 0 && cash >= cost1Throttled) b1ThrottleWouldExec++;
-          if(p2TouchedThrottled && cost2Throttled > 0 && cash >= cost2Throttled) b2ThrottleWouldExec++;
+          priceWasAdjusted = true;
+          p1 = applyTick(lastBombardLimit * P.throttleMult, getEffectiveTick(asset, lastBombardLimit * P.throttleMult), 'floor');
+          p2 = applyTick(p1 * P.layer2Mult, getEffectiveTick(asset, p1 * P.layer2Mult), 'floor');
+        }
+        const cost1 = cashAtDayStart * asset.l1Pct;
+        const cost2 = cashAtDayStart * asset.l2Pct;
+        const p1Touched = today_.low != null && today_.low <= p1;
+        // 防呆：算出來的加碼金額，要至少能買到最近收盤價的1股，太小的金額（現金被榨乾到極低時常見）
+        // 買不到有意義的股數，直接跳過，避免現金被一連串無意義的微額交易一點一滴榨乾
+        const cost1BigEnough = cost1 >= closeT;
+        if(p1Touched && cost1BigEnough && cash >= cost1){
+          const shares1 = cost1 / p1;
+          totalShares += shares1; totalCost += cost1; cash -= cost1; b1Exec++;
+          bombardL1Events.push({ date: today_.date, shares: shares1, price: p1, cost: cost1 });
+          lastBombardLimit = p1; // 真的成交才記住這次限價，掛單沒成交不鎖住這個價位
+          if(priceWasAdjusted) b1ThrottleWouldExec++; // 改用節流下修價成功承接
+        } else {
+          b1Skip++;
+          if(priceWasAdjusted){
+            b1SkipThrottle++;
+          } else if(p1Touched && cost1 > 0 && !cost1BigEnough){
+            b1SkipTooSmall++;
+          } else if(p1Touched && cost1 > 0 && cash < cost1){
+            b1SkipCashShort++;
+            // 價格條件有觸及，但現金不夠支付這次金額，記下來方便區分原因
+            bombardL1CashSkipEvents.push({ date: today_.date, needed: cost1, cash });
+          } else {
+            b1SkipNotTouched++;
+          }
+        }
+        const p2Touched = today_.low != null && today_.low <= p2;
+        const cost2BigEnough = cost2 >= closeT;
+        if(p2Touched && cost2BigEnough && cash >= cost2){
+          totalShares += cost2 / p2; totalCost += cost2; cash -= cost2; b2Exec++;
+          if(priceWasAdjusted) b2ThrottleWouldExec++;
+        } else {
+          b2Skip++;
+          if(priceWasAdjusted) b2SkipThrottle++;
+          else if(p2Touched && cost2 > 0 && !cost2BigEnough) b2SkipTooSmall++;
+          else if(p2Touched && cost2 > 0 && cash < cost2) b2SkipCashShort++;
+          else b2SkipNotTouched++;
         }
       }
 
@@ -1571,17 +1580,30 @@ async function runBacktest(){
       const avgCost = totalShares > 0 ? (totalCost / totalShares) : null;
       const ma20ExitPrice = ma20Y * P.exitMult;
       const useMa60GateInstead = ENABLE_MA60UP_FOR_EXIT || ENABLE_PRICE_ABOVE_MA60_FOR_EXIT;
-      // 測試「不再需要平均成本」：勾選任一個MA60條件時，停用平均成本這條防護，
-      // 改用MA60條件把關，才能公平比較「拿掉平均成本、改用MA60條件」的效果好不好
-      const costExitPrice = (P.exitSecondLayerEnabled && !useMa60GateInstead && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
+      // 測試「不再需要平均成本」：勾選任一個MA60條件或量能確認時，停用平均成本這條防護，
+      // 改用對應機制把關，三選一互斥，才能公平比較各自的效果好不好
+      const costExitPrice = (P.exitSecondLayerEnabled && !useMa60GateInstead && !ENABLE_VOLUME_CONFIRM_FOR_EXIT && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
       const thresholdY = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
       const ma60GateOk = (!ENABLE_MA60UP_FOR_EXIT || ma60upFlat) && (!ENABLE_PRICE_ABOVE_MA60_FOR_EXIT || priceAboveMa60);
+      // 量能確認：昨天成交量要超過「昨天之前20天均量」的設定倍數，才算有放量、真正觸發；
+      // 只看「昨天」這一天，不像MA60條件停利需要連續多天確認，沒有延遲問題
+      let volumeConfirmOk = !ENABLE_VOLUME_CONFIRM_FOR_EXIT;
+      if(ENABLE_VOLUME_CONFIRM_FOR_EXIT && i >= 21 && yest.volume != null){
+        let volSumForExit = 0, volCountForExit = 0;
+        for(let j = i-20; j < i; j++){
+          if(allRows[j].volume != null){ volSumForExit += allRows[j].volume; volCountForExit++; }
+        }
+        const volAvg20ForExit = volCountForExit > 0 ? (volSumForExit / volCountForExit) : null;
+        volumeConfirmOk = (volAvg20ForExit != null && volAvg20ForExit > 0) ? (yest.volume > volAvg20ForExit * EXIT_VOLUME_MULT) : false;
+      } else if(ENABLE_VOLUME_CONFIRM_FOR_EXIT){
+        volumeConfirmOk = false; // 資料不足20天時，保守視為未確認
+      }
       // 連續確認天數：股價超過停利門檻、且MA60條件成立，這兩件事要同一天都成立才算「確認的一天」，
       // 累計連續天數，沒開這個功能時streak不用管、直接照原本的單日判斷
       const confirmDayOk = closeY >= thresholdY && ma60GateOk;
       if(confirmDayOk){ exitConfirmStreak++; } else { exitConfirmStreak = 0; }
       const exitConfirmOk = !ENABLE_EXIT_CONFIRM_DAYS || exitConfirmStreak >= EXIT_CONFIRM_DAYS;
-      const exitSignal = closeY >= thresholdY && totalShares > 0 && ma60GateOk && exitConfirmOk;
+      const exitSignal = closeY >= thresholdY && totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
       const curDate = new Date(today_.date + 'T00:00:00');
       // 時間停損現在多一個條件：現金水位已經高於最低比例（現金現金水位回補那一段已經處理過緊急狀況）才暫緩；
       // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位回補」而完全跳過
@@ -1647,7 +1669,7 @@ async function runBacktest(){
     const showDcaPause = document.getElementById('btShowDcaPause').checked;
     const showLowCashRatio = document.getElementById('btShowLowCashRatio').checked;
     const showExitBelowCost = document.getElementById('btShowExitBelowCost').checked;
-    const tagVisible = { '加碼': showBombard, '停利': showExit, '時間停損': showTimeStop, '現金水位停損': showLiqStop, '暫停定期定額': showDcaPause };
+    const tagVisible = { '加碼': showBombard, '停利': showExit, '時間停損': showTimeStop, '現金水位回補': showLiqStop, '暫停定期定額': showDcaPause };
 
     if(showLowCashRatio){
       if(lowCashRatioEvents.length > 0){
@@ -1691,7 +1713,7 @@ async function runBacktest(){
         const reasonTxt = ev.byFloor ? '（跌破絕對底線，逆勢強制賣出）' : '（MA60安全，順勢賣出）';
         const pctTxt = (ev.pctOfThreshold != null) ? `${ev.pctOfThreshold.toFixed(1)}%` : '—（現金水位監控已關閉）';
         return {
-          date: ev.date, tag: '現金水位停損',
+          date: ev.date, tag: '現金水位回補',
           detail: `${fmtRaw(ev.shares,0)}股 ＠${fmtRaw(ev.price,2)}｜成交金額${fmtRaw(ev.proceeds,0)} ${unit}${reasonTxt}｜觸發時現金比例為門檻的${pctTxt}`,
           profitLine: `<span style="color:${profitColor3};">損益${ev.profit>=0?'+':''}${fmtRaw(ev.profit,0)} ${unit}</span>`,
         };
@@ -1704,7 +1726,7 @@ async function runBacktest(){
     ].filter(ev => tagVisible[ev.tag]).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
     if(timelineEvents.length > 0){
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／時間停損／現金水位停損／暫停定期定額明細（共${timelineEvents.length}筆）：</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／時間停損／現金水位回補／暫停定期定額明細（共${timelineEvents.length}筆）：</div>`;
       timelineEvents.forEach(ev=>{
         html += `<div class="footer-note" style="text-align:left;">［${ev.tag}］${ev.date}：${ev.detail}</div>`;
         if(ev.profitLine){
@@ -1715,7 +1737,7 @@ async function runBacktest(){
         }
       });
     } else {
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、時間停損、現金水位停損或暫停定期定額紀錄。</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、時間停損、現金水位回補或暫停定期定額紀錄。</div>`;
     }
 
     if(bombardL1CashSkipEvents.length > 0){
@@ -1770,9 +1792,9 @@ async function runBacktest(){
     const b2SkipBreakdown = b2SkipParts.length > 0 ? `（${b2SkipParts.join('、')}）` : '';
 
     const throttleWouldExecNote = bombardThrottleSkip > 0
-      ? `（其中${b1ThrottleWouldExec}次若非節流本來L1會成交、${b2ThrottleWouldExec}次若非節流本來L2會成交）`
+      ? `（其中${b1ThrottleWouldExec}次改用節流下修價成功承接L1、${b2ThrottleWouldExec}次改用節流下修價成功承接L2）`
       : '';
-    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>加碼L1=${b1Exec}執行/${b1Skip}未成交${b1SkipBreakdown}<br>加碼L2=${b2Exec}執行/${b2Skip}未成交${b2SkipBreakdown}<br>加碼節流暫緩=${bombardThrottleSkip}次${throttleWouldExecNote}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>時間停損=${tsExec}成交/${tsSkip}未觸及<br>現金水位停損=${liqExec}次`;
+    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>加碼L1=${b1Exec}執行/${b1Skip}未成交${b1SkipBreakdown}<br>加碼L2=${b2Exec}執行/${b2Skip}未成交${b2SkipBreakdown}<br>加碼節流暫緩=${bombardThrottleSkip}次${throttleWouldExecNote}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>時間停損=${tsExec}成交/${tsSkip}未觸及<br>現金水位回補=${liqExec}次`;
     const finalAssetLine = `期末資產：現金=${fmtRaw(cash,0)} ${unit}、持股=${fmtRaw(totalShares,0)} 股（市值 ${fmtRaw(finalShareValue,0)} ${unit}）、總資產=${fmtRaw(finalWealth,0)} ${unit}、損益=${profit>=0?'+':''}${fmtRaw(profit,0)} ${unit}（${profit>=0?'+':''}${profitPct.toFixed(2)}%）`;
     const lowCashRatioPct = nn > 0 ? (lowCashRatioEvents.length / nn * 100) : 0;
     const cashLevelLine = `現金水位：期末現金佔比=${finalCashRatio.toFixed(1)}%、現金佔比低於門檻天數比例=${lowCashRatioPct.toFixed(1)}%（共${lowCashRatioEvents.length}天，用當天實際佔比動態比較，不受總資產成長稀釋）`;
@@ -1786,7 +1808,7 @@ async function runBacktest(){
     </div>`;
     html += `<button class="btn btn-neutral btn-sm" id="btnCopySummary" style="width:100%; margin-top:8px;">複製本次模擬總結</button>`;
 
-    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／加碼／停利／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交）、現金水位停損為當天市價單（現金比例不足立刻成交），現金為封閉式循環（不再外部注資，停利/時間停損/現金水位停損現金回到同一資金池），僅供策略參考</div>`;
+    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／加碼／停利／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交）、現金水位回補為當天市價單（現金比例不足立刻成交），現金為封閉式循環（不再外部注資，停利/時間停損/現金水位回補現金回到同一資金池），僅供策略參考</div>`;
 
     resultEl.innerHTML = html;
     statusEl.innerHTML = `<span style="color:var(--teal)">✅ 回測完成</span>`;
@@ -1993,6 +2015,26 @@ function computeForAsset(assetKey){
       }
       out.exitMa60ConfirmOk = confirmOk;
       out.exit = confirmOk;
+    }
+  } else if(P.exitVolumeConfirmEnabled){
+    // 第二層（量能確認停利）：股價達到MA20門檻，還要「昨天有放量」才觸發；
+    // 只看「昨天」這一天，不像MA60條件停利需要連續多天，沒有延遲問題；
+    // 需要「昨天之前20天」的成交量資料，資料不足20天時保守視為未確認
+    out.exitThreshold = ma20ExitPrice;
+    out.exitThresholdSource = 'ma20';
+    if(n < 22){
+      out.exitVolumeConfirmInsufficientData = true;
+      out.exit = false;
+    } else {
+      let volSum = 0, volCount = 0;
+      for(let i = n-21; i < n-1; i++){
+        if(rows[i].volume != null){ volSum += rows[i].volume; volCount++; }
+      }
+      const volAvg20 = volCount > 0 ? (volSum / volCount) : null;
+      const yestRow = rows[n-2];
+      const volumeConfirmed = (volAvg20 != null && volAvg20 > 0 && yestRow.volume != null) ? (yestRow.volume > volAvg20 * (P.exitVolumeMult || 1.2)) : false;
+      out.exitVolumeConfirmOk = volumeConfirmed;
+      out.exit = priceAboveMa20Exit && volumeConfirmed;
     }
   } else {
     // 第二層（成本倍數停利）：平均成本×成本乘數，只有在這個門檻比MA20門檻更高時，才會多要求這一關；
@@ -3352,6 +3394,7 @@ function renderAssetManageInner(){
   const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
   const marginDefenseEnabledVal = !!(a.params || DEFAULT_PARAMS).marginDefenseEnabled;
   const useMa60ConfirmForExitVal = !!(a.params || DEFAULT_PARAMS).useMa60ConfirmForExit;
+  const exitVolumeConfirmEnabledVal = !!(a.params || DEFAULT_PARAMS).exitVolumeConfirmEnabled;
   const bombardRequirePriceAboveMa60Val = (a.params || DEFAULT_PARAMS).bombardRequirePriceAboveMa60 !== false;
   const exitSecondLayerEnabledVal = !!(a.params || DEFAULT_PARAMS).exitSecondLayerEnabled;
   // 分類可展開/收合：先依分類蒐集每個項目的HTML片段，最後才組裝成「標題(含箭頭)+可收合容器」，
@@ -3368,9 +3411,9 @@ function renderAssetManageInner(){
     if(pkey === 'costExitMult'){
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="cost" ${!useMa60ConfirmForExitVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
+          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="cost" ${(!useMa60ConfirmForExitVal && !exitVolumeConfirmEnabledVal)?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${val}" ${(useMa60ConfirmForExitVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:70px;">
+          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${val}" ${(useMa60ConfirmForExitVal || exitVolumeConfirmEnabledVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:70px;">
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
       </div>`);
@@ -3381,7 +3424,7 @@ function renderAssetManageInner(){
       const confirmDaysMax = (a.dataKeepDays || 5) - 1;
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="ma60" ${useMa60ConfirmForExitVal?'checked':''} style="width:auto;">
+          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="ma60" ${useMa60ConfirmForExitVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
           <input type="number" step="1" min="1" max="${confirmDaysMax}" data-aidx="${idx}" data-pfield="exitMa60ConfirmDays" data-ptype="int" value="${confirmDaysVal}" ${!useMa60ConfirmForExitVal?'disabled':''} style="width:50px;">
           <span style="font-size:12px; color:var(--text-dim);">天</span>
@@ -3392,6 +3435,22 @@ function renderAssetManageInner(){
     }
     if(pkey === 'exitMa60ConfirmDays'){
       return; // 已經併入上面「MA60條件停利」那一行一起輸出，這裡不重複渲染
+    }
+    if(pkey === 'exitVolumeConfirmEnabled'){
+      const volMultVal = (a.params || DEFAULT_PARAMS).exitVolumeMult || 1.2;
+      catGroups[cat].push(`<div class="param-row-mini">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="volume" ${exitVolumeConfirmEnabledVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
+          <span class="plabel" style="margin:0; flex:1;">${label}</span>
+          <input type="number" step="0.1" min="1" data-aidx="${idx}" data-pfield="exitVolumeMult" data-ptype="mult" value="${volMultVal}" ${!exitVolumeConfirmEnabledVal?'disabled':''} style="width:60px;">
+          <span style="font-size:12px; color:var(--text-dim);">倍</span>
+        </label>
+        <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
+      </div>`);
+      return;
+    }
+    if(pkey === 'exitVolumeMult'){
+      return; // 已經併入上面「量能確認停利」那一行一起輸出，這裡不重複渲染
     }
     // 時間停損天數／分批比例、融資成數／融資維持率門檻，只有各自的「啟用...機制」被勾選時才能編輯；
     // 用disabled控制，不是顯示/隱藏，這樣勾選/取消勾選checkbox時，不需要重新渲染整段HTML，畫面不會跳動
@@ -3526,21 +3585,25 @@ function renderAssetManageInner(){
       renderAssetManage();
     });
   });
-  // 成本倍數停利／MA60條件停利：radio二選一，選中哪一個就決定useMa60ConfirmForExit的值，
-  // 選「MA60條件停利」時同時自動把成本倍數歸零（等同關閉平均成本機制）；
-  // 選「成本倍數停利」時只解除disabled，不自動幫使用者猜一個「應該要改回多少」的乘數
+  // 成本倍數停利／MA60條件停利／量能確認停利：radio三選一，選中哪一個就決定
+  // useMa60ConfirmForExit跟exitVolumeConfirmEnabled這兩個布林值（互斥，只有一個能是true）；
+  // 選MA60/量能確認時同時自動把成本倍數歸零（等同關閉平均成本機制）；
+  // 選成本倍數停利時只解除disabled，不自動幫使用者猜一個「應該要改回多少」的乘數
   wrap.querySelectorAll('input[data-exitradio]').forEach(el=>{
     el.addEventListener('change', async (e)=>{
       const i = parseInt(e.target.dataset.aidx, 10);
       if(!state.assets[i].params) state.assets[i].params = {...DEFAULT_PARAMS};
-      const useMa60 = e.target.dataset.exitradio === 'ma60';
-      state.assets[i].params.useMa60ConfirmForExit = useMa60;
-      // 選「MA60條件停利」時，成本倍數這個參數在運算邏輯裡完全不會被讀取，disable只是告訴使用者
+      const choice = e.target.dataset.exitradio; // 'cost' | 'ma60' | 'volume'
+      state.assets[i].params.useMa60ConfirmForExit = (choice === 'ma60');
+      state.assets[i].params.exitVolumeConfirmEnabled = (choice === 'volume');
+      // 選MA60/量能確認時，成本倍數這個參數在運算邏輯裡完全不會被讀取，disable只是告訴使用者
       // 「目前不是用這個機制」，但保留原本輸入的數值不動，之後切回「成本倍數停利」時不會遺失設定
       const costMultInput = wrap.querySelector('input[data-pfield="costExitMult"]');
       const confirmDaysInput = wrap.querySelector('input[data-pfield="exitMa60ConfirmDays"]');
-      if(costMultInput) costMultInput.disabled = useMa60;
-      if(confirmDaysInput) confirmDaysInput.disabled = !useMa60;
+      const volumeMultInput = wrap.querySelector('input[data-pfield="exitVolumeMult"]');
+      if(costMultInput) costMultInput.disabled = (choice !== 'cost');
+      if(confirmDaysInput) confirmDaysInput.disabled = (choice !== 'ma60');
+      if(volumeMultInput) volumeMultInput.disabled = (choice !== 'volume');
       await storageSet(KEY_ASSETS, state.assets);
       renderAll();
     });
