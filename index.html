@@ -160,6 +160,7 @@
   .param-cat-mini{ color:var(--text-faint); font-size:10.5px; letter-spacing:1px; margin:12px 0 4px; display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none; }
   .param-cat-group{ overflow:hidden; }
   .param-cat-group.collapsed{ display:none; }
+  .param-cat-group.param-cat-disabled{ opacity:0.4; pointer-events:none; }
   .param-row-mini{ padding:7px 0; }
   .param-row-mini:last-child{ border-bottom:none; }
   .param-row-mini .plabel{ font-size:12px; color:var(--text-dim); }
@@ -437,6 +438,7 @@
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
+    <div id="positionMgmtSection">
     <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <h3 style="font-size:13px;">部位管理</h3>
       <button class="btn btn-primary btn-sm" id="toggleInputPosition" title="展開"><span class="chev collapsed">▾</span></button>
@@ -485,6 +487,7 @@
     <button class="btn btn-neutral btn-sm" id="btnSaveManualFields" style="width:100%; margin-top:6px;">儲存</button>
     <div class="footer-note" id="saveManualFieldsStatus" style="text-align:left; margin-top:6px;"></div>
 
+    </div>
     </div>
 
     <!-- 進階/例外處理：收合，平常不會用到 -->
@@ -644,7 +647,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 06:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 07:20</div>
   </div>
   </div>
 
@@ -702,6 +705,10 @@ const KEY_LAST_BOMBARD_PRICE = k => 'tsmos:lastbombardprice:' + k;
 const KEY_LAST_BOMBARD_DATE = k => 'tsmos:lastbombarddate:' + k;
 
 const DEFAULT_PARAMS = {
+  usePersonalPositionData: true,  // 2026-08 新增：是否引用部位資料（現金/股數/平均成本/融資資料）；
+  // 關閉後，整個運算純粹根據歷史股價/均線推算，不需要輸入任何個人部位資料，訊號明細跟委託清單依然正常運作，
+  // 只是不再顯示具體股數/金額（改成只顯示限價），且「現金水位回補」「融資防禦」這類天生依賴個人資料的機制完全停用不顯示；
+  // 預設開啟，維持現行行為，不影響既有使用者
   tolerance: 0.010,
   bombardReferenceMa: 'ma20',  // 2026-07 新增：加碼參考均線，'ma20'(現行預設)或'ma60'，決定touch判斷跟限價計算要用哪一條均線當基準
   crossAssetBoostEnabled: false,  // 2026-07 新增：跨標的崩跌訊號加成，用另一個標的（例如TSM）前一交易日的異常表現，決定今天要不要加碼更多
@@ -750,6 +757,7 @@ const DEFAULT_PARAMS = {
 };
 
 const PARAM_META = [
+  ['usePersonalPositionData','引用標的部位資料','bool','整體設定','預設開啟，維持現行行為（需要輸入現金/股數等部位資料，訊號才會顯示具體股數/金額）。關閉後，完全不需要輸入任何個人部位資料，系統純粹根據歷史股價/均線推算訊號——「定期定額」「動能」「加碼」「停利」依然會正常判斷觸不觸發、也會顯示限價，但不再顯示具體股數/金額（因為不知道你有多少現金/股票）；「現金水位回補」「融資防禦」這類天生依賴個人部位資料的機制，會完全停用、不顯示，因為沒有部位資料，這些機制的判斷本身沒有意義'],
   ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
   ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
   ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
@@ -2061,6 +2069,7 @@ function isThrottled(priceNow, lastPrice, throttleMult){
 function getMarginStatus(assetKey){
   const asset = getAsset(assetKey);
   const P = asset.params;
+  if(!P.usePersonalPositionData) return { applicable:false }; // 關閉「引用部位資料」總開關時，融資防禦天生依賴個人資料，直接視為不適用
   if(!asset.stockNo) return null; // 無股票代號（如ADR）視為無融資功能，不適用
   if(!P.marginDefenseEnabled) return { applicable:false }; // 未啟用融資防禦機制，視為不適用（跟沒有股票代號同一種處理方式）
   const costPrice = state.marginCost[assetKey] || 0;
@@ -2091,7 +2100,13 @@ function computeForAsset(assetKey){
   // 用null（從未輸入）跟具體數字（含0，真的存過）區分，三者都是null才視為「完全沒輸入過」；
   // 只要有任何一個真的存過數字（即使是0），就視為有意義的真實資料，
   // 這個判斷跟cashTargetPct=0（監控關閉）的null語意是不同的兩件事，不能混用
-  out.hasPersonalData = (state.cash[assetKey] != null) || (state.shares[assetKey] != null) || (state.avgCost[assetKey] != null);
+  const reallyHasPersonalData = (state.cash[assetKey] != null) || (state.shares[assetKey] != null) || (state.avgCost[assetKey] != null);
+  // 「引用標的部位資料」總開關關閉時：不管使用者有沒有真的填過資料，一律當作「有資料」去通過既有的
+  // hasPersonalData閘門判斷（讓加碼/停利/防禦邊界等訊號，回到純粹依市場條件判斷觸不觸發，不被
+  // 「沒填部位資料」卡住），但另外用showPersonalAmounts這個獨立旗標，決定委託清單要不要顯示
+  // 具體股數/金額——兩者服務不同目的，不能共用同一個變數
+  out.hasPersonalData = P.usePersonalPositionData ? reallyHasPersonalData : true;
+  out.showPersonalAmounts = P.usePersonalPositionData;
   if(n < 1) return out;
   const today = rows[n-1];
   out.today = today;
@@ -2246,7 +2261,7 @@ function computeForAsset(assetKey){
   // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
   // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
   // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急
-  if(P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
+  if(P.usePersonalPositionData && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
     const marketValueNow = curShares * today.close;
     const totalWealthNow = cur + marketValueNow;
     const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -2394,7 +2409,7 @@ function renderHero(){
     headline.textContent = '📝 尚未輸入部位資料';
     sub.textContent = `請先在「資料管理」輸入部位資料`;
   } else if(d.exitPriceReached){
-    if((state.shares[key]||0) <= 0){
+    if(d.showPersonalAmounts && (state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
       headline.textContent = '💰 停利觸發';
       sub.textContent = `建議暫緩執行，目前無部位`;
@@ -2421,19 +2436,27 @@ function renderHero(){
       sub.textContent = `建議暫停加碼動能，維持${dcaLabel}`;
     }
   } else if(d.bombardPriceReached){
-    const cashStatus = getCashStatus(key);
-    if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
-      hero.className = 'hero st-warn';
-      headline.textContent = '📈 加碼觸發';
-      sub.textContent = `建議暫緩，現金不足以支付第一層`;
-    } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
-      hero.className = 'hero st-warn';
-      headline.textContent = '📈 加碼觸發';
-      sub.textContent = `建議暫緩第二層，現金不足以支付`;
-    } else {
+    if(!d.showPersonalAmounts){
+      // 沒有引用部位資料：跳過現金夠不夠的細節判斷（getCashStatus依賴現金資料，
+      // 沒有資料時算出來的結果沒有意義），直接給出最單純的提示
       hero.className = 'hero st-bombard';
       headline.textContent = '📈 加碼觸發';
       sub.textContent = `建議依委託清單預約加碼限價單`;
+    } else {
+      const cashStatus = getCashStatus(key);
+      if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
+        hero.className = 'hero st-warn';
+        headline.textContent = '📈 加碼觸發';
+        sub.textContent = `建議暫緩，現金不足以支付第一層`;
+      } else if(cashStatus.sufficient === true && cashStatus.bombardSufficientBoth === false){
+        hero.className = 'hero st-warn';
+        headline.textContent = '📈 加碼觸發';
+        sub.textContent = `建議暫緩第二層，現金不足以支付`;
+      } else {
+        hero.className = 'hero st-bombard';
+        headline.textContent = '📈 加碼觸發';
+        sub.textContent = `建議依委託清單預約加碼限價單`;
+      }
     }
   } else if(d.momentum){
     hero.className = 'hero st-momentum';
@@ -2549,9 +2572,9 @@ function renderLeds(){
   condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
   condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
 
-  // 現金流
+  // 現金流：沒有引用部位資料時，這顆燈天生沒有意義（沒有真實現金數字可以判斷夠不夠），直接不亮
   const cashStatus = getCashStatus(key);
-  const cashLed = getCashLedState(cashStatus);
+  const cashLed = d.showPersonalAmounts ? getCashLedState(cashStatus) : { label:'流動現金', color:'var(--text-faint)' };
   const cashLedOn = cashLed.color !== 'var(--text-faint)';
   const cashLedCls = cashLed.color === 'var(--red)' ? 'red' : cashLed.color === 'var(--amber)' ? 'amber' : '';
   condHtml += ledItem(cashLedOn, cashLed.label, cashLedCls);
@@ -2588,7 +2611,7 @@ function renderLeds(){
   // 沒有輸入過個人持有部位資料時，不知道有沒有東西可以賣，這個燈號也灰掉（跟「確認出清、股數真的是0」不同）
   if(!d.hasPersonalData){
     resultHtml += ledItem(false, '停利觸發', '');
-  } else if(d.exitPriceReached && (state.shares[key]||0) <= 0){
+  } else if(d.showPersonalAmounts && d.exitPriceReached && (state.shares[key]||0) <= 0){
     resultHtml += ledItem(true, '停利觸發', 'amber');
   } else {
     resultHtml += ledItem(d.exitPriceReached, `停利觸發`, '');
@@ -2640,10 +2663,17 @@ function renderOrders(){
     dcaCond = '不執行';
   } else {
     dcaCond = d.hasPersonalData ? '正常執行，除非MA60與現金同時轉弱' : '正常執行，除非MA60與現金同時轉弱（尚無現金資料，無法確認是否會被暫停）';
-    if(asset.dcaMode === 'amount'){
+    if(!d.showPersonalAmounts){
+      // 沒有引用部位資料：定期定額/股的金額或股數本身，也是使用者自己設定的個人化交易規模，
+      // 跟加碼/停利的股數一樣不顯示，只顯示價格本身；價格小數位改用tickDec（跟其他所有委託清單行一致），
+      // 不再用asset.priceDecimals這個使用者自訂的固定小數位，避免顯示出「2385.00」這種多餘小數點
+      dcaDetail = (asset.dcaMode === 'amount')
+        ? `買入 ＠市價`
+        : (d.ready1 ? `買入 ＠${fmtRaw(d.today.close, tickDec)}` : `買入 ＠市價`);
+    } else if(asset.dcaMode === 'amount'){
       dcaDetail = `買入 ${asset.dcaValue.toLocaleString()} ${asset.currency} ＠市價`;
     } else {
-      dcaDetail = d.ready1 ? `買入 ${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, asset.priceDecimals)}` : `買入 ${asset.dcaValue} 股 ＠市價`;
+      dcaDetail = d.ready1 ? `買入 ${asset.dcaValue} 股 ＠${fmtRaw(d.today.close, tickDec)}` : `買入 ${asset.dcaValue} 股 ＠市價`;
     }
   }
   const dcaLabel = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
@@ -2659,7 +2689,10 @@ function renderOrders(){
   if(d.ready && d.today){
     const boostPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
     const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額(或定期定股)×倍數
-    if(!d.momentum){
+    if(!d.showPersonalAmounts){
+      // 動能加額本身也是使用者自己設定的個人化交易規模，跟定期定額/加碼/停利同一套處理方式
+      boostDetail = `買入 ＠${fmtRaw(boostPrice, tickDec)}`;
+    } else if(!d.momentum){
       boostDetail = asset.dcaMode === 'amount'
         ? `買入 0 ${asset.currency} ＠${fmtRaw(boostPrice, tickDec)}`
         : `買入 0 股 ＠${fmtRaw(boostPrice, tickDec)}`;
@@ -2682,7 +2715,16 @@ function renderOrders(){
   let l1Detail = '', l2Detail = '';
   let tip1 = '', tip2 = '';
   const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
-  if(d.ready2){
+  if(d.ready2 && !d.showPersonalAmounts){
+    // 沒有引用部位資料：只顯示限價本身，不顯示股數（節流建議股數同樣依賴現金，這個模式下也一併省略）
+    const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
+    const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+    const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+    l1Detail = throttledL1 ? `買入 ＠${fmtRaw(p1, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p1, tickDec)}`;
+    l2Detail = throttledL2 ? `買入 ＠${fmtRaw(p2, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p2, tickDec)}`;
+    tip1 = `未引用部位資料，僅顯示限價，不計算股數`;
+    tip2 = tip1;
+  } else if(d.ready2){
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
@@ -2779,8 +2821,12 @@ function renderOrders(){
   let exitDetail = '';
   if(d.ready1){
     const exitPrice = applyTick(d.exitThreshold, getEffectiveTick(asset, d.exitThreshold), 'round');
-    const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
-    exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
+    if(!d.showPersonalAmounts){
+      exitDetail = `賣出 ＠${fmtRaw(exitPrice, tickDec)}`;
+    } else {
+      const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
+      exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
+    }
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
     ? `股價達（MA20×${P.exitMult} 與 持股成本×${P.costExitMult}）取高者，不受防禦邊界影響`
@@ -2797,9 +2843,10 @@ function renderOrders(){
   html += orderRow(!!d.exit && d.hasPersonalData, '停利', exitCondTxt, exitDetail, exitTip);
 
   // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
-  // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」時才顯示，
-  // 跟時間停損機制沒開啟時整行不顯示是同一套處理方式
-  if((P.cashTargetPct > 0 && P.cashTargetPct < 1) && P.liqRebuildEnabled !== false){
+  // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」
+  // 且「有引用部位資料」時才顯示——這個機制天生就是在問「你自己的現金佔比夠不夠」，
+  // 沒有部位資料，這個問題本身沒有意義，整行不顯示，跟時間停損機制沒開啟時整行不顯示是同一套處理方式
+  if(d.showPersonalAmounts && (P.cashTargetPct > 0 && P.cashTargetPct < 1) && P.liqRebuildEnabled !== false){
     let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
     let liqDetail = '';
     if(d.liquidityStopTriggered && d.today){
@@ -2978,12 +3025,17 @@ function renderReserve(){
   const lastBombardDateTxt = lastBombardDateVal || '（未輸入）';
   const cashTxt = state.cash[key] != null ? `${st.cur.toLocaleString()} ${st.unit}` : '（未輸入）';
   const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
-  const cashSectionTop = `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
+  // 沒有引用部位資料時，這兩行天生沒有意義（沒有任何個人資料可以顯示），直接不顯示
+  const cashSectionTop = !d.showPersonalAmounts ? '' :
+    `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
-  // 流動現金：唯一一行，恆常顯示現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字
+  // 流動現金：唯一一行，恆常顯示現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字；
+  // 沒有引用部位資料時，這整行天生沒有意義（沒有現金數字可以判斷夠不夠），直接不顯示
   let bombardAffordTxt;
   const affordBase = `現金應保留${st.requiredTxt}`;
-  if(!d.hasPersonalData){
+  if(!d.showPersonalAmounts){
+    bombardAffordTxt = '';
+  } else if(!d.hasPersonalData){
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：（尚未輸入部位資料）</span>`;
   } else if(state.shares[key] == null){
     // 現金填了但股數還沒填：不要把affordBase的「—（尚無收盤價或股數資料）」跟通用的原因文字疊在一起講兩次，
@@ -3164,7 +3216,7 @@ function renderReserve(){
 
   // ---- 6. 現金水位回補觸發（對應結果欄第6個燈號） ----
   let liquidityStopHtml;
-  const liqMonitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1) || asset.params.liqRebuildEnabled === false;
+  const liqMonitoringDisabled = !d.showPersonalAmounts || !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1) || asset.params.liqRebuildEnabled === false;
   if(liqMonitoringDisabled){
     // 沒有設定現金水位監控時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
     // 跟時間停損機制沒開啟時的處理方式一致，監控沒設定這件事，跟有沒有輸入部位資料無關
@@ -3233,8 +3285,8 @@ function renderReserve(){
 
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
-    `<span style="color:var(--text-faint);">根據輸入資料及證交所/Twelve Data資料交叉分析：</span><br>` +
-    cashSectionTop + bombardAffordTxt + `<br>` +
+    `<span style="color:var(--text-faint);">${d.showPersonalAmounts ? '根據輸入資料及證交所/Twelve Data資料交叉分析：' : '根據證交所/Twelve Data資料交叉分析：'}</span><br>` +
+    cashSectionTop + (bombardAffordTxt ? bombardAffordTxt + `<br>` : '') +
     judgmentLines.join('<br>') +
     marginSectionHtml;
 }
@@ -3390,6 +3442,13 @@ function renderAll(){
   safe(renderReserve, 'renderReserve');
   safe(renderOrders, 'renderOrders');
   safe(()=>{
+    // 沒有引用部位資料時，「部位管理」這整塊輸入欄位天生沒有存在的意義（不管填什麼都不會被使用），
+    // 直接整塊隱藏，避免讓人誤以為還需要填寫
+    const asset = getAsset(state.activeTab);
+    const section = document.getElementById('positionMgmtSection');
+    if(section) section.style.display = (asset.params && asset.params.usePersonalPositionData === false) ? 'none' : '';
+  }, 'positionMgmtVisibility');
+  safe(()=>{
     // 「最近一次加碼價格／日期」只服務加碼節流機制（判斷要不要節流、算節流建議價位），
     // 沒開節流時這兩個欄位完全不會被讀取，用disabled明確傳達「不用填也沒差」
     const asset = getAsset(state.activeTab);
@@ -3492,6 +3551,9 @@ function renderAssetManageInner(){
   const idx = state.assets.findIndex(a=>a.key===assetMgmtActiveKey);
   const a = state.assets[idx];
   const sub = assetSubTab[a.key] || 'basic';
+  // 這個標的是否關閉了「引用標的部位資料」，決定「基本設定」裡跟部位規模有關的欄位（定期定額/加碼比例等），
+  // 以及「進階設定」裡天生依賴個人資料的三個分類（現金流動性/時間停損/融資防禦），要不要停用
+  const noPersonalDataMode = !(a.params || DEFAULT_PARAMS).usePersonalPositionData;
 
   const mgmtMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
   // 拿掉箭頭後，設定視窗的分頁列不再支援手動捲動，改成每次渲染都強制置中目前鎖定的標的；
@@ -3524,12 +3586,12 @@ function renderAssetManageInner(){
       </div>
     </div>
     <div class="grid2">
-      <div class="field"><label>定期定額/股</label><input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}"></div>
-      <div class="field"><label>動能觸發加額（定期定額倍數）</label><input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}"></div>
+      <div class="field"><label>定期定額/股</label><input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}" ${noPersonalDataMode?'disabled':''}></div>
+      <div class="field"><label>動能觸發加額（定期定額倍數）</label><input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}" ${noPersonalDataMode?'disabled':''}></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}"></div>
-      <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
+      <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}" ${noPersonalDataMode?'disabled':''}></div>
+      <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}" ${noPersonalDataMode?'disabled':''}></div>
     </div>
     <div class="grid2">
       <div class="field"><label>證交所／美股代號（台股填數字代號如2330，美股填英文代號如TSM）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
@@ -3725,15 +3787,20 @@ function renderAssetManageInner(){
     '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
   };
   state.paramCatCollapsed = state.paramCatCollapsed || {};
+  // 這三個分類天生圍繞個人部位資料運作（現金水位回補、時間停損、融資防禦），
+  // 關閉「引用標的部位資料」總開關時，這幾個分類的設定完全沒有意義，強制折疊、且內部欄位停用編輯
+  const personalDataOnlyCats = new Set(['現金流動性', '時間停損', '融資防禦']);
   const advHtml = catOrder.map(cat=>{
     const catTip = catTipMap[cat]
       ? `<span class="test-flag-icon">i<div class="test-flag-tip">${catTipMap[cat]}</div></span>`
       : '';
-    const isCollapsed = !!state.paramCatCollapsed[cat];
+    const forceCollapsed = noPersonalDataMode && personalDataOnlyCats.has(cat);
+    const isCollapsed = forceCollapsed || !!state.paramCatCollapsed[cat];
+    const disabledNote = forceCollapsed ? `<span style="color:var(--text-faint); font-weight:400; font-size:10px;">（需要引用部位資料才能設定）</span>` : '';
     return `<div class="param-cat-mini" data-paramcat="${cat}">
-        <span class="chev ${isCollapsed?'collapsed':''}">▾</span>${cat}${catTip}
+        <span class="chev ${isCollapsed?'collapsed':''}">▾</span>${cat}${disabledNote}${catTip}
       </div>
-      <div class="param-cat-group ${isCollapsed?'collapsed':''}" data-paramcatgroup="${cat}">${catGroups[cat].join('')}</div>`;
+      <div class="param-cat-group ${isCollapsed?'collapsed':''} ${forceCollapsed?'param-cat-disabled':''}" data-paramcatgroup="${cat}">${catGroups[cat].join('')}</div>`;
   }).join('');
 
   wrap.innerHTML = `
@@ -3894,6 +3961,12 @@ function renderAssetManageInner(){
           if(obsDaysInput) obsDaysInput.disabled = !v;
         }
         await storageSet(KEY_ASSETS, state.assets);
+        // 「引用標的部位資料」這個總開關，會決定「現金流動性」「時間停損」「融資防禦」
+        // 這三個分類要不要強制折疊/停用，這個判斷只在renderAssetManageInner重新執行時才會生效，
+        // renderAll()本身不會重新渲染進階設定畫面，所以這裡要額外強制重新渲染，才能即時反映
+        if(pfield === 'usePersonalPositionData'){
+          renderAssetManage();
+        }
         renderAll();
         return;
       }
@@ -4804,11 +4877,14 @@ document.getElementById('assetManageList').addEventListener('click', (e)=>{
   if(!header) return;
   const cat = header.getAttribute('data-paramcat');
   if(!cat) return;
+  const group = document.querySelector(`.param-cat-group[data-paramcatgroup="${cat}"]`);
+  // 這個分類目前是「因為關閉引用部位資料而被強制折疊」的狀態，不允許手動展開，
+  // 直到重新勾選「引用標的部位資料」、整個畫面重新渲染，才會恢復可以正常展開/收合
+  if(group && group.classList.contains('param-cat-disabled')) return;
   state.paramCatCollapsed = state.paramCatCollapsed || {};
   state.paramCatCollapsed[cat] = !state.paramCatCollapsed[cat];
   const chev = header.querySelector('.chev');
   if(chev) chev.classList.toggle('collapsed', state.paramCatCollapsed[cat]);
-  const group = document.querySelector(`.param-cat-group[data-paramcatgroup="${cat}"]`);
   if(group) group.classList.toggle('collapsed', state.paramCatCollapsed[cat]);
 });
 document.getElementById('btnSaveAsset').addEventListener('click', async ()=>{
@@ -4848,7 +4924,12 @@ document.getElementById('btnExportAssets').addEventListener('click', ()=>{
     lastBombardPrice: state.lastBombardPrice[a.key],
     lastBombardDate: state.lastBombardDate[a.key],
   }));
-  const content = JSON.stringify({ assets: assetsWithExtra }, null, 2);
+  // 匯出時間戳記：讓使用者手上如果有好幾份不同時間點匯出的設定檔，能一眼分辨哪份是最新的，
+  // 格式跟頁尾「最後更新」一致（YYYY-MM-DD HH:MM），每次匯出都用「當下」的真實時間，不是寫死的固定值
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const exportedAt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const content = JSON.stringify({ 最後更新: exportedAt, assets: assetsWithExtra }, null, 2);
   const blob = new Blob([content], {type:'application/json;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
