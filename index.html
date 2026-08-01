@@ -631,6 +631,8 @@
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowDcaPause" style="width:auto;">暫停定期定額</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLowCashRatio" style="width:auto;">現金佔比低於門檻</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowExitBelowCost" style="width:auto;">停利觸發時價格低於平均成本</label>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowScheduledBombard" style="width:auto;">每日預約加碼明細</label>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowScheduledExit" style="width:auto;">每日預約停利明細</label>
       </div>
     </div>
 
@@ -642,7 +644,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-07-31 19:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 06:50</div>
   </div>
   </div>
 
@@ -701,6 +703,11 @@ const KEY_LAST_BOMBARD_DATE = k => 'tsmos:lastbombarddate:' + k;
 
 const DEFAULT_PARAMS = {
   tolerance: 0.010,
+  bombardReferenceMa: 'ma20',  // 2026-07 新增：加碼參考均線，'ma20'(現行預設)或'ma60'，決定touch判斷跟限價計算要用哪一條均線當基準
+  crossAssetBoostEnabled: false,  // 2026-07 新增：跨標的崩跌訊號加成，用另一個標的（例如TSM）前一交易日的異常表現，決定今天要不要加碼更多
+  crossAssetRefKey: '',  // 要參考哪個標的的key（例如'asset2'代表TSM），空字串代表沒有設定、不生效
+  crossAssetAmpThreshold: 0.04,  // 參考標的前一交易日的振幅門檻，超過才算「異常」
+  crossAssetBoostMult: 1.5,  // 符合異常條件時，L1/L2比例要乘上的加成倍數
   exitMult: 1.12,
   layer2Mult: 0.99,      // 只管L2定價：L2要比L1基準價便宜多少
   cashTargetPct: 0.10,
@@ -751,7 +758,11 @@ const PARAM_META = [
   ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼條件','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1，改變保留天數後這個上限會跟著調整'],
   ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
   ['bombardRequireCash','加碼要求流動現金充足','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
-  ['tolerance','股價達加碼價位的MA20區間容忍度%','pct','加碼條件','股價要多接近MA20才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
+  ['bombardReferenceMa','加碼參考均線','maref','加碼條件','決定加碼要拉回到哪一條均線才觸發——選MA20（現行預設）較敏感、較常觸發；選MA60則要股價拉回到更主要的支撐才會觸發，次數會少很多，但可能等到更值得承接的位置'],
+  ['crossAssetBoostEnabled','啟用跨標的崩跌訊號加成（目前僅支援回測模擬）','crossref','加碼條件','用另一個標的（例如美股ADR）前一交易日的異常表現，判斷今天要不要用更高的比例加碼——例如台積電可以參考TSM前一晚是否已經出現異常崩跌，因為兩者本質上是同一家公司，只是在不同時區交易，前一晚的異常表現，統計上跟隔天台股容易劇烈波動有關聯'],
+  ['crossAssetAmpThreshold','參考標的異常振幅門檻%','pct','加碼條件','參考標的前一交易日的（最高價−最低價）/收盤價，超過這個門檻才算「異常」，才會觸發加成'],
+  ['crossAssetBoostMult','異常時的加碼倍數','mult','加碼條件','符合異常條件時，這一次的L1/L2加碼比例，要乘上這個倍數（例如1.5代表比例變成原本的1.5倍）'],
+  ['tolerance','股價達加碼價位的區間容忍度%','pct','加碼條件','股價要多接近上面選的那條均線才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
   ['layer2Mult','第二層價位為第一層價位的百分比%','pct','加碼條件','第二層加碼要比第一層便宜才掛單，這裡設定第二層是第一層的幾%，例如設98代表第二層價位是第一層的98%（也就是便宜2%）；必須小於100，才能保證第二層永遠比第一層便宜'],
   ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「資料管理」卡片手動回報；股價脫離加碼區間時會自動清空，不用手動維護'],
   ['throttleMult','加碼節流門檻%','pct','加碼條件','這次要掛的限價，要低於「最近一次加碼價格」的這個百分比，才算真的夠低、值得再買一次，例如設99代表新價格要&lt;最近一次加碼價格的99%（也就是至少便宜1%）；沒有便宜到這個程度，就暫緩'],
@@ -1266,6 +1277,41 @@ async function runBacktest(){
     const actualStartStr = allRows[startIdx].date;
     const dateNote = (actualStartStr !== startStr2) ? `（${startStr2}非交易日，已改用最近交易日 ${actualStartStr} 起算）` : '';
 
+    // 跨標的崩跌訊號加成：如果有啟用，額外準備參考標的（例如TSM）的完整歷史資料，
+    // 建立「用日期查前一交易日振幅/漲跌幅」的查詢表，供主迴圈判斷要不要加成
+    const ENABLE_CROSS_ASSET_BOOST = P.crossAssetBoostEnabled && P.crossAssetRefKey;
+    const CROSS_ASSET_AMP_THRESHOLD = (P.crossAssetAmpThreshold != null ? P.crossAssetAmpThreshold : 0.04) * 100;
+    const CROSS_ASSET_BOOST_MULT = P.crossAssetBoostMult || 1.5;
+    let crossAssetSortedDates = [];
+    let crossAssetByDate = {};
+    if(ENABLE_CROSS_ASSET_BOOST){
+      const crossRows = btImportedData[P.crossAssetRefKey];
+      if(!crossRows || crossRows.length < 2){
+        throw new Error(`已啟用「跨標的崩跌訊號加成」，但參考標的（${getAsset(P.crossAssetRefKey)?.name || P.crossAssetRefKey}）尚未匯入歷史資料，請先切到那個標的的分頁匯入資料`);
+      }
+      crossRows.forEach(r => { crossAssetByDate[r.date] = r; });
+      crossAssetSortedDates = crossRows.map(r => r.date).sort();
+    }
+    // 給定「今天」的日期，找出參考標的裡「最近一個早於今天」的交易日，回傳「那一天相對前一天」的漲跌幅%跟振幅%；
+    // 找不到就回傳null（例如太早期還沒有參考標的資料、或參考標的當天休市）
+    function getCrossAssetSignal(todayDateStr){
+      // 從sorted陣列裡找出最後一個嚴格小於todayDateStr的日期
+      let lo = 0, hi = crossAssetSortedDates.length - 1, resultIdx = -1;
+      while(lo <= hi){
+        const mid = (lo+hi) >> 1;
+        if(crossAssetSortedDates[mid] < todayDateStr){ resultIdx = mid; lo = mid+1; } else { hi = mid-1; }
+      }
+      if(resultIdx <= 0) return null; // 找不到，或找到的是第一筆(沒有更早一天可以算漲跌幅)
+      const thisDate = crossAssetSortedDates[resultIdx];
+      const prevDate = crossAssetSortedDates[resultIdx-1];
+      const thisRow = crossAssetByDate[thisDate];
+      const prevRow = crossAssetByDate[prevDate];
+      if(thisRow.close == null || prevRow.close == null || thisRow.high == null || thisRow.low == null) return null;
+      const chgPct = (thisRow.close - prevRow.close) / prevRow.close * 100;
+      const ampPct = (thisRow.high - thisRow.low) / thisRow.close * 100;
+      return { chgPct, ampPct, refDate: thisDate };
+    }
+
     statusEl.innerHTML = `<span style="color:var(--text-dim)">模擬計算中...</span>`;
     btn.textContent = originalText;
 
@@ -1300,6 +1346,11 @@ async function runBacktest(){
     const dcaPausedEvents = [];
     const bombardL1Events = [];
     const bombardL1CashSkipEvents = [];
+    // 每日預約明細：不管有沒有真的成交，只要「有股票可以賣」或「加碼訊號有觸發」，
+    // 都記下當天根據前一天資料算出的預約掛單內容（限價、股數），呼應「掛單即紀律」——
+    // 每天都應該有一張預約單，不是「達標才有單」
+    const scheduledBombardEvents = [];
+    const scheduledExitEvents = [];
     // 加碼節流：記住「這一輪拉回、上一次觸發時算出的限價」；L1/L2共用同一個節流狀態，
     // 股價脫離加碼區間過一次（touch從true變false）就重置，允許下次不管價位高低都能重新觸發
     let lastBombardLimit = null;
@@ -1316,7 +1367,9 @@ async function runBacktest(){
       const ma5Y2 = maAt(i-2,5), ma20Y2 = maAt(i-2,20), ma60Y2 = maAt(i-2,60);
       if(ma5Y == null || ma20Y == null) continue;
 
-      const touch = closeY <= ma20Y * (1 + P.tolerance);
+      // 加碼參考均線：選MA20用ma20Y，選MA60用ma60Y，決定touch判斷跟限價計算的基準
+      const bombardRefMaY = (P.bombardReferenceMa === 'ma60') ? ma60Y : ma20Y;
+      const touch = (bombardRefMaY != null) && (closeY <= bombardRefMaY * (1 + P.tolerance));
       // 今天開盤前的現金快照：所有今天要「預約委託」的金額（目前只有加碼第一/二層用「現金×比例%」計算），
       // 都必須用「昨天收盤時」這個固定基準去算，不能用「今天稍早已經執行過其他交易（定期定額、動能）」後
       // 才知道的現金餘額——否則等於用了下單當下還不存在的未來資訊，違反「次一交易日預約委託」的設計原則。
@@ -1391,7 +1444,11 @@ async function runBacktest(){
       // 測試用：加碼多一層日振幅異常防禦邊界，單日暴起暴落又下跌時暫停加碼（即使MA60、現金都正常）
       // 測試用：加碼多一層開高走低型態防禦邊界，連續N天開高走低時暫停加碼（即使MA60、現金都正常）
       const bombardOk = bombardDefenseOkRaw && (!ENABLE_VOLUME_DEFENSE_FOR_BOMBARD || !volumeWarning) && (!ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD || !amplitudeWarning) && !openHighCloseLowWarning;
-      const bombard = touch && bombardOk;
+      // 掛單即紀律：不再要求「昨天收盤價」要先進入容忍度範圍才准許掛單——p1/p2本身已經用
+      // min(昨天收盤價, 昨天MA20)算出合理的限價，不管昨天股價離MA20多遠，這個限價都是合理的入場點；
+      // 只要MA60/現金等其他條件符合，每天都應該掛出這張限價單，讓「今天最低價」決定有沒有成交，
+      // 不能因為「昨天還沒進入容忍度範圍」就完全不掛單，否則會錯過「昨天還沒拉回、今天突然暴跌」這種情況（例如07-17）
+      const bombard = bombardOk;
 
       const ma5upFlat = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
       let threeDay = false;
@@ -1518,7 +1575,7 @@ async function runBacktest(){
       // 節流：這次算出的限價（p1），要比「上一次真的成交」的限價再乘上獨立的throttleMult（不跟layer2Mult共用，
       // 避免調整L2定價時意外連帶影響節流敏感度）才算數，不是隨便低一點點就算，避免同一價格區間反覆買
       if(bombard){
-        const basePrice = Math.min(closeY, ma20Y);
+        const basePrice = Math.min(closeY, bombardRefMaY);
         const p1Natural = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
         const p2Natural = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
         // 節流是否要檢查：預設「只要啟用節流就一律檢查」；如果額外開了「僅在MA60向下且股價<MA60時啟用」，
@@ -1536,8 +1593,24 @@ async function runBacktest(){
           p1 = applyTick(lastBombardLimit * P.throttleMult, getEffectiveTick(asset, lastBombardLimit * P.throttleMult), 'floor');
           p2 = applyTick(p1 * P.layer2Mult, getEffectiveTick(asset, p1 * P.layer2Mult), 'floor');
         }
-        const cost1 = cashAtDayStart * asset.l1Pct;
-        const cost2 = cashAtDayStart * asset.l2Pct;
+        // 跨標的崩跌訊號加成：用「參考標的（例如TSM）最近一個早於今天的交易日」，
+        // 是否符合「收黑＋振幅超過門檻」這個異常條件，決定今天的L1/L2比例要不要加成
+        let crossBoostApplied = false;
+        let crossBoostMultUsed = 1;
+        if(ENABLE_CROSS_ASSET_BOOST){
+          const sig = getCrossAssetSignal(today_.date);
+          if(sig && sig.chgPct < 0 && sig.ampPct > CROSS_ASSET_AMP_THRESHOLD){
+            crossBoostApplied = true;
+            crossBoostMultUsed = CROSS_ASSET_BOOST_MULT;
+          }
+        }
+        const cost1 = cashAtDayStart * asset.l1Pct * crossBoostMultUsed;
+        const cost2 = cashAtDayStart * asset.l2Pct * crossBoostMultUsed;
+        // 每日預約加碼明細：不管今天最低價有沒有真的觸及p1/p2，只要訊號有觸發，就先記下這筆預約掛單
+        // （限價、預計股數、金額是否夠買到有意義的股數），呼應「掛單即紀律」──每天都該有一張預約單
+        const scheduledShares1 = (cost1 >= closeT && p1 > 0) ? (cost1 / p1) : 0;
+        const scheduledShares2 = (asset.l2Pct > 0 && cost2 >= closeT && p2 > 0) ? (cost2 / p2) : 0;
+        scheduledBombardEvents.push({ date: today_.date, p1, p2, cost1, cost2, scheduledShares1, scheduledShares2, hasL2: asset.l2Pct > 0, throttled: priceWasAdjusted, crossBoosted: crossBoostApplied });
         const p1Touched = today_.low != null && today_.low <= p1;
         // 防呆：算出來的加碼金額，要至少能買到最近收盤價的1股，太小的金額（現金被榨乾到極低時常見）
         // 買不到有意義的股數，直接跳過，避免現金被一連串無意義的微額交易一點一滴榨乾
@@ -1603,7 +1676,19 @@ async function runBacktest(){
       const confirmDayOk = closeY >= thresholdY && ma60GateOk;
       if(confirmDayOk){ exitConfirmStreak++; } else { exitConfirmStreak = 0; }
       const exitConfirmOk = !ENABLE_EXIT_CONFIRM_DAYS || exitConfirmStreak >= EXIT_CONFIRM_DAYS;
-      const exitSignal = closeY >= thresholdY && totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
+      // 掛單即紀律：不管昨天收盤價有沒有先達到門檻，每天都應該用「昨天算出的限價」試著掛單，
+      // 讓「今天最高價」去決定有沒有成交——不能額外要求「昨天收盤價也要先達標」才准許掛單，
+      // 否則會錯過「股價當天噴出、直接觸及限價，但前一天收盤還沒達標」這種真實會發生的情況。
+      // 「MA60條件停利」需要的「連續N天都要達標」這件事，已經由上面的exitConfirmOk（靠confirmDayOk
+      // 內部的closeY>=thresholdY逐日累計）負責把關，這裡不需要再重複要求「今天」這一次的closeY也達標
+      const exitSignal = totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
+      // 每日預約停利明細：不管今天最高價有沒有真的觸及這個限價，只要訊號有觸發，就先記下這筆預約掛單
+      // （限價、預計賣出股數），呼應「掛單即紀律」──每天都該有一張預約單
+      if(exitSignal){
+        const scheduledSellPrice = applyTick(thresholdY, getEffectiveTick(asset, thresholdY), 'round');
+        const scheduledSellShares = totalShares * P.exitPartialFrac;
+        scheduledExitEvents.push({ date: today_.date, price: scheduledSellPrice, shares: scheduledSellShares });
+      }
       const curDate = new Date(today_.date + 'T00:00:00');
       // 時間停損現在多一個條件：現金水位已經高於最低比例（現金現金水位回補那一段已經處理過緊急狀況）才暫緩；
       // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位回補」而完全跳過
@@ -1669,6 +1754,8 @@ async function runBacktest(){
     const showDcaPause = document.getElementById('btShowDcaPause').checked;
     const showLowCashRatio = document.getElementById('btShowLowCashRatio').checked;
     const showExitBelowCost = document.getElementById('btShowExitBelowCost').checked;
+    const showScheduledBombard = document.getElementById('btShowScheduledBombard').checked;
+    const showScheduledExit = document.getElementById('btShowScheduledExit').checked;
     const tagVisible = { '加碼': showBombard, '停利': showExit, '時間停損': showTimeStop, '現金水位回補': showLiqStop, '暫停定期定額': showDcaPause };
 
     if(showLowCashRatio){
@@ -1693,6 +1780,39 @@ async function runBacktest(){
         });
       } else {
         html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內所有停利觸發，賣出價格都不低於當下的平均成本。</div>`;
+      }
+    }
+
+    if(showScheduledBombard){
+      // 每日預約加碼明細：呼應「掛單即紀律」，不管有沒有真的成交，只要訊號有觸發，
+      // 每一天都應該有一張根據前一天資料算出的預約掛單；金額太小(<最近收盤價)買不到有意義股數時特別標註
+      if(scheduledBombardEvents.length > 0){
+        html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">每日預約加碼明細（共${scheduledBombardEvents.length}筆）：</div>`;
+        scheduledBombardEvents.forEach(ev=>{
+          const throttleTxt = ev.throttled ? '（節流下修價）' : '';
+          const l1Txt = ev.scheduledShares1 > 0
+            ? `L1：${fmtRaw(ev.scheduledShares1,0)}股＠${fmtRaw(ev.p1,2)}`
+            : `L1：金額太小不值得執行＠${fmtRaw(ev.p1,2)}`;
+          const l2Txt = !ev.hasL2 ? '' : (ev.scheduledShares2 > 0
+            ? `｜L2：${fmtRaw(ev.scheduledShares2,0)}股＠${fmtRaw(ev.p2,2)}`
+            : `｜L2：金額太小不值得執行＠${fmtRaw(ev.p2,2)}`);
+          html += `<div class="footer-note" style="text-align:left;">${ev.date}${throttleTxt}：${l1Txt}${l2Txt}</div>`;
+        });
+      } else {
+        html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內加碼訊號從未觸發，沒有任何預約加碼掛單。</div>`;
+      }
+    }
+
+    if(showScheduledExit){
+      // 每日預約停利明細：同樣呼應「掛單即紀律」，不管今天最高價有沒有真的觸及，
+      // 只要訊號有觸發，就應該有一張預約停利限價單
+      if(scheduledExitEvents.length > 0){
+        html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">每日預約停利明細（共${scheduledExitEvents.length}筆）：</div>`;
+        scheduledExitEvents.forEach(ev=>{
+          html += `<div class="footer-note" style="text-align:left;">${ev.date}：分批停利${fmtRaw(ev.shares,0)}股＠${fmtRaw(ev.price,2)}</div>`;
+        });
+      } else {
+        html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內停利訊號從未觸發，沒有任何預約停利掛單。</div>`;
       }
     }
 
@@ -1977,19 +2097,29 @@ function computeForAsset(assetKey){
   out.today = today;
 
   // 下面這些判定只需要「今天」的資料就能算，資料只有1筆也能判定
-  out.touch = today.close <= today.ma20 * (1 + P.tolerance);
+  // 加碼參考均線：選MA20用今天MA20，選MA60用今天MA60，決定touch判斷跟限價計算的基準
+  const bombardRefMaToday = (P.bombardReferenceMa === 'ma60') ? today.ma60 : today.ma20;
+  out.touch = (bombardRefMaToday != null) && (today.close <= bombardRefMaToday * (1 + P.tolerance));
 
   // 停利：初始條件永遠是「股價漲到MA20×停利乘數」，這是必要的第一層檢查；
   // 再依照使用者選擇的機制（成本倍數停利／MA60條件停利），疊加第二層的額外確認
   const avgCost = state.avgCost[assetKey] || 0;
   const ma20ExitPrice = today.ma20 * P.exitMult;
-  const priceAboveMa20Exit = today.close >= ma20ExitPrice; // 第一層：MA20基本門檻，兩種機制都要先通過這關
+  // 客觀事實：股價是否真的已經達到MA20停利門檻；這個值只服務「訊號明細」「訊號狀態」這兩個畫面，
+  // 呈現「根據目前為止的資料，判斷出來的真實狀態」，跟下面out.exit（服務「委託清單」，
+  // 代表「是否應該掛出委託單」）是不同語意，不能混用
+  const priceAboveMa20Exit = today.close >= ma20ExitPrice;
 
   if(!P.exitSecondLayerEnabled){
-    // 沒有啟用第二層閥門，純粹只看MA20門檻，不疊加成本或MA60的任何額外確認
+    // 沒有啟用第二層閥門，純粹只看MA20門檻，不疊加成本或MA60的任何額外確認；
+    // 掛單即紀律：只要有股票就永遠視為「有一張根據今天資料算出的停利限價單掛著」，
+    // 不因為「今天收盤價還沒達標」而顯示未觸發——今天收盤價高低只決定限價本身多少，不決定要不要掛單。
+    // exitPriceReached則是「訊號明細/訊號狀態」要用的客觀事實（股價是否真的已經到這個價位），
+    // 兩者服務不同畫面，不能共用同一個值
     out.exitThreshold = ma20ExitPrice;
     out.exitThresholdSource = 'ma20';
-    out.exit = priceAboveMa20Exit;
+    out.exitPriceReached = priceAboveMa20Exit;
+    out.exit = (state.shares[assetKey] || 0) > 0;
   } else if(P.useMa60ConfirmForExit){
     // 第二層（MA60條件停利）：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計；
     // 天數上限＝這個標的設定的保留天數−1（多留1天用來比較「今天vs昨天」），確保永遠有足夠資料可以回溯確認
@@ -2002,6 +2132,7 @@ function computeForAsset(assetKey){
       // 即時判定最多只保留5天資料，天數上限鎖定在4天，避免設定超過工具能力範圍卻沒有任何提示；
       // 資料不足時，保守視為「尚未確認」，不觸發，並標記原因讓訊號明細可以誠實顯示
       out.exitMa60ConfirmInsufficientData = true;
+      out.exitPriceReached = false;
       out.exit = false;
     } else {
       let confirmOk = true;
@@ -2014,6 +2145,9 @@ function computeForAsset(assetKey){
         if(!(dayPriceAboveMa20Exit && dayPriceAboveMa60 && dayMa60upFlat)){ confirmOk = false; break; }
       }
       out.exitMa60ConfirmOk = confirmOk;
+      // 這個機制本身「連續N天都要符合」就是唯一的判斷依據，不是「用今天最高價檢查有沒有觸及某個限價」這種模式，
+      // 所以exitPriceReached（客觀事實）跟exit（是否該掛單）在這裡是同一件事，不受「掛單即紀律」影響
+      out.exitPriceReached = confirmOk;
       out.exit = confirmOk;
     }
   } else if(P.exitVolumeConfirmEnabled){
@@ -2024,6 +2158,7 @@ function computeForAsset(assetKey){
     out.exitThresholdSource = 'ma20';
     if(n < 22){
       out.exitVolumeConfirmInsufficientData = true;
+      out.exitPriceReached = false;
       out.exit = false;
     } else {
       let volSum = 0, volCount = 0;
@@ -2034,7 +2169,11 @@ function computeForAsset(assetKey){
       const yestRow = rows[n-2];
       const volumeConfirmed = (volAvg20 != null && volAvg20 > 0 && yestRow.volume != null) ? (yestRow.volume > volAvg20 * (P.exitVolumeMult || 1.2)) : false;
       out.exitVolumeConfirmOk = volumeConfirmed;
-      out.exit = priceAboveMa20Exit && volumeConfirmed;
+      // 客觀事實（給訊號明細）：股價要真的達標、且量能也真的確認，兩者都要
+      out.exitPriceReached = priceAboveMa20Exit && volumeConfirmed;
+      // 掛單即紀律：不再要求「今天收盤價」也要達標，只要有股票、且量能確認條件符合，
+      // 就視為有一張根據今天資料算出的停利限價單掛著
+      out.exit = (state.shares[assetKey] || 0) > 0 && volumeConfirmed;
     }
   } else {
     // 第二層（成本倍數停利）：平均成本×成本乘數，只有在這個門檻比MA20門檻更高時，才會多要求這一關；
@@ -2043,7 +2182,11 @@ function computeForAsset(assetKey){
     const priceAboveCostExit = (costExitPrice != null) ? (today.close >= costExitPrice) : true;
     out.exitThreshold = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
     out.exitThresholdSource = (costExitPrice != null && costExitPrice > ma20ExitPrice) ? 'cost' : 'ma20';
-    out.exit = priceAboveMa20Exit && priceAboveCostExit; // 停利不受防禦邊界影響
+    // 客觀事實（給訊號明細）：MA20門檻與成本門檻，兩者都要真的達標
+    out.exitPriceReached = priceAboveMa20Exit && priceAboveCostExit;
+    // 掛單即紀律：限價本身已經取MA20門檻與成本門檻兩者較高者，不用再額外要求「今天收盤價」要達標，
+    // 只要有股票，就視為有一張以這個限價掛著的停利單
+    out.exit = (state.shares[assetKey] || 0) > 0;
   }
 
   // 時間停損：預設關閉，只有這個標的勾選「啟用時間停損機制」才會計算；從建倉起始日算起，超過設定天數仍未停利，建議分批停損
@@ -2176,7 +2319,14 @@ function computeForAsset(assetKey){
   }
   out.bombardPriceAboveMa60Ok = (P.bombardRequirePriceAboveMa60 === false) ? true : (bombardMa60ObservationOk || out.priceAboveMa60);
   out.bombardCashOk = (P.bombardRequireCash === false) ? true : cashFactorOk;
-  out.bombard = out.touch && out.bombardMa20Ok && out.bombardMa60Ok && out.bombardPriceAboveMa60Ok && out.bombardCashOk && out.marginSafe && out.hasPersonalData;
+  // 掛單即紀律：不再要求「今天收盤價」要先進入容忍度範圍(out.touch)才准許掛單——限價本身已經用
+  // min(今天收盤價, 今天MA20)算出合理的入場點，不管股價現在離MA20多遠，都應該掛出這張限價單，
+  // 讓「明天最低價」決定有沒有成交，不能因為「今天還沒進入容忍度範圍」就完全不建議掛單。
+  // out.bombard（委託建議，服務委託清單）跟out.bombardPriceReached（客觀事實，服務Hero卡片／
+  // 訊號狀態／訊號明細）語意不同，不能共用——bombardPriceReached額外要求touch也成立，
+  // 才真正代表「股價已經到位、真的觸發」這個事實
+  out.bombard = out.bombardMa20Ok && out.bombardMa60Ok && out.bombardPriceAboveMa60Ok && out.bombardCashOk && out.marginSafe && out.hasPersonalData;
+  out.bombardPriceReached = out.touch && out.bombard;
 
   // 加碼節流的價位檢查：只要有足夠資料（ready2）且節流機制開啟，就照樣計算，不受bombard是否成立影響——
   // 這是給委託清單當「預覽」用的（即使今天MA20暫時沒有持平向上、bombard=false，只要防禦邊界正常，
@@ -2190,7 +2340,7 @@ function computeForAsset(assetKey){
   const shouldCheckThrottleLive = P.bombardThrottleEnabled && (!P.bombardThrottleConditionalOnMa60 || ma60WeakForThrottleLive);
   if(n >= 2 && shouldCheckThrottleLive){
     const asset = getAsset(assetKey);
-    const basePrice = Math.min(today.close, today.ma20);
+    const basePrice = Math.min(today.close, bombardRefMaToday);
     const lastPrice = state.lastBombardPrice[assetKey];
     if(asset.l1Pct > 0){
       const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
@@ -2243,7 +2393,7 @@ function renderHero(){
     hero.className = 'hero st-idle';
     headline.textContent = '📝 尚未輸入部位資料';
     sub.textContent = `請先在「資料管理」輸入部位資料`;
-  } else if(d.exit){
+  } else if(d.exitPriceReached){
     if((state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
       headline.textContent = '💰 停利觸發';
@@ -2251,7 +2401,7 @@ function renderHero(){
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '💰 停利觸發';
-      sub.textContent = `建議分批停利，股價達停利價位`;
+      sub.textContent = `建議依委託清單預約停利限價單`;
     }
   } else if(d.timeStopTriggered){
     hero.className = 'hero st-warn';
@@ -2270,7 +2420,7 @@ function renderHero(){
       headline.textContent = '🛡 防禦邊界';
       sub.textContent = `建議暫停加碼動能，維持${dcaLabel}`;
     }
-  } else if(d.bombard){
+  } else if(d.bombardPriceReached){
     const cashStatus = getCashStatus(key);
     if(cashStatus.sufficient === true && cashStatus.bombardSufficient === false){
       hero.className = 'hero st-warn';
@@ -2283,7 +2433,7 @@ function renderHero(){
     } else {
       hero.className = 'hero st-bombard';
       headline.textContent = '📈 加碼觸發';
-      sub.textContent = `建議加碼，股價達加碼價位`;
+      sub.textContent = `建議依委託清單預約加碼限價單`;
     }
   } else if(d.momentum){
     hero.className = 'hero st-momentum';
@@ -2397,7 +2547,7 @@ function renderLeds(){
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
   const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
   condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
-  condHtml += ledItem(true, `股價達停利價位`, d.exit?'':'red');
+  condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
 
   // 現金流
   const cashStatus = getCashStatus(key);
@@ -2422,7 +2572,7 @@ function renderLeds(){
   resultHtml += ledItem(dcaLedOn, dcaLabelLed, dcaLedOn && d.dcaPaused ? 'amber' : '');
 
   // MA20（戰略線）
-  resultHtml += d.ready2 ? ledItem(d.bombard && bombardCondEnabled, '加碼觸發') : need(2, '加碼觸發');
+  resultHtml += d.ready2 ? ledItem(d.bombardPriceReached && bombardCondEnabled, '加碼觸發') : need(2, '加碼觸發');
   // 加碼節流觸發：加碼機制本身沒在用（兩層比例都是0）時，不管節流開關有沒有勾選，都該灰色不亮——
   // 節流是加碼機制的附加調節，加碼機制都沒開，節流顯示任何狀態都沒有意義；
   // 機制本身有在用、但節流開關沒勾選時，也是灰色不亮（跟融資防禦一樣，功能沒開啟就不該顯示狀態）；
@@ -2438,10 +2588,10 @@ function renderLeds(){
   // 沒有輸入過個人持有部位資料時，不知道有沒有東西可以賣，這個燈號也灰掉（跟「確認出清、股數真的是0」不同）
   if(!d.hasPersonalData){
     resultHtml += ledItem(false, '停利觸發', '');
-  } else if(d.exit && (state.shares[key]||0) <= 0){
+  } else if(d.exitPriceReached && (state.shares[key]||0) <= 0){
     resultHtml += ledItem(true, '停利觸發', 'amber');
   } else {
-    resultHtml += ledItem(d.exit, `停利觸發`, '');
+    resultHtml += ledItem(d.exitPriceReached, `停利觸發`, '');
   }
 
   // 停利閥門觸發：暫時永遠不亮——只是「啟用第二層閥門」這個設定有沒有勾選，不代表真的有東西被擋下，
@@ -2533,7 +2683,7 @@ function renderOrders(){
   let tip1 = '', tip2 = '';
   const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
   if(d.ready2){
-    const basePrice = Math.min(d.today.close, d.today.ma20);
+    const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     const cashNow = state.cash[key] || 0;
@@ -2615,13 +2765,14 @@ function renderOrders(){
     }
   }
   const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  const bombardRefMaLabel = (P.bombardReferenceMa === 'ma60') ? 'MA60' : 'MA20';
   // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
   // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
   if(asset.l1Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail, tip1);
+    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail, tip1);
   }
   if(asset.l2Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於MA20×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail, tip2);
+    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail, tip2);
   }
 
   // 停利：分批停利（每次依分批停利比例%執行，非全部停利）
@@ -2718,7 +2869,7 @@ function getCashStatus(key){
   let bombardTriggered = false, bombardCost = null, bombardSufficient = null, bombardCostTxt = '';
   let layer2Cost = null, layer2CostTxt = '', bombardSufficientBoth = null;
   if(d.today){
-    const basePrice = Math.min(d.today.close, d.today.ma20);
+    const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     bombardCost = cur * asset.l1Pct;
@@ -2915,7 +3066,7 @@ function renderReserve(){
   } else if(!d.hasPersonalData){
     bombardTriggerTxt = '（尚未輸入部位資料）';
     bombardColor = 'var(--text-faint)';
-  } else if(d.bombard){
+  } else if(d.bombardPriceReached){
     bombardTriggerTxt = (asset.l2Pct > 0)
       ? `加碼價位＠${st.bombardCostTxt}｜加碼第二層價位＠${st.layer2CostTxt}`
       : `加碼價位＠${st.bombardCostTxt}`;
@@ -2931,10 +3082,11 @@ function renderReserve(){
     bombardTriggerTxt = `觸發｜加碼價位＠${st.bombardCostTxt}｜融資維持率過低`;
     bombardColor = 'var(--amber)';
   } else {
-    // 只顯示最重要、優先層級最高的單一原因；優先順序依照bombard公式本身的判斷順序
+    // 只顯示最重要、優先層級最高的單一原因；優先順序依照bombardPriceReached公式本身的判斷順序
     // （touch && bombardMa20Ok && bombardMa60Ok && bombardPriceAboveMa60Ok && bombardCashOk && marginSafe，
     // 每一項是否真的參與判斷，取決於使用者在「進階設定」有沒有勾選對應的「加碼要求...」開關）：
-    // 先看有沒有進入加碼區間，再依序看MA20、MA60、股價這幾項各自「有沒有要求、要求的話符不符合」
+    // 這裡呈現的是「客觀事實」（股價是否真的已經到位），跟「委託清單」建議掛單與否是不同語意，
+    // 所以touch（股價有沒有到門檻）在這裡要重新檢查，不能省略
     let reason;
     if(!d.touch) reason = '股價未達加碼價位';
     else if(!d.bombardMa20Ok) reason = 'MA20未持平或向上';
@@ -2995,12 +3147,12 @@ function renderReserve(){
   if(!d.hasPersonalData){
     costLine = `<span style="color:var(--text-faint); font-weight:700;">→ 停利觸發：（尚未輸入部位資料）</span>`;
   } else {
-    if(d.exit && sharesNow <= 0){
+    if(d.exitPriceReached && sharesNow <= 0){
       const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
       exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
       exitColor = 'var(--amber)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
-    } else if(d.exit){
+    } else if(d.exitPriceReached){
       const exitShares = Math.round((state.shares[key]||0) * asset.params.exitPartialFrac);
       exitColor = 'var(--teal)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt}</span>`;
@@ -3380,7 +3532,7 @@ function renderAssetManageInner(){
       <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>證交所／美股代號（自動抓取用；台股填數字代號如2330，美股填英文代號如TSM，留空則不可用）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
+      <div class="field"><label>證交所／美股代號（台股填數字代號如2330，美股填英文代號如TSM）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
       <div class="field"><label>更新標的資料保留天數<span style="color:var(--text-faint); font-weight:400;">（從證交所/Twelve Data抓取最新收盤資料時，保留最近幾天）</span></label>
         <select data-aidx="${idx}" data-afield="dataKeepDays">
           <option value="5" ${(a.dataKeepDays||5)===5?'selected':''}>5天</option>
@@ -3406,6 +3558,58 @@ function renderAssetManageInner(){
     if(type==='pct') val = (val*100);
     if(cat !== lastCat){ catOrder.push(cat); lastCat = cat; }
     if(!catGroups[cat]) catGroups[cat] = [];
+    // 加碼參考均線：MA20/MA60二選一，用radio呈現，讓使用者一眼看出這是互斥選項
+    if(pkey === 'crossAssetBoostEnabled'){
+      const crossEnabled = !!(a.params || DEFAULT_PARAMS).crossAssetBoostEnabled;
+      const crossRefKey = (a.params || DEFAULT_PARAMS).crossAssetRefKey || '';
+      const crossAmpVal = ((a.params || DEFAULT_PARAMS).crossAssetAmpThreshold || 0.04) * 100;
+      const crossBoostVal = (a.params || DEFAULT_PARAMS).crossAssetBoostMult || 1.5;
+      // 下拉選單列出「其他標的」（排除自己），讓使用者選擇要參考哪一個標的的前一交易日表現
+      const otherAssetsOptions = state.assets
+        .filter(other => other.key !== a.key)
+        .map(other => `<option value="${other.key}" ${crossRefKey===other.key?'selected':''}>${other.name}</option>`)
+        .join('');
+      catGroups[cat].push(`<div class="param-row-mini">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom:6px;">
+          <input type="checkbox" data-aidx="${idx}" data-pfield="crossAssetBoostEnabled" data-ptype="bool" ${crossEnabled?'checked':''} style="width:auto;">
+          <span class="plabel" style="margin:0;">${label}</span>
+        </label>
+        <div class="pdesc" style="margin-bottom:6px;">${desc || ''}</div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap;">
+          <span style="font-size:12px; color:var(--text-dim);">參考標的：</span>
+          <select data-aidx="${idx}" data-pfield="crossAssetRefKey" ${!crossEnabled?'disabled':''} style="width:auto;">
+            <option value="">（尚未選擇）</option>
+            ${otherAssetsOptions}
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="font-size:12px; color:var(--text-dim);">異常振幅門檻：</span>
+          <input type="number" step="0.1" min="0" data-aidx="${idx}" data-pfield="crossAssetAmpThreshold" data-ptype="pct" value="${crossAmpVal}" ${!crossEnabled?'disabled':''} style="width:60px;">
+          <span style="font-size:12px; color:var(--text-dim);">%　加碼倍數：</span>
+          <input type="number" step="0.1" min="1" data-aidx="${idx}" data-pfield="crossAssetBoostMult" data-ptype="mult" value="${crossBoostVal}" ${!crossEnabled?'disabled':''} style="width:60px;">
+        </div>
+      </div>`);
+      return;
+    }
+    if(pkey === 'crossAssetRefKey' || pkey === 'crossAssetAmpThreshold' || pkey === 'crossAssetBoostMult'){
+      return; // 已經併入上面「啟用跨標的崩跌訊號加成」那一列一起輸出，這裡不重複渲染
+    }
+    if(pkey === 'bombardReferenceMa'){
+      const refMaVal = (a.params || DEFAULT_PARAMS).bombardReferenceMa || 'ma20';
+      catGroups[cat].push(`<div class="param-row-mini">
+        <div class="plabel">${label}</div>
+        <div class="pdesc" style="margin-bottom:6px;">${desc || ''}</div>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom:4px;">
+          <input type="radio" name="bombardRefMa_${idx}" data-aidx="${idx}" data-refmaradio="ma20" ${refMaVal==='ma20'?'checked':''} style="width:auto;">
+          <span class="plabel" style="margin:0;">MA20（現行預設，較敏感）</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="bombardRefMa_${idx}" data-aidx="${idx}" data-refmaradio="ma60" ${refMaVal==='ma60'?'checked':''} style="width:auto;">
+          <span class="plabel" style="margin:0;">MA60（拉回更主要支撐才觸發）</span>
+        </label>
+      </div>`);
+      return;
+    }
     // 成本倍數停利／MA60條件停利：改用radio二選一呈現，不用預設的checkbox/number渲染方式，
     // 讓使用者一眼就看出這是互斥選項，不用去理解「勾選A會自動改變B」這種隱藏邏輯
     if(pkey === 'costExitMult'){
@@ -3606,6 +3810,35 @@ function renderAssetManageInner(){
       if(volumeMultInput) volumeMultInput.disabled = (choice !== 'volume');
       await storageSet(KEY_ASSETS, state.assets);
       renderAll();
+    });
+  });
+  // 加碼參考均線：MA20/MA60二選一
+  wrap.querySelectorAll('input[data-refmaradio]').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const i = parseInt(e.target.dataset.aidx, 10);
+      if(!state.assets[i].params) state.assets[i].params = {...DEFAULT_PARAMS};
+      state.assets[i].params.bombardReferenceMa = e.target.dataset.refmaradio; // 'ma20' | 'ma60'
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAll();
+    });
+  });
+  // 跨標的崩跌訊號加成：select下拉選單需要獨立監聽（通用監聽器只綁定input，不含select）
+  wrap.querySelectorAll('select[data-pfield="crossAssetRefKey"]').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const i = parseInt(e.target.dataset.aidx, 10);
+      if(!state.assets[i].params) state.assets[i].params = {...DEFAULT_PARAMS};
+      state.assets[i].params.crossAssetRefKey = e.target.value;
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAll();
+    });
+  });
+  wrap.querySelectorAll('input[data-pfield="crossAssetBoostEnabled"]').forEach(el=>{
+    el.addEventListener('change', (e)=>{
+      // 勾選/取消勾選時，連動旁邊的下拉選單跟兩個輸入框是否可編輯，不用等整個畫面重繪
+      const container = e.target.closest('.param-row-mini');
+      if(!container) return;
+      const v = e.target.checked;
+      container.querySelectorAll('select, input[type="number"]').forEach(field => { field.disabled = !v; });
     });
   });
   wrap.querySelectorAll('input[data-pfield]').forEach(el=>{
