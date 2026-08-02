@@ -233,7 +233,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleInputPosition{
+  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleInputPosition, #toggleChipData{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -610,16 +610,12 @@
     <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" style="text-align:right;"><span id="btnBtClearImport" style="color:var(--text-faint); text-decoration:underline; cursor:pointer;">清除已匯入資料</span></div>
 
-    <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); cursor:pointer;" id="toggleChipData">
+    <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <h3 style="font-size:13px;">籌碼資料下載（三大法人買賣超，實驗性功能）</h3>
-      <button class="btn btn-primary btn-sm" title="展開"><span class="chev collapsed">▾</span></button>
+      <button class="btn btn-primary btn-sm" id="toggleChipData" title="展開"><span class="chev collapsed">▾</span></button>
     </div>
     <div id="chipDataBody" style="display:none;">
-      <div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">直接呼叫證交所「三大法人買賣超日報」網頁API，逐日累積成一份可下載的資料檔。這是實驗性功能——證交所這個API目前沒有正式的長區間查詢方式，欄位格式也可能跟預期不完全一致，下載完成後請先確認內容是否正確再使用。</div>
-      <div class="field">
-        <label>股票代號</label>
-        <input type="text" id="inChipStockNo" placeholder="例：2330">
-      </div>
+      <div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);" id="chipDataDesc">直接呼叫證交所「三大法人買賣超日報」網頁API，逐日累積成一份可下載的資料檔。這是實驗性功能——證交所這個API目前沒有正式的長區間查詢方式，欄位格式也可能跟預期不完全一致，下載完成後請先確認內容是否正確再使用。</div>
       <div class="grid2">
         <div class="field date-field">
           <label>起始日期</label>
@@ -632,6 +628,13 @@
       </div>
       <button type="button" class="btn btn-neutral btn-sm" id="btnStartChipDownload" style="width:100%; margin-top:6px;">開始下載</button>
       <div class="footer-note" id="chipDownloadStatus" style="text-align:left; margin-top:6px;"></div>
+
+      <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair); margin-top:10px;">
+        <label style="color:var(--text);">上傳三大法人買賣超歷史資料<span style="color:var(--text-faint); font-weight:400;">（上傳上面「開始下載」產生的.txt檔，載入後即可用於進一步分析）</span></label>
+        <input type="file" id="inChipImportFile" accept=".txt,text/plain" style="display:none;">
+      </div>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnChipImportFile" style="margin-top:0; width:100%;">上傳</button>
+      <div class="footer-note" id="chipImportStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
 
     <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
@@ -671,7 +674,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 08:05</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 09:50</div>
   </div>
   </div>
 
@@ -1066,6 +1069,9 @@ async function fetchLast5DaysCore(){
 
 // 回測用的本地匯入資料，key為asset.key，避免每次回測都要重新連線抓取
 let btImportedData = {};
+// 三大法人買賣超（籌碼）匯入資料：用「股票代號」當key（不是asset key，因為這份資料本質上是跟股票代號綁定，
+// 不是跟InvestOS標的設定綁定），每個代號底下存 {date, foreignNet, trustNet, dealerNet} 陣列，依日期排序
+let institutionalImportedData = {};
 
 // 解析「匯出歷史資料」產生的.txt檔案，還原成跟fetchMonthRangeCloses一樣的資料結構
 // ---- 歷史資料的欄位格式定義：下載/上傳/匯入共用同一份定義，改格式只需要改這裡一處 ----
@@ -1132,8 +1138,124 @@ function parseBacktestImportFile(text){
   return rows.sort((a,b) => a.date < b.date ? -1 : 1);
 }
 
+// 解析「籌碼資料下載」產生的三大法人買賣超.txt檔（格式：日期\t外資\t投信\t自營商，tab分隔）；
+// 跳過標題行、股票代號行（比照parseBacktestImportFile的做法，只認「開頭是YYYY-MM-DD」的資料列）
+function parseInstitutionalImportFile(text){
+  const lines = text.split(/\r?\n/);
+  const rows = [];
+  for(const line of lines){
+    const parts = line.trim().split(/\t/);
+    if(parts.length < 4) continue;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(parts[0])) continue; // 跳過標題行、股票代號行
+    const toNumOrNull = s => (s === '' || s == null) ? null : parseFloat(s);
+    rows.push({
+      date: parts[0],
+      foreignNet: toNumOrNull(parts[1]),
+      trustNet: toNumOrNull(parts[2]),
+      dealerNet: toNumOrNull(parts[3]),
+    });
+  }
+  return rows.sort((a,b) => a.date < b.date ? -1 : 1);
+}
+
 // 下載歷史資料（不執行模擬）：從開始日期往前抓約4個月做MA緩衝，一路抓到今天，
 // 輸出成跟「匯入歷史資料」相容的.txt格式，方便直接提供給Claude做外部分析，或存起來加速下次回測
+// 批次收集「三大法人買賣超」歷史資料：逐日呼叫fetchInstitutionalDay，只挑平日（週六日不是交易日，
+// 呼叫也一定拿到null，直接跳過省去無謂的請求），每次請求之間停頓，避免短時間內連續大量請求
+// 被證交所判定為異常流量而擋下；國定假日一樣會呼叫到、拿到null，屬於可接受的少量浪費
+async function downloadInstitutionalData(){
+  const statusEl = document.getElementById('chipDownloadStatus');
+  const btn = document.getElementById('btnStartChipDownload');
+  const asset = getAsset(state.activeTab);
+  const stockNo = asset.stockNo;
+  const startStr = document.getElementById('chipStartDate').value;
+  const endStr = document.getElementById('chipEndDate').value;
+
+  if(!stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">目前這個標的（${asset.name}）在「基本設定」裡沒有設定股票代號，無法下載，請先切到有設定股票代號的標的分頁。</span>`;
+    return;
+  }
+  if(!startStr || !endStr){
+    statusEl.innerHTML = `<span style="color:var(--red)">請選擇起始跟結束日期。</span>`;
+    return;
+  }
+  const startDate = new Date(startStr + 'T00:00:00');
+  const endDate = new Date(endStr + 'T00:00:00');
+  if(isNaN(startDate.getTime()) || isNaN(endDate.getTime())){
+    statusEl.innerHTML = `<span style="color:var(--red)">日期格式錯誤。</span>`;
+    return;
+  }
+  if(endDate < startDate){
+    statusEl.innerHTML = `<span style="color:var(--red)">結束日期不能早於起始日期。</span>`;
+    return;
+  }
+
+  // 產生起始~結束區間內，所有「平日」（週一~週五）的日期清單
+  const weekdays = [];
+  for(let d = new Date(startDate); d <= endDate; d.setDate(d.getDate()+1)){
+    const dow = d.getDay(); // 0=週日, 6=週六
+    if(dow !== 0 && dow !== 6){
+      weekdays.push(new Date(d).toISOString().slice(0,10));
+    }
+  }
+  if(weekdays.length === 0){
+    statusEl.innerHTML = `<span style="color:var(--red)">選擇的區間內沒有任何平日。</span>`;
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  const results = [];
+  let failCount = 0;
+
+  try{
+    for(let i = 0; i < weekdays.length; i++){
+      const d = weekdays[i];
+      btn.textContent = `抓取中 ${i+1}/${weekdays.length}`;
+      statusEl.innerHTML = `<span style="color:var(--text-dim)">抓取歷史資料中...（${i+1}/${weekdays.length}，目前：${d}）</span>`;
+      try{
+        const r = await fetchInstitutionalDay(d, stockNo);
+        if(r && !r.parseError) results.push(r);
+      } catch(err){
+        failCount++;
+        // 單一天失敗不中斷整體流程（可能是那天證交所剛好連線異常），繼續抓下一天
+      }
+      // 每次請求之間停頓，避免短時間內連續大量請求被證交所判定為異常流量
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    if(results.length === 0){
+      throw new Error('沒有抓到任何有效資料，請確認股票代號是否正確，或該區間內證交所是否真的有提供資料');
+    }
+
+    let txt = `${stockNo} 三大法人買賣超（外資/投信/自營商）\n`;
+    txt += `日期\t外資買賣超股數\t投信買賣超股數\t自營商買賣超股數\n`;
+    results.forEach(r => {
+      txt += `${r.date}\t${r.foreignNet != null ? r.foreignNet : ''}\t${r.trustNet != null ? r.trustNet : ''}\t${r.dealerNet != null ? r.dealerNet : ''}\n`;
+    });
+
+    const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${stockNo}_三大法人買賣超_${results[0].date}~${results[results.length-1].date}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const failNote = failCount > 0 ? `（其中${failCount}天請求失敗，已跳過）` : '';
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已下載 ${results[0].date} ~ ${results[results.length-1].date}，共 ${results.length} 筆資料${failNote}。</span>`;
+  } catch(err){
+    console.error('download institutional data failed', err);
+    statusEl.innerHTML = `<span style="color:var(--red)">下載失敗：${err.message}</span>`;
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+
 async function downloadHistoricalData(){
   const key = state.activeTab;
   const asset = getAsset(key);
@@ -3377,6 +3499,16 @@ const TAB_WINDOW_SIZE = 3;
 
 function renderTabs(){
   const row = document.getElementById('tabsRow');
+  // 籌碼資料下載說明文字，動態顯示「目前使用哪個標的的股票代號」，讓使用者清楚知道
+  // 「開始下載」「上傳」這兩個按鈕，實際上是對應到哪一個標的，不用另外輸入股票代號
+  const chipDescEl = document.getElementById('chipDataDesc');
+  if(chipDescEl){
+    const curAsset = getAsset(state.activeTab);
+    const stockNoTxt = curAsset.stockNo
+      ? `目前使用「${curAsset.name}」的股票代號（${curAsset.stockNo}）`
+      : `目前選中的「${curAsset.name}」尚未在「基本設定」設定股票代號，無法下載/上傳`;
+    chipDescEl.innerHTML = `${stockNoTxt}。直接呼叫證交所「三大法人買賣超日報」網頁API，逐日累積成一份可下載的資料檔。這是實驗性功能——證交所這個API目前沒有正式的長區間查詢方式，欄位格式也可能跟預期不完全一致，下載完成後請先確認內容是否正確再使用。`;
+  }
   const maxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
   tabWindowStart = Math.min(Math.max(0, tabWindowStart), maxStart);
 
@@ -4355,6 +4487,9 @@ document.getElementById('toggleInputPosition').addEventListener('click', ()=>{
 });
 
 document.getElementById('toggleChipData').addEventListener('click', ()=>{
+  // 初始值要跟HTML本身的display:none（預設收合）一致，state.chipDataCollapsed若還沒設定過，
+  // 視為「目前是收合」，這樣第一次點擊才會正確變成「展開」，不會反過來
+  if(state.chipDataCollapsed === undefined) state.chipDataCollapsed = true;
   state.chipDataCollapsed = !state.chipDataCollapsed;
   const body = document.getElementById('chipDataBody');
   const btn = document.getElementById('toggleChipData');
@@ -4414,7 +4549,7 @@ document.getElementById('btnRunBacktest').addEventListener('click', runBacktest)
 const collapseStateKeyMap = {
   toggleHist: 'histCollapsed', toggleInput: 'inputCollapsed', toggleAdvancedInput: 'advancedInputCollapsed',
   toggleLed: 'ledCollapsed', toggleReserve: 'reserveCollapsed', toggleOrders: 'ordersCollapsed', toggleBacktest: 'backtestCollapsed',
-  toggleInputPosition: 'inputPositionCollapsed',
+  toggleInputPosition: 'inputPositionCollapsed', toggleChipData: 'chipDataCollapsed',
 };
 Object.keys(collapseStateKeyMap).forEach(id=>{
   const btn = document.getElementById(id);
@@ -4430,6 +4565,46 @@ Object.keys(collapseStateKeyMap).forEach(id=>{
   }
 });
 document.getElementById('btnDownloadBtData').addEventListener('click', downloadHistoricalData);
+document.getElementById('btnStartChipDownload').addEventListener('click', downloadInstitutionalData);
+
+document.getElementById('btnChipImportFile').addEventListener('click', ()=>{
+  document.getElementById('inChipImportFile').click();
+});
+
+document.getElementById('inChipImportFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('chipImportStatus');
+  const asset = getAsset(state.activeTab);
+  const stockNo = asset.stockNo;
+  if(!stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">目前這個標的（${asset.name}）在「基本設定」裡沒有設定股票代號，無法對應，請先切到有設定股票代號的標的分頁。</span>`;
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const rows = parseInstitutionalImportFile(evt.target.result);
+      if(rows.length === 0){
+        statusEl.innerHTML = `<span style="color:var(--red)">沒有偵測到符合格式的資料，請確認是否為「開始下載」產生的.txt檔。</span>`;
+        return;
+      }
+      // 合併進現有已匯入的資料，不是整批取代：用日期當key，同一天新資料覆蓋舊的，其餘日期維持原樣
+      const map = {};
+      (institutionalImportedData[stockNo] || []).forEach(r => { map[r.date] = r; });
+      rows.forEach(r => { map[r.date] = r; });
+      const merged = Object.values(map).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      institutionalImportedData[stockNo] = merged;
+      statusEl.innerHTML = `<span style="color:var(--teal)">✅ 已合併 ${rows.length} 筆資料，${stockNo} 目前共 ${merged.length} 筆（${merged[0].date} ~ ${merged[merged.length-1].date}）。</span>`;
+    } catch(err){
+      console.error('parse institutional import failed', err);
+      statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗：${err.message}</span>`;
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+});
 
 document.getElementById('btnBtImportFile').addEventListener('click', ()=>{
   document.getElementById('btImportFile').click();
