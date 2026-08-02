@@ -504,9 +504,9 @@
       <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
 
-    <div class="field date-field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">手動新增特定日期資料<span style="color:var(--text-faint); font-weight:400;">（僅收盤價與均線，不影響其他欄位）</span></label>
-      <input type="text" id="inDate" readonly placeholder="YYYY-MM-DD">
+    <div class="field date-field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); display:none;">
+      <!-- calendarPop是全站共用的日曆彈出元件（其他日期欄位如「建倉起始日」「回測起始日」都會借用），
+           手動新增特定日期資料這個功能本身已經移除，但這個共用元件本身要保留在畫面上，不能刪掉 -->
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
           <div class="cal-nav" id="calPrevYear" title="上一年">«</div>
@@ -519,32 +519,6 @@
         <div class="cal-foot"><span class="cal-today-btn" id="calToday">今天</span></div>
       </div>
     </div>
-
-    <div class="grid2">
-      <div class="field"><label>收盤價</label><input type="number" step="0.01" id="inClose" placeholder="0.00"></div>
-      <div class="field"><label>MA5</label><input type="number" step="0.01" id="inMa5" placeholder="0.00"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>MA20</label><input type="number" step="0.01" id="inMa20" placeholder="0.00"></div>
-      <div class="field"><label>MA60</label><input type="number" step="0.01" id="inMa60" placeholder="0.00"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>開盤價</label><input type="number" step="0.01" id="inOpen" placeholder="0.00"></div>
-      <div class="field"><label>最高價</label><input type="number" step="0.01" id="inHigh" placeholder="0.00"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>最低價</label><input type="number" step="0.01" id="inLow" placeholder="0.00"></div>
-      <div class="field"><label>漲跌價差</label><input type="number" step="0.01" id="inChange" placeholder="0.00"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>成交股數</label><input type="number" step="1" id="inVolume" placeholder="0"></div>
-      <div class="field"><label>成交金額</label><input type="number" step="1" id="inAmount" placeholder="0"></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>成交筆數</label><input type="number" step="1" id="inTradeCount" placeholder="0"></div>
-      <div></div>
-    </div>
-    <button class="btn btn-neutral btn-sm" id="btnAdd" style="width:100%;">新增</button>
 
     <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <label style="color:var(--text);">清除這個標的的全部資料<span style="color:var(--text-faint); font-weight:400;">（歷史紀錄與所有部位/日期資料全部清空；策略參數與標的本身不受影響）</span></label>
@@ -610,6 +584,18 @@
     <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" style="text-align:right;"><span id="btnBtClearImport" style="color:var(--text-faint); text-decoration:underline; cursor:pointer;">清除已匯入資料</span></div>
 
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">建議階梯間距%<span style="color:var(--text-faint); font-weight:400;">（依上面已匯入的歷史資料，統計「孤立崩跌」事件反推建議值，用於加碼的固定層距階梯模式）</span></label>
+    </div>
+    <button type="button" class="btn btn-neutral btn-sm" id="btnSuggestLadderSpacing" style="width:100%;">計算建議間距</button>
+    <div class="footer-note" id="ladderSpacingStatus" style="text-align:left; margin-top:6px;"></div>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">自動最佳化階梯參數<span style="color:var(--text-faint); font-weight:400;">（用最近60天資料，網格搜尋「間距除數」「振幅倍數」「分位數組合」的最佳值，取代人為猜測）</span></label>
+    </div>
+    <button type="button" class="btn btn-neutral btn-sm" id="btnOptimizeLadderParams" style="width:100%;">開始自動最佳化</button>
+    <div class="footer-note" id="ladderOptimizeStatus" style="text-align:left; margin-top:6px;"></div>
+
     <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <h3 style="font-size:13px;">籌碼資料下載（三大法人買賣超，實驗性功能）</h3>
       <button class="btn btn-primary btn-sm" id="toggleChipData" title="展開"><span class="chev collapsed">▾</span></button>
@@ -674,7 +660,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 09:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 23:15</div>
   </div>
   </div>
 
@@ -736,8 +722,25 @@ const DEFAULT_PARAMS = {
   // 關閉後，整個運算純粹根據歷史股價/均線推算，不需要輸入任何個人部位資料，訊號明細跟委託清單依然正常運作，
   // 只是不再顯示具體股數/金額（改成只顯示限價），且「現金水位回補」「融資防禦」這類天生依賴個人資料的機制完全停用不顯示；
   // 預設開啟，維持現行行為，不影響既有使用者
+  defenseRequireMa60Trend: true,  // 2026-08 新增：防禦邊界（動能觸發/現金水位回補/定期定額暫停共用的核心判斷）
+  // 是否要求MA60持平或向上（只看趨勢方向）；預設開啟，維持現行規則。跟「加碼要求MA60持平或向上」是獨立的兩件事，
+  // 加碼本身有自己專屬的判斷，不受這裡影響
+  defenseRequirePriceAboveMa60: true,  // 2026-08 新增：防禦邊界是否要求股價站上MA60（只看股價位置）；預設開啟，維持現行規則
   tolerance: 0.010,
   bombardReferenceMa: 'ma20',  // 2026-07 新增：加碼參考均線，'ma20'(現行預設)或'ma60'，決定touch判斷跟限價計算要用哪一條均線當基準
+  bombardLadderMode: false,  // 2026-08 新增：加碼是否改用「固定層距階梯」模式，取代L1/L2百分比模式；
+  // 最上層固定用「加碼參考均線」當基準，最下層用「MA60再依前一天振幅動態往下延伸、且不低於跌停板價格」當基準，
+  // 每一層觸及就固定買「定期定額/股」設定的相同股數，不使用L1Pct/L2Pct/節流機制
+  bombardLadderAmpMult: 5,  // 底線動態延伸的振幅倍數：底線 = MA60 × (1 - 這個倍數 × 前一天振幅%)，
+  // 前一天振幅%＝(前一天最高價−前一天最低價)/前一天收盤價；倍數越大，底線在前一天振幅越大時延伸得越深
+  bombardLadderSpacingPct: 0.01,  // 階梯每一層之間的固定間距%，取代原本寫死的「5層」；
+  // 層數＝ceil((頂層-底線)/固定間距)，自動算出來，不用手動指定層數——價差窄的日子層數自動變少，
+  // 價差寬的日子層數自動變多，不設層數上限，因為底線本身已經用跌停板價格當作最深的物理邊界，天然限制了層數不會失控
+  bombardLadderExtremeRatio: 5,  // 階梯最深層跟最淺層的金額倍數：不管當天算出來的層數是多少，
+  // 最深那一層分配到的金額，永遠是最淺那一層的這個倍數；公比會反過來用這個倍數跟當天實際層數自動算出，
+  // 層數少時每層跳得比較大、層數多時每層跳得比較平滑，但整體最深/最淺的倍數維持一致
+  bombardLadderReservePct: 0.10,  // 階梯每天最多動用「當天可用現金」的百分之多少；這是個人風險承受度/財務狀況的判斷，
+  // 不是能從歷史資料反推出來的東西，由使用者自己決定要保留多少緩衝現金，不動用在這個階梯裡
   crossAssetBoostEnabled: false,  // 2026-07 新增：跨標的崩跌訊號加成，用另一個標的（例如TSM）前一交易日的異常表現，決定今天要不要加碼更多
   crossAssetRefKey: '',  // 要參考哪個標的的key（例如'asset2'代表TSM），空字串代表沒有設定、不生效
   crossAssetAmpThreshold: 0.04,  // 參考標的前一交易日的振幅門檻，超過才算「異常」
@@ -785,6 +788,8 @@ const DEFAULT_PARAMS = {
 
 const PARAM_META = [
   ['usePersonalPositionData','引用標的部位資料','bool','整體設定','預設開啟，維持現行行為（需要輸入現金/股數等部位資料，訊號才會顯示具體股數/金額）。關閉後，完全不需要輸入任何個人部位資料，系統純粹根據歷史股價/均線推算訊號——「定期定額」「動能」「加碼」「停利」依然會正常判斷觸不觸發、也會顯示限價，但不再顯示具體股數/金額（因為不知道你有多少現金/股票）；「現金水位回補」「融資防禦」這類天生依賴個人部位資料的機制，會完全停用、不顯示，因為沒有部位資料，這些機制的判斷本身沒有意義'],
+  ['defenseRequireMa60Trend','防禦邊界要求MA60持平或向上','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界（動能觸發／現金水位回補分流／定期定額暫停共用的核心判斷）要能算安全，MA60一定要持平或向上（只看趨勢方向）。這是獨立於「加碼要求MA60持平或向上」之外的另一組開關——加碼本身有自己專屬的判斷，不受這裡影響；關閉後，防禦邊界不再檢查MA60的趨勢方向，只看還有勾選的其他條件'],
+  ['defenseRequirePriceAboveMa60','防禦邊界要求股價≥MA60','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界要能算安全，股價一定要站上MA60（只看股價位置）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，防禦邊界不再檢查股價是否站上MA60，只看還有勾選的其他條件——例如只勾選MA60趨勢、不勾選這項，就能讓動能觸發/現金水位回補等機制，在股價短暫跌破MA60、但長期趨勢仍健康時依然視為安全'],
   ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
   ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
   ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
@@ -794,6 +799,11 @@ const PARAM_META = [
   ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
   ['bombardRequireCash','加碼要求流動現金充足','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
   ['bombardReferenceMa','加碼參考均線','maref','加碼條件','決定加碼要拉回到哪一條均線才觸發——選MA20（現行預設）較敏感、較常觸發；選MA60則要股價拉回到更主要的支撐才會觸發，次數會少很多，但可能等到更值得承接的位置'],
+  ['bombardLadderMode','啟用固定層距階梯模式（取代L1/L2百分比模式）','bool','加碼條件','開啟後，加碼不再用L1/L2百分比模式，改成階梯限價；每一層的股數＝「定期定額/股」設定值×(頂層委託價÷這一層委託價)，不用另外設定公比——股價跌得越深，這一層的股數自然放大越多，完全由委託價本身的跌幅決定；最上層用「加碼參考均線」當基準，最下層用MA60再依前一天振幅動態往下延伸、且不低於跌停板價格當基準，層數會依當時價差寬窄自動增減。不使用加碼節流、不使用L1Pct/L2Pct，適合「只買不賣、之後質押」的核心資產標的'],
+  ['bombardLadderAmpMult','階梯底線振幅倍數','mult','加碼條件','底線＝MA60×(1−這個倍數×前一天振幅%)，前一天振幅%＝(前一天最高價−前一天最低價)/前一天收盤價；倍數越大，前一天股價振盪越劇烈時，底線會往下延伸得越深，讓階梯有機會接住跌破MA60的深跌；這個底線同時不會低於跌停板價格（前一天收盤價×90%，取整到合法檔位）'],
+  ['bombardLadderSpacingPct','階梯每層固定間距%','pct','加碼條件','決定階梯每一層之間要差多少%，層數＝ceil((頂層-底線)/這個間距)自動算出來，不用手動指定層數——間距設越小，同樣價差下層數越多、越密集。建議值怎麼算：從歷史資料找出「孤立崩跌」事件（開盤缺口<-1.5%、盤中振幅>2.5%、收黑，且前5天沒有連續下跌鋪墊，代表是真正突發性的崩跌，不是已經在空頭趨勢裡），統計這些事件發生當天的振幅中位數，除以3（代表希望3層左右能覆蓋一次典型的孤立崩跌），算出建議間距。用台積電16年歷史資料驗證，共找到27筆孤立崩跌，振幅中位數3.05%，算出建議間距約1.02%，這個數字剛好也是手動測試效果不錯的區間，可以在「回測模擬」卡片用「建議間距」按鈕，依匯入的歷史資料自動計算'],
+  ['bombardLadderReservePct','階梯現金緩衝比例%','pct','加碼條件','階梯每天最多動用「當天可用現金」的百分之多少（例如10%代表最多保留10%現金不動用），這是你自己的財務狀況/風險承受度判斷，沒有標準答案，不會用歷史資料反推'],
+  ['bombardLadderExtremeRatio','階梯最深/最淺層金額倍數（備援值）','mult','加碼條件','當天可用現金（扣除上面設定的緩衝比例後）依幾何級數分配到每一層——這個倍數，決定「最深那一層」分配到的金額，是「最淺那一層」的幾倍。這個值預設會「動態計算」，不是固定不變：用過去60個交易日裡曾經跌破MA60的深度分布，取20%分位深度跟80%分位深度的比值，隨最近市場波動狀況自動調整；只有在過去60天樣本不足（例如回測剛開始沒多久、完全沒發生過拉回）時，才會退回使用這裡設定的固定值當備援'],
   ['crossAssetBoostEnabled','啟用跨標的崩跌訊號加成（目前僅支援回測模擬）','crossref','加碼條件','用另一個標的（例如美股ADR）前一交易日的異常表現，判斷今天要不要用更高的比例加碼——例如台積電可以參考TSM前一晚是否已經出現異常崩跌，因為兩者本質上是同一家公司，只是在不同時區交易，前一晚的異常表現，統計上跟隔天台股容易劇烈波動有關聯'],
   ['crossAssetAmpThreshold','參考標的異常振幅門檻%','pct','加碼條件','參考標的前一交易日的（最高價−最低價）/收盤價，超過這個門檻才算「異常」，才會觸發加成'],
   ['crossAssetBoostMult','異常時的加碼倍數','mult','加碼條件','符合異常條件時，這一次的L1/L2加碼比例，要乘上這個倍數（例如1.5代表比例變成原本的1.5倍）'],
@@ -1140,6 +1150,173 @@ function parseBacktestImportFile(text){
 
 // 解析「籌碼資料下載」產生的三大法人買賣超.txt檔（格式：日期\t外資\t投信\t自營商，tab分隔）；
 // 跳過標題行、股票代號行（比照parseBacktestImportFile的做法，只認「開頭是YYYY-MM-DD」的資料列）
+// 建議「階梯每層固定間距%」：用「孤立崩跌」（開盤缺口<-1.5% 且 盤中振幅>2.5% 且 收黑，
+// 且前5天累計跌幅未超過-3%，代表前面沒有連續下跌鋪墊，是真正突發性的崩跌）這些事件，
+// 統計它們發生當天的振幅中位數，除以「想要幾層覆蓋一次典型崩跌」，推算出建議間距；
+// 需要至少數年的資料才能找到足夠樣本，只靠即時運算平常保留的5~60天絕對不夠，
+// 所以只能用「回測模擬」已經匯入的完整歷史資料來算，不是用資產本身平常保留的資料
+// 動態計算「階梯最深/最淺層金額倍數」：用「過去60個交易日」裡，最低價曾經跌破MA60的那些天，
+// 統計每一天「跌破MA60多深%」，取20%分位深度跟80%分位深度的比值，當作這個倍數；
+// 樣本數不足（例如過去60天完全沒有跌破過MA60）時，回傳null，呼叫端要自己決定退回預設值；
+// rows是「日期由舊到新排序」的完整陣列，refIdx是「今天」在rows裡的索引（用refIdx之前的資料，
+// 不含今天，避免用到未來資料）；maAtFn(idx, period)是計算MA的函式，直接複用呼叫端既有的邏輯，
+// 不重新實作一份，確保跟回測引擎其他地方的均線計算方式完全一致
+// 用「最近60天」當評估區間，模擬「只跑加碼階梯機制」的表現，回傳平均成本(總花費/總股數)，
+// 越低代表同樣的錢，買到的股票越便宜；MA60本身的計算，可以往評估區間更早的資料回溯，不受60天限制
+// （因為MA60本身就需要60天資料才能算，如果只用「這60天」去算MA60，前面幾天會完全無法判斷）
+function evaluateLadderConfig(rows, evalStartIdx, evalEndIdx, spacingPct, ampMult, p20Pct, p80Pct, dataKeepDays){
+  const closes = rows.map(r => r.close);
+  const maAt = (idx, period) => {
+    if(idx + 1 < period) return null;
+    const slice = closes.slice(idx + 1 - period, idx + 1);
+    if(slice.some(c => c == null)) return null;
+    return slice.reduce((a,b)=>a+b, 0) / period;
+  };
+  let totalCost = 0, totalShares = 0;
+  for(let i = evalStartIdx; i < evalEndIdx; i++){
+    const yest = rows[i-1], today_ = rows[i];
+    if(!yest || !today_ || yest.close == null || today_.low == null) continue;
+    const ma60Y = maAt(i-1, 60);
+    if(ma60Y == null) continue;
+    const ma60upFlat = (i-2 >= 0) ? (ma60Y >= maAt(i-2, 60)) : true;
+    if(!ma60upFlat) continue; // 沿用實際使用情境會搭配的「防禦邊界要求MA60持平或向上」，評分才貼近真實用法
+    const closeY = yest.close;
+    const topPrice = Math.min(closeY, ma60Y); // 這裡用ma60參考均線的情境評分，跟目前主要測試的組合一致
+    const ampPctY = (yest.high != null && yest.low != null && closeY > 0) ? (yest.high - yest.low) / closeY : 0;
+    let floorPrice = ma60Y * (1 - ampMult * ampPctY);
+    const limitDownRaw = closeY * 0.90;
+    floorPrice = Math.max(floorPrice, limitDownRaw); // 簡化：這裡先不做tick取整，迷你評分不需要到這麼精確
+    if(floorPrice > topPrice) floorPrice = topPrice;
+    const spacing = topPrice * spacingPct;
+    const priceRange = topPrice - floorPrice;
+    const numLayers = (spacing > 0 && priceRange > 0) ? Math.max(1, Math.ceil(priceRange / spacing)) : 1;
+
+    // extremeRatio：用「評估起點之前」的資料，依p20Pct/p80Pct算深度分位比值
+    const dynDepths = [];
+    for(let j = Math.max(0, i - dataKeepDays); j < i; j++){
+      const rj = rows[j];
+      const ma60j = maAt(j, 60);
+      if(rj && rj.low != null && ma60j != null && rj.low < ma60j){
+        dynDepths.push((ma60j - rj.low) / ma60j * 100);
+      }
+    }
+    let extremeRatio = 5; // 樣本不足時的備援值，跟主流程一致
+    if(dynDepths.length >= 3){
+      const sorted = dynDepths.slice().sort((a,b)=>a-b);
+      const n = sorted.length;
+      const pLo = sorted[Math.max(0, Math.floor(n*p20Pct))];
+      const pHi = sorted[Math.min(n-1, Math.floor(n*p80Pct))];
+      if(pLo > 0.05) extremeRatio = pHi / pLo;
+    }
+
+    const geoRatio = (numLayers > 1) ? Math.pow(extremeRatio, 1/(numLayers-1)) : 1;
+    let totalWeight = 0;
+    const weights = [];
+    for(let layer = 0; layer < numLayers; layer++){
+      const w = Math.pow(geoRatio, layer);
+      weights.push(w); totalWeight += w;
+    }
+    const budget = 100000; // 迷你評分用固定假設預算，不需要真的追蹤現金餘額，只比較「平均成本」這個比率指標
+    for(let layer = 0; layer < numLayers; layer++){
+      const levelPrice = numLayers > 1 ? (topPrice - layer * priceRange / (numLayers - 1)) : topPrice;
+      const levelTouched = today_.low <= levelPrice;
+      if(levelTouched && levelPrice > 0){
+        const levelBudget = budget * (weights[layer] / totalWeight);
+        const shares = levelBudget / levelPrice; // 迷你評分不用整股限制，直接算連續值，比較單純
+        totalCost += shares * levelPrice;
+        totalShares += shares;
+      }
+    }
+  }
+  if(totalShares === 0) return null;
+  return { avgCost: totalCost / totalShares, totalShares, totalCost };
+}
+
+// 網格搜尋「間距除數」「振幅倍數」「分位數組合」這三組元參數，用最近60天當評估區間，
+// 找出「平均成本最低」的組合；rows是完整的歷史資料（日期由舊到新排序），dataKeepDays用來對齊
+// 目前資產的保留天數設定（決定extremeRatio動態計算要往回看多少天）
+function gridSearchLadderMetaParams(rows, dataKeepDays = 60, evalWindowDays = 60){
+  const evalEndIdx = rows.length;
+  const evalStartIdx = Math.max(1, evalEndIdx - evalWindowDays);
+  if(evalEndIdx - evalStartIdx < 10) return { ok: false, reason: `匯入的歷史資料太短，最近${evalWindowDays}天的可評估天數不足` };
+
+  const spacingCandidates = [1.5, 2, 2.5, 3, 4, 5]; // 對應「振幅中位數÷這個數字」的除數
+  const ampMultCandidates = [1, 2, 3, 5, 8, 12];
+  const percentileCandidates = [[0.1,0.9], [0.2,0.8], [0.3,0.7]];
+
+  // 先算「孤立崩跌振幅中位數」，這樣才能把spacingCandidates(除數)轉換成實際的間距%去測試
+  const crashResult = calcRecommendedLadderSpacing(rows, 1); // layersToConvert=1，直接拿medianAmpPct
+  if(!crashResult.ok) return { ok: false, reason: crashResult.reason };
+  const medianAmp = crashResult.medianAmpPct;
+
+  let best = null;
+  for(const divisor of spacingCandidates){
+    const spacingPct = (medianAmp / divisor) / 100;
+    for(const ampMult of ampMultCandidates){
+      for(const [p20Pct, p80Pct] of percentileCandidates){
+        const result = evaluateLadderConfig(rows, evalStartIdx, evalEndIdx, spacingPct, ampMult, p20Pct, p80Pct, dataKeepDays);
+        if(result && (best === null || result.avgCost < best.result.avgCost)){
+          best = { divisor, ampMult, p20Pct, p80Pct, spacingPct, result };
+        }
+      }
+    }
+  }
+  if(best === null) return { ok: false, reason: '最近60天內完全沒有觸發任何一層加碼，無法評估（可能是這段期間股價太平穩，或防禦邊界條件太嚴格）' };
+  return { ok: true, medianAmp, best };
+}
+
+function calcDynamicExtremeRatio(rows, refIdx, maAtFn, lookbackDays = 60){
+  const startIdx = Math.max(0, refIdx - lookbackDays);
+  const depths = [];
+  for(let i = startIdx; i < refIdx; i++){
+    const r = rows[i];
+    if(r.low == null) continue;
+    const ma60 = maAtFn(i, 60);
+    if(ma60 == null || ma60 <= 0) continue;
+    if(r.low < ma60){
+      depths.push((ma60 - r.low) / ma60 * 100);
+    }
+  }
+  if(depths.length < 3) return null; // 樣本數太少，統計沒有意義
+  const sorted = depths.slice().sort((a,b)=>a-b);
+  const n = sorted.length;
+  const p20 = sorted[Math.max(0, Math.floor(n*0.2))];
+  const p80 = sorted[Math.min(n-1, Math.floor(n*0.8))];
+  if(p20 <= 0.05) return null; // 分母太接近0，比值會不穩定，视為樣本不足
+  return p80 / p20;
+}
+
+function calcRecommendedLadderSpacing(rows, layersToConvert = 3){
+  const isolatedAmps = [];
+  for(let i = 6; i < rows.length; i++){
+    const y = rows[i-1], t = rows[i];
+    if(y.close == null || t.open == null || t.high == null || t.low == null || t.close == null) continue;
+    const gapPct = (t.open - y.close) / y.close * 100;
+    const ampPct = (t.high - t.low) / t.close * 100;
+    const dayChangePct = (t.close - y.close) / y.close * 100;
+    const isCrashDay = gapPct < -1.5 && ampPct > 2.5 && dayChangePct < 0;
+    if(!isCrashDay) continue;
+
+    // 判斷是否「孤立」：崩跌前一天，相對「崩跌前第6天」的累計漲跌幅，沒有超過-3%
+    const close5Before = rows[i-6].close;
+    const closeBeforeCrash = y.close;
+    if(close5Before == null) continue;
+    const prior5dayPct = (closeBeforeCrash - close5Before) / close5Before * 100;
+    const isIsolated = prior5dayPct > -3.0;
+    if(!isIsolated) continue;
+
+    isolatedAmps.push(ampPct);
+  }
+  if(isolatedAmps.length === 0) return { ok: false, reason: '找不到符合「孤立崩跌」定義的歷史事件，樣本數不足，可能是匯入的歷史資料區間太短' };
+
+  const sorted = isolatedAmps.slice().sort((a,b)=>a-b);
+  const median = sorted.length % 2 === 1
+    ? sorted[(sorted.length-1)/2]
+    : (sorted[sorted.length/2 - 1] + sorted[sorted.length/2]) / 2;
+  const recommendedPct = median / layersToConvert;
+  return { ok: true, sampleCount: isolatedAmps.length, medianAmpPct: median, recommendedPct };
+}
+
 function parseInstitutionalImportFile(text){
   const lines = text.split(/\r?\n/);
   const rows = [];
@@ -1515,6 +1692,7 @@ async function runBacktest(){
     let cash = START_CAPITAL;
     let totalShares = 0, totalCost = 0;
     let dcaExec=0, dcaSkip=0, momExec=0, momSkip=0, b1Exec=0, b1Skip=0, b2Exec=0, b2Skip=0;
+    let ladderExec=0, ladderShares=0; // 5層固定股數階梯模式專用統計：總成交次數（層數加總）、總成交股數
     // dcaSkip細項拆解：同一個「跳過」數字，背後其實有好幾種完全不同的原因，混在一起沒辦法判斷實際發生了什麼
     let dcaSkipLimitNotTouched=0;   // 防禦性限價單：前一天最低價沒被今天最低價觸及，直接放棄這次
     let dcaSkipLimitCashShort=0;    // 防禦性限價單：價位有觸及，但現金不夠買
@@ -1575,7 +1753,12 @@ async function runBacktest(){
       // 短暫誤殺判斷：MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然算安全；
       // 只要MA5已經轉弱（今天MA5比昨天低），代表短期動能已經真的鬆動，不算誤殺，維持原本規則
       const isFalseAlarmDip = ENABLE_MA5_RECOVERY_FOR_DEFENSE && hasMa60 && ma60upFlat && ma20upFlat && ma5upFlatForDefense && !priceAboveMa60;
-      const priceDefenseOk = hasMa60 ? (ma60upFlat && (priceAboveMa60 || isFalseAlarmDip)) : false;
+      // 防禦邊界：MA60趨勢方向、股價站上MA60，這兩項各自可以獨立勾選要不要當作必要條件，
+      // 跟「加碼」那邊的兩個獨立開關是同樣的設計精神，但服務的是不同的機制（這裡驅動動能觸發／
+      // 現金水位回補分流／定期定額暫停，加碼有自己專屬的判斷，不受這裡影響）
+      const priceDefenseOk = hasMa60
+        ? ((!P.defenseRequireMa60Trend || ma60upFlat) && (!P.defenseRequirePriceAboveMa60 || priceAboveMa60 || isFalseAlarmDip))
+        : false;
 
       // MA60觀察期用：更新「連續幾天股價都在MA60之下」，用昨天（yest）的資料判斷；沒有MA60資料時視同「站上MA60」，不累計
       const belowMa60Now = hasMa60 ? !priceAboveMa60 : false;
@@ -1762,7 +1945,60 @@ async function runBacktest(){
       // 股數＝目前現金×比例%÷限價；兩層用同一個現金快照計算比例，不互相影響
       // 節流：這次算出的限價（p1），要比「上一次真的成交」的限價再乘上獨立的throttleMult（不跟layer2Mult共用，
       // 避免調整L2定價時意外連帶影響節流敏感度）才算數，不是隨便低一點點就算，避免同一價格區間反覆買
-      if(bombard){
+      if(bombard && P.bombardLadderMode){
+        // 固定層距階梯模式：最上層用「加碼參考均線」當基準，最下層用MA60再依前一天振幅動態往下延伸、
+        // 且不低於跌停板價格當基準；層數依當時價差寬窄，除以固定間距自動算出來，不寫死層數；
+        // 用「當天可用現金的90%」依幾何級數分配到每一層，保留10%當緩衝；公比不是人為指定的固定數字，
+        // 而是用「最深層跟最淺層的金額倍數」(bombardLadderExtremeRatio) 反推：r = K^(1/(N-1))，
+        // 這樣不管當天算出來的層數是多少，最深/最淺的金額倍數都維持一致，只是中間分配的密度不同
+        const topPrice = Math.min(closeY, bombardRefMaY);
+        const ampPctY = (yest.high != null && yest.low != null && closeY > 0) ? (yest.high - yest.low) / closeY : 0;
+        let floorPriceRaw = (ma60Y != null) ? ma60Y * (1 - P.bombardLadderAmpMult * ampPctY) : topPrice;
+        // 跌停板保底：底線不管公式怎麼算，都不會比「昨天收盤價的合法跌停價」更深，這是真實的市場物理邊界，
+        // 也天然限制了層數不會因為某次極端振幅而無限膨脹；跌停價要無條件進位到合法檔位，不能簡化用未取整的理論值
+        const limitDownRaw = closeY * 0.90;
+        const limitDownPrice = applyTick(limitDownRaw, getEffectiveTick(asset, limitDownRaw), 'ceil');
+        let floorPrice = Math.max(floorPriceRaw, limitDownPrice);
+        if(floorPrice > topPrice) floorPrice = topPrice; // 底線不該高於頂層，異常情況下夾住避免階梯方向顛倒
+        const spacing = topPrice * P.bombardLadderSpacingPct; // 間距用「頂層價格×固定間距%」換算成實際價差，不是絕對金額
+        const priceRange = topPrice - floorPrice;
+        const numLayers = (spacing > 0 && priceRange > 0) ? Math.max(1, Math.ceil(priceRange / spacing)) : 1;
+
+        const ladderBudget = cashAtDayStart * (1 - (P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10)); // 保留的現金比例由使用者自訂
+        // 動態計算最深/最淺層金額倍數：用「過去60個交易日」跌破MA60的深度分布反推，不是固定不變的數字，
+        // 隨著最近市場狀況（最近波動大小、崩跌頻率）自動調整；樣本不足時（例如回測剛開始沒多久），
+        // 退回使用者手動設定的bombardLadderExtremeRatio當備援值
+        const dynamicRatio = calcDynamicExtremeRatio(allRows, i, maAt, 60);
+        const extremeRatio = (dynamicRatio != null) ? dynamicRatio : (P.bombardLadderExtremeRatio || 1);
+        const geoRatio = (numLayers > 1 && extremeRatio > 0) ? Math.pow(extremeRatio, 1/(numLayers-1)) : 1;
+        // 權重w_i = geoRatio^i，i=0是最淺層(頂層)、i=numLayers-1是最深層；用權重比例，把ladderBudget依序分配到每一層
+        let totalWeight = 0;
+        const weights = [];
+        for(let layer = 0; layer < numLayers; layer++){
+          const w = Math.pow(geoRatio, layer);
+          weights.push(w); totalWeight += w;
+        }
+        const ladderLevelsToday = [];
+        let carryOverBudget = 0; // 上一層因為無條件捨去股數而剩下的零頭，累加給下一層用，不讓預算憑空消失
+        for(let layer = 0; layer < numLayers; layer++){
+          const rawLevel = numLayers > 1 ? (topPrice - layer * priceRange / (numLayers - 1)) : topPrice;
+          const levelPrice = applyTick(rawLevel, getEffectiveTick(asset, rawLevel), 'ceil');
+          const levelBudget = ladderBudget * (weights[layer] / totalWeight) + carryOverBudget;
+          const ladderShares1Day = (levelPrice > 0) ? Math.floor(levelBudget / levelPrice) : 0;
+          carryOverBudget = levelBudget - ladderShares1Day * levelPrice; // 這層真正花掉多少之後，剩下的零頭留給下一層
+          ladderLevelsToday.push({ layer: layer+1, price: levelPrice, shares: ladderShares1Day });
+          const levelTouched = today_.low != null && today_.low <= levelPrice;
+          const levelCost = ladderShares1Day * levelPrice;
+          if(levelTouched && ladderShares1Day > 0 && cash >= levelCost){
+            totalShares += ladderShares1Day; totalCost += levelCost; cash -= levelCost;
+            ladderExec++; ladderShares += ladderShares1Day;
+            bombardL1Events.push({ date: today_.date, shares: ladderShares1Day, price: levelPrice, cost: levelCost, ladderLayer: layer+1 });
+          }
+        }
+        // 每日預約加碼明細（階梯模式版本）：呼應「掛單即紀律」，不管有沒有真的成交，只要訊號有觸發，
+        // 每一天都記下當天完整的階梯內容（每一層的限價、股數），跟L1/L2那組資料結構不同，用isLadder區分
+        scheduledBombardEvents.push({ date: today_.date, isLadder: true, levels: ladderLevelsToday, numLayers, extremeRatio, spacingPct: P.bombardLadderSpacingPct });
+      } else if(bombard){
         const basePrice = Math.min(closeY, bombardRefMaY);
         const p1Natural = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
         const p2Natural = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
@@ -1977,6 +2213,12 @@ async function runBacktest(){
       if(scheduledBombardEvents.length > 0){
         html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">每日預約加碼明細（共${scheduledBombardEvents.length}筆）：</div>`;
         scheduledBombardEvents.forEach(ev=>{
+          if(ev.isLadder){
+            // 階梯模式：把當天所有層的限價/股數，合併顯示在同一行，用｜分隔
+            const levelsTxt = ev.levels.map(l => l.shares > 0 ? `第${l.layer}層${fmtRaw(l.shares,0)}股＠${fmtRaw(l.price,2)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,2)}`).join('｜');
+            html += `<div class="footer-note" style="text-align:left;">${ev.date}（共${ev.numLayers}層，最深/最淺倍數${ev.extremeRatio.toFixed(2)}）：${levelsTxt}</div>`;
+            return;
+          }
           const throttleTxt = ev.throttled ? '（節流下修價）' : '';
           const l1Txt = ev.scheduledShares1 > 0
             ? `L1：${fmtRaw(ev.scheduledShares1,0)}股＠${fmtRaw(ev.p1,2)}`
@@ -2102,10 +2344,13 @@ async function runBacktest(){
     const throttleWouldExecNote = bombardThrottleSkip > 0
       ? `（其中${b1ThrottleWouldExec}次改用節流下修價成功承接L1、${b2ThrottleWouldExec}次改用節流下修價成功承接L2）`
       : '';
-    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>加碼L1=${b1Exec}執行/${b1Skip}未成交${b1SkipBreakdown}<br>加碼L2=${b2Exec}執行/${b2Skip}未成交${b2SkipBreakdown}<br>加碼節流暫緩=${bombardThrottleSkip}次${throttleWouldExecNote}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>時間停損=${tsExec}成交/${tsSkip}未觸及<br>現金水位回補=${liqExec}次`;
+    const bombardStatsLine = P.bombardLadderMode
+      ? `加碼(階梯)=${ladderExec}次執行，共${fmtRaw(ladderShares,0)}股`
+      : `加碼L1=${b1Exec}執行/${b1Skip}未成交${b1SkipBreakdown}<br>加碼L2=${b2Exec}執行/${b2Skip}未成交${b2SkipBreakdown}<br>加碼節流暫緩=${bombardThrottleSkip}次${throttleWouldExecNote}`;
+    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>${bombardStatsLine}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>時間停損=${tsExec}成交/${tsSkip}未觸及<br>現金水位回補=${liqExec}次`;
     const finalAssetLine = `期末資產：現金=${fmtRaw(cash,0)} ${unit}、持股=${fmtRaw(totalShares,0)} 股（市值 ${fmtRaw(finalShareValue,0)} ${unit}）、總資產=${fmtRaw(finalWealth,0)} ${unit}、損益=${profit>=0?'+':''}${fmtRaw(profit,0)} ${unit}（${profit>=0?'+':''}${profitPct.toFixed(2)}%）`;
     const lowCashRatioPct = nn > 0 ? (lowCashRatioEvents.length / nn * 100) : 0;
-    const cashLevelLine = `現金水位：期末現金佔比=${finalCashRatio.toFixed(1)}%、現金佔比低於門檻天數比例=${lowCashRatioPct.toFixed(1)}%（共${lowCashRatioEvents.length}天，用當天實際佔比動態比較，不受總資產成長稀釋）`;
+    const cashLevelLine = `現金水位：期末現金佔比=${finalCashRatio.toFixed(1)}%、現金佔比低於門檻天數比例=${lowCashRatioPct.toFixed(1)}%（共${lowCashRatioEvents.length}天）`;
 
     html += `<div class="footer-note" id="btSummaryBox" style="text-align:left; margin-top:12px; padding:10px; background:var(--panel-3); border-radius:10px; border:1px solid var(--hair); color:var(--text);">
       <b>本次模擬總結</b>（${actualStartStr}${dateNote} ~ ${lastDate}，起始本金 ${fmtRaw(START_CAPITAL,0)} ${unit}）<br>
@@ -2133,6 +2378,7 @@ let state = {
   assets: DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}})),
   log: {},
   cash: {},
+  ladderPreviewCash: {}, // 委託清單裡，階梯模式的「今天可用現金」暫時試算輸入，不會存檔，跟正式的部位資料(cash)完全分開
   shares: {},
   marginCost: {},
   marginShares: {},
@@ -2272,7 +2518,8 @@ function getMarginStatus(assetKey){
 function computeForAsset(assetKey){
   const rows = sortedLog(assetKey);
   const n = rows.length;
-  const P = getAsset(assetKey).params;
+  const asset = getAsset(assetKey);
+  const P = asset.params;
   const out = { ready: n>=3, ready1:n>=1, ready2:n>=2 };
   // 是否已經真的輸入過個人持有部位資料：完全不依賴股價資料，只看使用者自己的輸入，
   // 所以要放在「沒有股價資料就提早return」之前計算，不然完全沒有股價資料時，
@@ -2428,12 +2675,13 @@ function computeForAsset(assetKey){
   out.ma5upFlat = today.ma5 >= t1.ma5;
   out.ma20upFlat = today.ma20 >= t1.ma20;
 
-  // 防禦邊界（MA60）：MA60持平或向上，且股價站穩MA60，全系統正常運作；
-  // 否則暫停加倍與加碼，僅維持常態扣款。缺少MA60資料時保守視為防禦邊界未確認。
+  // 防禦邊界（MA60）：MA60持平或向上、股價站穩MA60，這兩項各自可以獨立勾選要不要當作必要條件
+  // （defenseRequireMa60Trend / defenseRequirePriceAboveMa60），跟「加碼」那邊的兩個獨立開關同樣設計精神，
+  // 但服務不同機制（這裡驅動動能觸發／現金水位回補分流／定期定額暫停）；缺少MA60資料時保守視為防禦邊界未確認
   out.hasMa60 = out.hasMa60Today && (t1.ma60 != null);
   if(out.hasMa60){
     out.ma60upFlat = today.ma60 >= t1.ma60;
-    out.priceDefenseOk = out.ma60upFlat && out.priceAboveMa60;
+    out.priceDefenseOk = (!P.defenseRequireMa60Trend || out.ma60upFlat) && (!P.defenseRequirePriceAboveMa60 || out.priceAboveMa60);
   } else {
     out.priceDefenseOk = false;
   }
@@ -2523,6 +2771,56 @@ function computeForAsset(assetKey){
   out.bombard = out.bombardMa20Ok && out.bombardMa60Ok && out.bombardPriceAboveMa60Ok && out.bombardCashOk && out.marginSafe && out.hasPersonalData;
   out.bombardPriceReached = out.touch && out.bombard;
 
+  // 固定層距階梯模式：即時運算版本，邏輯跟回測引擎完全一致，用「今天」的資料算出「明天」該掛的完整階梯；
+  // 間距%本身沒辦法在這裡動態算（需要數年歷史資料才能找到足夠的「孤立崩跌」樣本，但即時運算只保留dataKeepDays天），
+  // 只能讀取asset.params裡已經存好的值（透過「回測模擬」的按鈕算出來、手動存進設定）；
+  // extremeRatio則可以即時動態計算，因為只需要最近60天資料，即時運算本來就有保留
+  out.ladderLevels = null;
+  if(out.bombard && P.bombardLadderMode && today.close != null && bombardRefMaToday != null && today.ma60 != null){
+    const topPriceLive = Math.min(today.close, bombardRefMaToday);
+    const t1ForAmp = rows[n-2]; // 前一天，用來算「昨天振幅%」延伸底線；即時運算這裡改用「今天自己的振幅」更即時反映當下狀況
+    const ampPctToday = (today.high != null && today.low != null && today.close > 0) ? (today.high - today.low) / today.close : 0;
+    let floorPriceRawLive = today.ma60 * (1 - (P.bombardLadderAmpMult || 5) * ampPctToday);
+    const limitDownRawLive = today.close * 0.90;
+    const limitDownPriceLive = applyTick(limitDownRawLive, getEffectiveTick(asset, limitDownRawLive), 'ceil');
+    let floorPriceLive = Math.max(floorPriceRawLive, limitDownPriceLive);
+    if(floorPriceLive > topPriceLive) floorPriceLive = topPriceLive;
+    const spacingLive = topPriceLive * (P.bombardLadderSpacingPct || 0.01);
+    const priceRangeLive = topPriceLive - floorPriceLive;
+    const numLayersLive = (spacingLive > 0 && priceRangeLive > 0) ? Math.max(1, Math.ceil(priceRangeLive / spacingLive)) : 1;
+
+    // extremeRatio動態計算：用即時運算本來就保留的rows（最近dataKeepDays天），跟回測用同一套函式邏輯
+    const maAtLive = (idx, period) => (rows[idx] && period === 60) ? rows[idx].ma60 : null;
+    const dynamicRatioLive = calcDynamicExtremeRatio(rows, n, maAtLive, 60);
+    const extremeRatioLive = (dynamicRatioLive != null) ? dynamicRatioLive : (P.bombardLadderExtremeRatio || 5);
+    const geoRatioLive = (numLayersLive > 1 && extremeRatioLive > 0) ? Math.pow(extremeRatioLive, 1/(numLayersLive-1)) : 1;
+    let totalWeightLive = 0;
+    const weightsLive = [];
+    for(let layer = 0; layer < numLayersLive; layer++){
+      const w = Math.pow(geoRatioLive, layer);
+      weightsLive.push(w); totalWeightLive += w;
+    }
+    // 現金來源：優先用「委託清單」裡使用者暫時輸入的試算現金（不會存檔，純粹這次計算用），
+    // 沒有輸入的話才退回真正的部位資料state.cash（給有開啟「引用標的部位資料」的使用者用）；
+    // 這樣設計是因為「引用標的部位資料=關」時，部位管理整個區塊被隱藏，state.cash永遠是空的，
+    // 階梯需要一個現金數字才能算出股數，不然只能顯示限價，沒辦法算出「該買多少」
+    const previewCash = state.ladderPreviewCash && state.ladderPreviewCash[assetKey];
+    const cashNowLive = (previewCash != null && previewCash > 0) ? previewCash : (state.cash[assetKey] || 0);
+    const reservePctLive = P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10;
+    const ladderBudgetLive = cashNowLive * (1 - reservePctLive);
+    const levels = [];
+    let carryOverBudgetLive = 0; // 上一層因為無條件捨去股數而剩下的零頭，累加給下一層用，不讓預算憑空消失
+    for(let layer = 0; layer < numLayersLive; layer++){
+      const rawLevel = numLayersLive > 1 ? (topPriceLive - layer * priceRangeLive / (numLayersLive - 1)) : topPriceLive;
+      const levelPrice = applyTick(rawLevel, getEffectiveTick(asset, rawLevel), 'ceil');
+      const levelBudget = ladderBudgetLive * (weightsLive[layer] / totalWeightLive) + carryOverBudgetLive;
+      const levelShares = (levelPrice > 0) ? Math.floor(levelBudget / levelPrice) : 0;
+      carryOverBudgetLive = levelBudget - levelShares * levelPrice;
+      levels.push({ layer: layer+1, price: levelPrice, shares: levelShares });
+    }
+    out.ladderLevels = { levels, numLayers: numLayersLive, extremeRatio: extremeRatioLive };
+  }
+
   // 加碼節流的價位檢查：只要有足夠資料（ready2）且節流機制開啟，就照樣計算，不受bombard是否成立影響——
   // 這是給委託清單當「預覽」用的（即使今天MA20暫時沒有持平向上、bombard=false，只要防禦邊界正常，
   // 委託清單依然會試算出「如果條件都成立，可以買多少股」這個預覽數字，這個預覽也該正確反映節流狀態，
@@ -2575,7 +2873,7 @@ function renderHero(){
   if(!d.ready1){
     hero.className = 'hero st-idle';
     headline.textContent = '⏳ 尚無資料';
-    sub.textContent = '請先更新標的最近五日的資料';
+    sub.textContent = `請先更新標的最近${asset.dataKeepDays||5}日的資料`;
     return;
   }
   const defenseOff = d.ready2 && !d.defenseOk;
@@ -2988,6 +3286,21 @@ function renderOrders(){
   }
   const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
   const bombardRefMaLabel = (P.bombardReferenceMa === 'ma60') ? 'MA60' : 'MA20';
+  if(P.bombardLadderMode){
+    // 固定層距階梯模式：所有層合併顯示在同一個委託項目裡，不用L1/L2百分比模式那種寫法；
+    // 要不要顯示股數，改成看「這次算出來的股數裡，有沒有任何一層真的算出數字」，不是單純看showPersonalAmounts，
+    // 這樣「引用標的部位資料=關」的使用者，只要在下面填了「今天可用現金」試算，也能看到股數
+    if(d.ladderLevels && d.ladderLevels.levels.length > 0){
+      const hasAnyShares = d.ladderLevels.levels.some(l => l.shares > 0);
+      const levelsTxt = hasAnyShares
+        ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層${fmtRaw(l.shares,0)}股＠${fmtRaw(l.price,tickDec)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)}`).join('<br>')
+        : d.ladderLevels.levels.map(l => `第${l.layer}層＠${fmtRaw(l.price,tickDec)}`).join('<br>');
+      const ladderTip = `底線用MA60再依今天振幅動態延伸、不低於跌停板價格；最深/最淺層金額倍數${d.ladderLevels.extremeRatio.toFixed(2)}倍（過去60天動態計算或備援值）${hasAnyShares ? '' : '；尚未輸入現金，只顯示限價，請在下方「今天可用現金」試算欄位輸入金額'}`;
+      html += orderRow(!!d.bombard, `加碼(階梯，共${d.ladderLevels.numLayers}層)`, `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, levelsTxt, ladderTip);
+    } else {
+      html += orderRow(false, '加碼(階梯)', `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, '—');
+    }
+  } else {
   // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
   // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
   if(asset.l1Pct > 0){
@@ -2995,6 +3308,7 @@ function renderOrders(){
   }
   if(asset.l2Pct > 0){
     html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail, tip2);
+  }
   }
 
   // 停利：分批停利（每次依分批停利比例%執行，非全部停利）
@@ -3072,7 +3386,29 @@ function renderOrders(){
     html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
   }
 
+  // 階梯模式的「今天可用現金」試算輸入：放在委託清單最下面，只在階梯模式開啟時顯示；
+  // 這是暫時輸入，不會存進正式的部位資料，純粹讓「引用標的部位資料=關」的使用者，
+  // 不用重新打開整套部位管理系統，也能讓階梯試算出「每一層該買多少股」
+  if(P.bombardLadderMode){
+    const previewVal = (state.ladderPreviewCash[key] != null) ? state.ladderPreviewCash[key] : '';
+    html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">今天可用現金（階梯試算用）<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔；填了才會算出每一層該買多少股，否則只顯示限價）</span></label>
+      <input type="number" step="1" id="inLadderPreviewCash" placeholder="輸入現金金額" value="${previewVal}">
+    </div>`;
+  }
+
   list.innerHTML = html;
+
+  // 因為這個輸入框是每次renderOrders動態產生的（innerHTML整個替換），舊的監聽器不會殘留，
+  // 每次都要重新綁定一次；輸入變更時，只更新這個暫時值、重新渲染委託清單，不觸發整個renderAll
+  const previewInput = document.getElementById('inLadderPreviewCash');
+  if(previewInput){
+    previewInput.addEventListener('change', (e)=>{
+      const v = parseFloat(e.target.value);
+      state.ladderPreviewCash[key] = (e.target.value === '' || isNaN(v)) ? null : v;
+      renderOrders();
+    });
+  }
 }
 
 function getCashStatus(key){
@@ -3913,12 +4249,21 @@ function renderAssetManageInner(){
     const isTimeStopSubField = (pkey === 'timeStopDays' || pkey === 'timeStopPartialFrac');
     const isMarginSubField = (pkey === 'marginRatio' || pkey === 'marginCallRatio');
     const isMa60ObservationField = (pkey === 'bombardMa60ObservationEnabled' || pkey === 'bombardMa60ObservationDays');
+    // 這三個階梯參數，都是「靠回測模擬的按鈕，依歷史資料算出來」的值，不該讓使用者直接手動打數字進去，
+    // 只能透過「計算建議間距」「自動最佳化」按鈕改變；階梯現金緩衝比例%不在這裡，那個是使用者自己的財務判斷，維持可編輯
+    const isLadderAutoCalcField = (pkey === 'bombardLadderSpacingPct' || pkey === 'bombardLadderAmpMult' || pkey === 'bombardLadderExtremeRatio');
+    // 加碼節流機制，只服務L1/L2百分比模式；階梯模式本身用「每天重新計算的多層限價」天生避免了同一輪拉回反覆買在
+    // 差不多價格的問題，完全不會檢查節流，開啟階梯模式時，這三個節流相關欄位停用編輯，避免誤以為勾了有效果
+    const bombardLadderModeVal = !!(a.params && a.params.bombardLadderMode);
+    const isThrottleField = (pkey === 'bombardThrottleEnabled' || pkey === 'throttleMult' || pkey === 'bombardThrottleConditionalOnMa60');
     const disabledAttr = (isTimeStopSubField && !timeStopEnabledVal) ? 'disabled'
       : (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
       : (pkey === 'layer2Mult' && !(a.l2Pct > 0)) ? 'disabled'
       : (pkey === 'costExitMult' && useMa60ConfirmForExitVal) ? 'disabled'
       : (pkey === 'exitMa60ConfirmDays' && !useMa60ConfirmForExitVal) ? 'disabled'
-      : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled' : '';
+      : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled'
+      : isLadderAutoCalcField ? 'disabled'
+      : (isThrottleField && bombardLadderModeVal) ? 'disabled' : '';
     let rowHtml;
     if(type === 'bool'){
       // checkbox放在label左邊、同一行；說明文字放在下一行
@@ -4269,7 +4614,7 @@ function renderAssetManageInner(){
 }
 
 // ---------- custom calendar popover（可重複使用，共用同一個彈出元件，依觸發欄位動態移動位置） ----------
-let calState = { viewYear:0, viewMonth:0, selected:'', targetId:'inDate' };
+let calState = { viewYear:0, viewMonth:0, selected:'', targetId:'btStartDate' };
 
 function pad2(n){ return String(n).padStart(2,'0'); }
 function toDateStr(y,m,d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
@@ -4321,7 +4666,7 @@ function closeCalendar(){
   if(pop) pop.classList.remove('show');
 }
 
-['inDate','btStartDate','btEndDate','btDownloadStartDate','inLastBombardDateNow','chipStartDate','chipEndDate'].forEach(id=>{
+['btStartDate','btEndDate','btDownloadStartDate','inLastBombardDateNow','chipStartDate','chipEndDate'].forEach(id=>{
   const el = document.getElementById(id);
   if(el){
     el.addEventListener('click', (e)=>{
@@ -4610,6 +4955,55 @@ document.getElementById('btnBtImportFile').addEventListener('click', ()=>{
   document.getElementById('btImportFile').click();
 });
 
+document.getElementById('btnSuggestLadderSpacing').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('ladderSpacingStatus');
+  const key = state.activeTab;
+  const rows = btImportedData[key];
+  if(!rows || rows.length < 30){
+    statusEl.innerHTML = `<span style="color:var(--red)">請先在上面「匯入歷史資料」，匯入足夠長的歷史資料（建議至少涵蓋數年），才能找到足夠的「孤立崩跌」樣本。</span>`;
+    return;
+  }
+  const result = calcRecommendedLadderSpacing(rows, 3);
+  if(!result.ok){
+    statusEl.innerHTML = `<span style="color:var(--red)">${result.reason}</span>`;
+    return;
+  }
+  const asset = getAsset(key);
+  if(!asset.params) asset.params = {...DEFAULT_PARAMS};
+  asset.params.bombardLadderSpacingPct = result.recommendedPct / 100;
+  storageSet(KEY_ASSETS, state.assets);
+  statusEl.innerHTML = `<span style="color:var(--teal)">✅ 找到${result.sampleCount}筆孤立崩跌事件，振幅中位數${result.medianAmpPct.toFixed(2)}%，已自動填入建議間距${result.recommendedPct.toFixed(2)}%到「進階設定」。</span>`;
+  renderAll();
+});
+
+document.getElementById('btnOptimizeLadderParams').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('ladderOptimizeStatus');
+  const key = state.activeTab;
+  const rows = btImportedData[key];
+  const asset = getAsset(key);
+  if(!rows || rows.length < 90){
+    statusEl.innerHTML = `<span style="color:var(--red)">請先在上面「匯入歷史資料」，匯入足夠長的歷史資料（建議至少涵蓋數年，因為除了最近60天的評估區間，還需要更早的資料才能正確算出MA60），才能進行最佳化。</span>`;
+    return;
+  }
+  statusEl.innerHTML = `<span style="color:var(--text-dim)">計算中...</span>`;
+  // 用setTimeout讓畫面先更新出「計算中」這個訊息，再開始執行（網格搜尋要跑108種組合，需要一點時間）
+  setTimeout(()=>{
+    const dataKeepDays = asset.dataKeepDays || 60;
+    const searchResult = gridSearchLadderMetaParams(rows, dataKeepDays);
+    if(!searchResult.ok){
+      statusEl.innerHTML = `<span style="color:var(--red)">${searchResult.reason}</span>`;
+      return;
+    }
+    const { best, medianAmp } = searchResult;
+    if(!asset.params) asset.params = {...DEFAULT_PARAMS};
+    asset.params.bombardLadderSpacingPct = best.spacingPct;
+    asset.params.bombardLadderAmpMult = best.ampMult;
+    storageSet(KEY_ASSETS, state.assets);
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 用最近60天資料找到最佳組合：間距除數=${best.divisor}（間距${(best.spacingPct*100).toFixed(2)}%，孤立崩跌振幅中位數${medianAmp.toFixed(2)}%）、振幅倍數=${best.ampMult}、分位數=${(best.p20Pct*100).toFixed(0)}%/${(best.p80Pct*100).toFixed(0)}%，平均成本${best.result.avgCost.toFixed(2)}。已自動填入「間距%」跟「振幅倍數」到「進階設定」。</span>`;
+    renderAll();
+  }, 50);
+});
+
 document.getElementById('btImportFile').addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -4855,81 +5249,6 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
   renderAll();
 });
 
-
-document.getElementById('btnAdd').addEventListener('click', async ()=>{
-  document.getElementById('clearAssetDataStatus').innerHTML = '';
-  const date = document.getElementById('inDate').value;
-  const close = parseFloat(document.getElementById('inClose').value);
-  const ma5 = parseFloat(document.getElementById('inMa5').value);
-  const ma20 = parseFloat(document.getElementById('inMa20').value);
-  const ma60Raw = document.getElementById('inMa60').value;
-  if(!date || isNaN(close) || isNaN(ma5) || isNaN(ma20)){
-    alert('請完整輸入日期、收盤價、MA5、MA20');
-    return;
-  }
-  if(ma60Raw !== '' && isNaN(parseFloat(ma60Raw))){
-    alert('MA60格式錯誤');
-    return;
-  }
-  const ma60 = ma60Raw === '' ? null : parseFloat(ma60Raw);
-
-  // 其餘7個欄位（開盤價／最高價／最低價／漲跌價差／成交股數／成交金額／成交筆數）都是選填，逐一驗證格式
-  const optionalFields = [
-    { id:'inOpen', key:'open', label:'開盤價' },
-    { id:'inHigh', key:'high', label:'最高價' },
-    { id:'inLow', key:'low', label:'最低價' },
-    { id:'inChange', key:'change', label:'漲跌價差' },
-    { id:'inVolume', key:'volume', label:'成交股數' },
-    { id:'inAmount', key:'amount', label:'成交金額' },
-    { id:'inTradeCount', key:'tradeCount', label:'成交筆數' },
-  ];
-  const optionalValues = {};
-  for(const f of optionalFields){
-    const raw = document.getElementById(f.id).value;
-    if(raw === ''){
-      optionalValues[f.key] = undefined; // 留空代表「這次不覆蓋」，下面會補回原本記錄的值
-      continue;
-    }
-    const num = parseFloat(raw);
-    if(isNaN(num)){
-      alert(`${f.label}格式錯誤`);
-      return;
-    }
-    optionalValues[f.key] = num;
-  }
-
-  const key = state.activeTab;
-  const existingIdx = state.log[key].findIndex(r=>r.date===date);
-  const existing = existingIdx >= 0 ? state.log[key][existingIdx] : null;
-  // 現金不再透過這裡寫入歷史紀錄，改由「目前現金」區塊獨立更新；
-  // 若該日期原本就有紀錄，保留原本的cash欄位跟這次留空的其他欄位，不因這次操作被清空
-  const prevCash = existing ? existing.cash : null;
-  const entry = { date, close, ma5, ma20, ma60, cash: prevCash };
-  for(const f of optionalFields){
-    entry[f.key] = (optionalValues[f.key] !== undefined) ? optionalValues[f.key] : (existing ? existing[f.key] : null);
-  }
-  if(existingIdx >= 0){
-    state.log[key][existingIdx] = entry;
-  } else {
-    state.log[key].push(entry);
-  }
-  // 只保留設定的天數，超過的自動移除
-  state.log[key] = sortedLog(key).slice(-(getAsset(key).dataKeepDays || 5));
-  await storageSet(KEY_LOG(key), state.log[key]);
-
-  document.getElementById('inClose').value = '';
-  document.getElementById('inMa5').value = '';
-  document.getElementById('inMa20').value = '';
-  document.getElementById('inMa60').value = '';
-  document.getElementById('inOpen').value = '';
-  document.getElementById('inHigh').value = '';
-  document.getElementById('inLow').value = '';
-  document.getElementById('inChange').value = '';
-  document.getElementById('inVolume').value = '';
-  document.getElementById('inAmount').value = '';
-  document.getElementById('inTradeCount').value = '';
-  renderAll();
-});
 
 // 貼上「訊號明細」文字，自動解析出現金／股數／平均成本／最近一次加碼價格／日期，填入對應欄位——
 // 只解析有值的欄位，「（未輸入）」不會匹配到任何規則，維持該欄位空白，不會誤把使用者已經打好的其他欄位清空
@@ -5354,9 +5673,6 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
 
 // ---------- init ----------
 (async function init(){
-  const todayStr = new Date().toISOString().slice(0,10);
-  document.getElementById('inDate').value = todayStr;
-
   const savedAssets = await storageGet(KEY_ASSETS, null);
   state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}}));
   // 相容舊版資產設定：如果是更新前存的資料，沒有l1Pct/l2Pct（可能還是舊的固定股數l1/l2）或boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN
