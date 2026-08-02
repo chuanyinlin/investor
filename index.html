@@ -370,7 +370,7 @@
 
   /* ---------- Calendar popover ---------- */
   .field.date-field{ position:relative; }
-  #inDate, #btStartDate, #btEndDate, #btDownloadStartDate{ cursor:pointer; }
+  #inDate, #btStartDate, #btEndDate, #btDownloadStartDate, #chipStartDate, #chipEndDate{ cursor:pointer; }
   .calendar-pop{
     position:absolute; top:calc(100% + 6px); left:0; right:0;
     background: var(--panel-2); border:1px solid var(--hair-strong);
@@ -610,6 +610,30 @@
     <div class="footer-note" id="btImportStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" style="text-align:right;"><span id="btnBtClearImport" style="color:var(--text-faint); text-decoration:underline; cursor:pointer;">清除已匯入資料</span></div>
 
+    <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); cursor:pointer;" id="toggleChipData">
+      <h3 style="font-size:13px;">籌碼資料下載（三大法人買賣超，實驗性功能）</h3>
+      <button class="btn btn-primary btn-sm" title="展開"><span class="chev collapsed">▾</span></button>
+    </div>
+    <div id="chipDataBody" style="display:none;">
+      <div class="footer-note" style="text-align:left; margin-bottom:8px; color:var(--text-faint);">直接呼叫證交所「三大法人買賣超日報」網頁API，逐日累積成一份可下載的資料檔。這是實驗性功能——證交所這個API目前沒有正式的長區間查詢方式，欄位格式也可能跟預期不完全一致，下載完成後請先確認內容是否正確再使用。</div>
+      <div class="field">
+        <label>股票代號</label>
+        <input type="text" id="inChipStockNo" placeholder="例：2330">
+      </div>
+      <div class="grid2">
+        <div class="field date-field">
+          <label>起始日期</label>
+          <input type="text" id="chipStartDate" readonly placeholder="YYYY-MM-DD">
+        </div>
+        <div class="field date-field">
+          <label>結束日期</label>
+          <input type="text" id="chipEndDate" readonly placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnStartChipDownload" style="width:100%; margin-top:6px;">開始下載</button>
+      <div class="footer-note" id="chipDownloadStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+
     <div class="field date-field" style="padding-top:12px; border-top:1px solid var(--hair);">
       <div style="font-size:15.5px; font-weight:700; letter-spacing:0.3px; color:var(--text); text-transform:uppercase; font-family:var(--font-mono); margin-bottom:10px;">模擬設定</div>
       <label style="color:var(--text);">選擇開始日期</label>
@@ -647,7 +671,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 07:20</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 08:05</div>
   </div>
   </div>
 
@@ -826,7 +850,41 @@ function twseDateToISO(twseDate){
   return `${year}-${month}-${day}`;
 }
 
-// 抓單一股票、單一月份的每日收盤價
+// 抓「三大法人買賣超日報」單一天、單一股票的資料，透過CORS_PROXY轉發，格式跟精確欄位順序
+// 官方沒有正式文件保證，這裡用「欄位名稱比對」而不是寫死位置索引，較能容忍格式微調；
+// 找不到明確符合的欄位名稱時，回傳null，讓呼叫端可以跳過這天、不會整批中斷
+async function fetchInstitutionalDay(dateStr, stockNo){
+  // dateStr格式 YYYY-MM-DD，轉成證交所要的YYYYMMDD
+  const yyyymmdd = dateStr.replace(/-/g, '');
+  const target = `https://www.twse.com.tw/fund/T86?response=json&date=${yyyymmdd}&selectType=ALL`;
+  const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+  if(!res.ok) throw new Error(`網路回應異常（狀態碼 ${res.status}）`);
+  const json = await res.json();
+  if(json.stat !== 'OK' || !Array.isArray(json.data)) return null; // 當天不是交易日，或該日尚無資料
+  const fields = Array.isArray(json.fields) ? json.fields : [];
+  // 找出「證券代號」欄位的位置，用它來比對這一列是不是我們要的股票
+  const codeIdx = fields.findIndex(f => String(f).includes('代號'));
+  if(codeIdx === -1) return { raw: json, parseError: '找不到「證券代號」欄位，格式可能跟預期不同' };
+  const row = json.data.find(r => String(r[codeIdx]).trim() === String(stockNo).trim());
+  if(!row) return null; // 這天這支股票沒有資料（可能停牌或代號輸入錯誤）
+  // 用欄位名稱關鍵字比對，找出外資／投信／自營商 買賣超股數各自的位置；
+  // 找不到就存null，不強行猜測位置，避免用錯欄位產生誤導性的假資料
+  const findByKeyword = (keyword) => {
+    const idx = fields.findIndex(f => String(f).includes(keyword));
+    if(idx === -1) return null;
+    const v = row[idx];
+    return (v != null) ? parseFloat(String(v).replace(/,/g, '')) : null;
+  };
+  return {
+    date: dateStr,
+    foreignNet: findByKeyword('外陸資買賣超') != null ? findByKeyword('外陸資買賣超') : findByKeyword('外資及陸資買賣超'),
+    trustNet: findByKeyword('投信買賣超'),
+    dealerNet: findByKeyword('自營商買賣超股數'),
+  };
+}
+
+
+// 抓單一個月份（yyyymm01格式為該月第一天YYYY-MM-01）的每日收盤價
 async function fetchStockMonth(stockNo, yyyymm01){
   const target = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?date=${yyyymm01}&stockNo=${encodeURIComponent(stockNo)}`;
   const res = await fetch(CORS_PROXY + encodeURIComponent(target));
@@ -4131,7 +4189,7 @@ function closeCalendar(){
   if(pop) pop.classList.remove('show');
 }
 
-['inDate','btStartDate','btEndDate','btDownloadStartDate','inLastBombardDateNow'].forEach(id=>{
+['inDate','btStartDate','btEndDate','btDownloadStartDate','inLastBombardDateNow','chipStartDate','chipEndDate'].forEach(id=>{
   const el = document.getElementById(id);
   if(el){
     el.addEventListener('click', (e)=>{
@@ -4294,6 +4352,14 @@ document.getElementById('toggleInputPosition').addEventListener('click', ()=>{
   body.style.display = state.inputPositionCollapsed ? 'none' : 'block';
   const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.inputPositionCollapsed);
   btn.title = state.inputPositionCollapsed ? '展開' : '收合';
+});
+
+document.getElementById('toggleChipData').addEventListener('click', ()=>{
+  state.chipDataCollapsed = !state.chipDataCollapsed;
+  const body = document.getElementById('chipDataBody');
+  const btn = document.getElementById('toggleChipData');
+  body.style.display = state.chipDataCollapsed ? 'none' : 'block';
+  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.chipDataCollapsed);
 });
 
 document.getElementById('toggleLed').addEventListener('click', ()=>{
