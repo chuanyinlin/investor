@@ -624,7 +624,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 12:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 13:30</div>
   </div>
   </div>
 
@@ -2339,12 +2339,16 @@ let state = {
   log: {},
   cash: {},
   ladderPreviewCash: {}, // 委託清單裡，階梯模式的「今天可用現金」暫時試算輸入，不會存檔，跟正式的部位資料(cash)完全分開
+  realtimeQuote: {}, // 盤中即時查詢結果(每個標的各自一份)，只用來「對照顯示」限價有沒有已經被今天的高低價觸及，
+  // 不會拿去重新計算任何限價本身——完全不存檔，重新整理頁面就消失，純粹這次瀏覽期間的參考資訊
   shares: {},
   marginCost: {},
   marginShares: {},
   avgCost: {},
   lastBombardPrice: {},
   lastBombardDate: {},
+  realtimeQuote: {},  // 2026-08 新增：盤中即時查詢結果暫存，純參考用途，不影響任何計算，只用來讓
+  // 委託清單/訊號狀態/訊號明細「對照顯示」今天的即時價格有沒有觸及既有的限價（不重新計算限價本身）
   activeTab: 'spot',
   histCollapsed: true,
   inputCollapsed: true,
@@ -2498,7 +2502,8 @@ function computeForAsset(assetKey){
   // 下面這些判定只需要「今天」的資料就能算，資料只有1筆也能判定
   // 加碼參考均線：選MA20用今天MA20，選MA60用今天MA60，決定touch判斷跟限價計算的基準
   const bombardRefMaToday = (P.bombardReferenceMa === 'ma60') ? today.ma60 : today.ma20;
-  out.touch = (bombardRefMaToday != null) && (today.close <= bombardRefMaToday * (1 + P.tolerance));
+  out.bombardTouchThreshold = (bombardRefMaToday != null) ? bombardRefMaToday * (1 + P.tolerance) : null;
+  out.touch = (bombardRefMaToday != null) && (today.close <= out.bombardTouchThreshold);
 
   // 停利：初始條件永遠是「股價漲到MA20×停利乘數」，這是必要的第一層檢查；
   // 再依照使用者選擇的機制（成本倍數停利／MA60條件停利），疊加第二層的額外確認
@@ -2974,8 +2979,8 @@ function renderLeds(){
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
   const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
-  condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
-  condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
+  condHtml += ledItem(bombardCondEnabled, `股價達加碼價位 ${getRealtimeTouchNote(key, d.bombardTouchThreshold, true)}`, bombardCondEnabled && !d.touch ? 'red' : '');
+  condHtml += ledItem(true, `股價達停利價位 ${getRealtimeTouchNote(key, d.exitThreshold, false)}`, d.exitPriceReached?'':'red');
 
   // 現金流：沒有引用部位資料時，這顆燈天生沒有意義（沒有真實現金數字可以判斷夠不夠），直接不亮
   const cashStatus = getCashStatus(key);
@@ -3118,20 +3123,22 @@ function renderOrders(){
   // 當天股價是否真的觸及無法預知；只有防禦邊界關閉時，才代表現在不該掛單，股數歸零
   let l1Detail = '', l2Detail = '';
   let tip1 = '', tip2 = '';
+  let p1 = null, p2 = null;  // 提升到外層，確保即使資料筆數不足(d.ready2=false)，這兩個變數依然存在（值為null），
+  // 避免下面「對照今日即時價格」那段程式碼，在資料不足時因為引用未宣告的變數而拋出ReferenceError
   const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
   if(d.ready2 && !d.showPersonalAmounts){
     // 沒有引用部位資料：只顯示限價本身，不顯示股數（節流建議股數同樣依賴現金，這個模式下也一併省略）
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
-    const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
-    const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+    p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+    p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     l1Detail = throttledL1 ? `買入 ＠${fmtRaw(p1, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p1, tickDec)}`;
     l2Detail = throttledL2 ? `買入 ＠${fmtRaw(p2, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p2, tickDec)}`;
     tip1 = `未引用部位資料，僅顯示限價，不計算股數`;
     tip2 = tip1;
   } else if(d.ready2){
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
-    const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
-    const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
+    p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
+    p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     const cashNow = state.cash[key] || 0;
     let suggestedThrottlePrice = null, suggestedThrottlePriceL2 = null;
     if(P.bombardThrottleEnabled){
@@ -3219,8 +3226,8 @@ function renderOrders(){
     if(d.ladderLevels && d.ladderLevels.levels.length > 0){
       const hasAnyShares = d.ladderLevels.levels.some(l => l.shares > 0);
       const levelsTxt = hasAnyShares
-        ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層買入${fmtRaw(l.shares,0)}股 ＠${fmtRaw(l.price,tickDec)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)}`).join('<br>')
-        : d.ladderLevels.levels.map(l => `第${l.layer}層買入 ＠${fmtRaw(l.price,tickDec)}`).join('<br>');
+        ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層買入${fmtRaw(l.shares,0)}股 ＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}`).join('<br>')
+        : d.ladderLevels.levels.map(l => `第${l.layer}層買入 ＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}`).join('<br>');
       const ladderTip = `底線用MA60再依今天振幅動態延伸、不低於跌停板價格；最深/最淺層金額倍數${d.ladderLevels.extremeRatio.toFixed(2)}倍（過去60天動態計算或備援值）${hasAnyShares ? '' : '；尚未輸入現金，只顯示限價，請在下方「今天可用現金」試算欄位輸入金額'}`;
       html += orderRow(!!d.bombard, `加碼(階梯，共${d.ladderLevels.numLayers}層)`, `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, levelsTxt, ladderTip);
     } else {
@@ -3235,8 +3242,8 @@ function renderOrders(){
     const numLayersL12 = (hasL1?1:0) + (hasL2?1:0);
     const linesL12 = [];
     const tipsL12 = [];
-    if(hasL1){ linesL12.push(`第1層${l1Detail}`); if(tip1) tipsL12.push(`第1層：${tip1}`); }
-    if(hasL2){ linesL12.push(`第2層${l2Detail}`); if(tip2) tipsL12.push(`第2層：${tip2}`); }
+    if(hasL1){ linesL12.push(`第1層${l1Detail} ${getRealtimeTouchNote(key,p1,true)}`); if(tip1) tipsL12.push(`第1層：${tip1}`); }
+    if(hasL2){ linesL12.push(`第2層${l2Detail} ${getRealtimeTouchNote(key,p2,true)}`); if(tip2) tipsL12.push(`第2層：${tip2}`); }
     const activeL12 = !!d.bombard && !((!hasL1 || throttledL1) && (!hasL2 || throttledL2));
     html += orderRow(activeL12, `加碼(L1/L2，共${numLayersL12}層)`, `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, linesL12.join('<br>'), tipsL12.join('<br><br>'));
   }
@@ -3250,7 +3257,7 @@ function renderOrders(){
       exitDetail = `賣出 ＠${fmtRaw(exitPrice, tickDec)}`;
     } else {
       const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
-      exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)}`;
+      exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)} ${getRealtimeTouchNote(key,exitPrice,false)}`;
     }
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
@@ -3388,6 +3395,19 @@ function renderOrders(){
       renderOrders();
     });
   }
+}
+
+// 對照「今天盤中即時最高/最低價」跟某個限價，回傳一段提示文字（不重新計算限價本身，純粹對照顯示）；
+// isBuy=true代表買單（今天最低價<=限價就算已觸及），false代表賣單（今天最高價>=限價就算已觸及）；
+// 沒有查詢過即時資料、或查詢到的日期不是今天，就不顯示任何提示（避免用過期的盤中資料誤導）
+function getRealtimeTouchNote(assetKey, limitPrice, isBuy = true){
+  const rt = state.realtimeQuote[assetKey];
+  if(!rt || limitPrice == null || isNaN(limitPrice)) return '';
+  const todayStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  if(rt.date && rt.date !== todayStr) return ''; // 查詢到的資料不是今天的，不顯示（避免誤導）
+  const touched = isBuy ? (rt.low <= limitPrice) : (rt.high >= limitPrice);
+  if(!touched) return '';
+  return `<span style="color:var(--amber); font-weight:700;">（今日已觸及＠${rt.time}）</span>`;
 }
 
 function getCashStatus(key){
@@ -3622,7 +3642,7 @@ function renderReserve(){
     // 只顯示第一個/頂層加碼價位這個摘要事實；完整的分層明細（不管是L1/L2兩層，還是階梯模式的N層），
     // 請到「委託清單」查看，這裡不重複列出——尤其階梯模式下，「第二層」這個概念本身已經不存在，
     // 繼續顯示layer2CostTxt（依賴L1/L2模式專屬的layer2Mult算出來）在階梯模式下沒有意義、甚至是誤導的
-    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}`;
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt} ${getRealtimeTouchNote(key, d.bombardTouchThreshold, true)}`;
     bombardColor = 'var(--teal)';
   } else if(d.touch && d.bombardMa20Ok && d.bombardMa60Ok && d.bombardPriceAboveMa60Ok && d.cashSufficient === false){
     // 股價、以及所有有勾選要求的MA相關條件都已經符合，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
@@ -3704,14 +3724,14 @@ function renderReserve(){
       const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
       exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
       exitColor = 'var(--amber)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
     } else if(d.exitPriceReached){
       const exitShares = Math.round((state.shares[key]||0) * asset.params.exitPartialFrac);
       exitColor = 'var(--teal)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
     }
   }
 
@@ -5207,12 +5227,20 @@ document.getElementById('btnQueryRealtime').addEventListener('click', async ()=>
       const changeTxt = (info.z && info.z !== '-' && info.y) ? `（較昨收${(parseFloat(info.z)-parseFloat(info.y))>=0?'+':''}${(parseFloat(info.z)-parseFloat(info.y)).toFixed(2)}）` : '';
       statusEl.innerHTML = `<span style="color:var(--teal)">${info.n||asset.stockNo}　${isLive?'現價':'昨收'}：${price} ${changeTxt}</span><br>` +
         `<span style="color:var(--text-faint);">開${info.o||'—'}／高${info.h||'—'}／低${info.l||'—'}／昨收${info.y||'—'}｜更新時間：${info.t||'—'}（僅供參考，不影響任何策略判斷）</span>`;
+      // 把今天的最高/最低價存起來，讓「委託清單」「訊號狀態」「訊號明細」可以「對照顯示」今天的即時價格
+      // 有沒有觸及既有的限價——只是對照顯示，不會拿這些值重新計算限價本身，限價依然完全只看昨天收盤
+      const todayHigh = (info.h && info.h !== '-') ? parseFloat(info.h) : null;
+      const todayLow = (info.l && info.l !== '-') ? parseFloat(info.l) : null;
+      if(todayHigh != null && todayLow != null){
+        state.realtimeQuote[key] = { date: info.d || '', high: todayHigh, low: todayLow, price: parseFloat(price), time: info.t || '' };
+      }
     }
   } catch(err){
     statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：${err.message}</span>`;
   }
   btn.textContent = originalText;
   btn.disabled = false;
+  renderAll();
 });
 
 
