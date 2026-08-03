@@ -233,7 +233,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleInputPosition, #toggleChipData{
+  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleChipData{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -438,57 +438,16 @@
     <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
 
-    <div id="positionMgmtSection">
-    <div class="card-title" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <h3 style="font-size:13px;">部位管理</h3>
-      <button class="btn btn-primary btn-sm" id="toggleInputPosition" title="展開"><span class="chev collapsed">▾</span></button>
+    <!-- 查詢盤中即時價格：純參考用途，完全不影響任何策略計算——InvestOS核心設計是「所有買賣決策均以
+         收盤資料試算，不因盤中波動調整掛單」，這裡查到的價格，不會被寫入歷史資料、不會觸發任何訊號重算 -->
+    <div class="field" style="margin-top:10px;">
+      <label style="color:var(--text);">查詢盤中即時價格<span style="color:var(--text-faint); font-weight:400;">（僅供參考，不影響任何策略判斷；資料來源證交所，約5秒更新一次，收盤後才不會反映在正式的歷史資料裡）</span></label>
     </div>
-    <div id="inputPositionBody" style="display:none;">
+    <button class="btn btn-neutral btn-sm" id="btnQueryRealtime" style="width:100%;">查詢</button>
+    <div class="footer-note" id="realtimeQuoteStatus" style="text-align:left; margin-top:6px;"></div>
 
-    <div class="field">
-      <label style="color:var(--text);">目前活存現金／股數／平均成本<span style="color:var(--text-faint); font-weight:400;">（計算現金水位與停利基準）</span></label>
-    </div>
-    <div class="grid3">
-      <div class="field">
-        <label>活存現金</label>
-        <input type="number" step="1" id="inCashNow" placeholder="0">
-      </div>
-      <div class="field">
-        <label>股數</label>
-        <input type="number" step="1" id="inSharesNow" placeholder="0">
-      </div>
-      <div class="field">
-        <label style="color:var(--text-faint);">平均成本</label>
-        <input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00">
-      </div>
-    </div>
-
-    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（計算加碼節流）</span></label>
-    </div>
-    <div class="grid2">
-      <div class="field">
-        <label>最近一次加碼價格</label>
-        <input type="number" step="0.01" id="inLastBombardPriceNow" placeholder="0.00">
-      </div>
-      <div class="field date-field">
-        <label>最近一次加碼日期</label>
-        <input type="text" id="inLastBombardDateNow" readonly placeholder="YYYY-MM-DD">
-      </div>
-    </div>
-
-    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">貼上訊號明細快速填入<span style="color:var(--text-faint); font-weight:400;">（複製「訊號明細」內容貼上，自動解析回填）</span></label>
-      <textarea id="inPasteParse" rows="2" placeholder="複製「訊號明細」裡面的「目前活存現金…」兩行文字並且貼上，自動解析並回填部位資訊"></textarea>
-      <button class="btn btn-neutral btn-sm" id="btnParsePaste" style="width:100%; margin-top:6px;">回填</button>
-      <div class="footer-note" id="parsePasteStatus" style="text-align:left; margin-top:6px;"></div>
-    </div>
-
-    <button class="btn btn-neutral btn-sm" id="btnSaveManualFields" style="width:100%; margin-top:6px;">儲存</button>
-    <div class="footer-note" id="saveManualFieldsStatus" style="text-align:left; margin-top:6px;"></div>
-
-    </div>
-    </div>
+    <!-- 部位管理(現金/股數/平均成本/最近一次加碼價格日期)已搬到「委託清單」最下面，
+         改成暫時輸入、不存檔，每次都要重新輸入；「貼上訊號明細快速填入」已完整移除；不再放在這裡 -->
 
     <!-- 進階/例外處理：收合，平常不會用到 -->
     <div class="card-title" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);">
@@ -505,7 +464,7 @@
     </div>
 
     <div class="field date-field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); display:none;">
-      <!-- calendarPop是全站共用的日曆彈出元件（其他日期欄位如「建倉起始日」「回測起始日」都會借用），
+      <!-- calendarPop是全站共用的日曆彈出元件（其他日期欄位如「回測起始日」都會借用），
            手動新增特定日期資料這個功能本身已經移除，但這個共用元件本身要保留在畫面上，不能刪掉 -->
       <div class="calendar-pop" id="calendarPop">
         <div class="cal-head">
@@ -591,6 +550,12 @@
     <div class="footer-note" id="ladderSpacingStatus" style="text-align:left; margin-top:6px;"></div>
 
     <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">計算階梯底線歷史振幅上限<span style="color:var(--text-faint); font-weight:400;">（用上面已匯入的歷史資料，統計單日振幅%分布的95%分位數，避免底線經常延伸到幾乎不會被觸及的深度）</span></label>
+    </div>
+    <button type="button" class="btn btn-neutral btn-sm" id="btnCalcMaxAmpPct" style="width:100%;">計算歷史振幅上限</button>
+    <div class="footer-note" id="maxAmpPctStatus" style="text-align:left; margin-top:6px;"></div>
+
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
       <label style="color:var(--text);">自動最佳化階梯參數<span style="color:var(--text-faint); font-weight:400;">（用最近60天資料，網格搜尋「間距除數」「振幅倍數」「分位數組合」的最佳值，取代人為猜測）</span></label>
     </div>
     <button type="button" class="btn btn-neutral btn-sm" id="btnOptimizeLadderParams" style="width:100%;">開始自動最佳化</button>
@@ -633,7 +598,7 @@
       <input type="text" id="btEndDate" readonly placeholder="YYYY-MM-DD（可留空）">
     </div>
     <div class="field">
-      <label style="color:var(--text);">輸入起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，停利或時間停損的流動現金會回到同一個資金池）</span></label>
+      <label style="color:var(--text);">輸入起始本金<span style="color:var(--text-faint); font-weight:400;">（封閉式資金循環，不再外部注資，停利的流動現金會回到同一個資金池）</span></label>
       <input type="number" step="10000" id="btStartCapital" placeholder="5000000">
     </div>
 
@@ -642,7 +607,6 @@
       <div style="display:flex; flex-wrap:wrap; gap:14px;">
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowBombard" style="width:auto;">加碼</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowExit" style="width:auto;">停利</label>
-        <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowTimeStop" style="width:auto;">時間停損</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLiqStop" style="width:auto;">現金水位回補</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowDcaPause" style="width:auto;">暫停定期定額</label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text); margin-bottom:0;"><input type="checkbox" id="btShowLowCashRatio" style="width:auto;">現金佔比低於門檻</label>
@@ -653,14 +617,14 @@
     </div>
 
     <button class="btn btn-neutral btn-sm" id="btnRunBacktest" style="width:100%; margin-top:14px;">開始模擬</button>
-    <div class="footer-note" style="text-align:left; margin-top:6px;">回測會模擬：定期定額(市價單，今天成交)／動能・加碼・停利・時間停損(限價單，掛前一天算出的價位，今天最高/最低價要觸及才成交)／現金水位回補(市價單，現金比例不足當天立刻成交)，並套用目前參數設定裡的所有數值</div>
+    <div class="footer-note" style="text-align:left; margin-top:6px;">回測會模擬：定期定額(市價單，今天成交)／動能・加碼・停利(限價單，掛前一天算出的價位，今天最高/最低價要觸及才成交)／現金水位回補(市價單，現金比例不足當天立刻成交)，並套用目前參數設定裡的所有數值</div>
 
     <div class="footer-note" id="backtestStatus" style="text-align:left; margin-top:6px;"></div>
     <div id="backtestResult"></div>
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-02 23:15</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 12:50</div>
   </div>
   </div>
 
@@ -713,15 +677,10 @@ const KEY_SHARES = k => 'tsmos:shares:' + k;
 const KEY_MARGIN_COST = k => 'tsmos:margincost:' + k;
 const KEY_MARGIN_SHARES = k => 'tsmos:marginshares:' + k;
 const KEY_AVG_COST = k => 'tsmos:avgcost:' + k;
-const KEY_POSITION_START = k => 'tsmos:positionstart:' + k;
 const KEY_LAST_BOMBARD_PRICE = k => 'tsmos:lastbombardprice:' + k;
 const KEY_LAST_BOMBARD_DATE = k => 'tsmos:lastbombarddate:' + k;
 
 const DEFAULT_PARAMS = {
-  usePersonalPositionData: true,  // 2026-08 新增：是否引用部位資料（現金/股數/平均成本/融資資料）；
-  // 關閉後，整個運算純粹根據歷史股價/均線推算，不需要輸入任何個人部位資料，訊號明細跟委託清單依然正常運作，
-  // 只是不再顯示具體股數/金額（改成只顯示限價），且「現金水位回補」「融資防禦」這類天生依賴個人資料的機制完全停用不顯示；
-  // 預設開啟，維持現行行為，不影響既有使用者
   defenseRequireMa60Trend: true,  // 2026-08 新增：防禦邊界（動能觸發/現金水位回補/定期定額暫停共用的核心判斷）
   // 是否要求MA60持平或向上（只看趨勢方向）；預設開啟，維持現行規則。跟「加碼要求MA60持平或向上」是獨立的兩件事，
   // 加碼本身有自己專屬的判斷，不受這裡影響
@@ -741,6 +700,14 @@ const DEFAULT_PARAMS = {
   // 層數少時每層跳得比較大、層數多時每層跳得比較平滑，但整體最深/最淺的倍數維持一致
   bombardLadderReservePct: 0.10,  // 階梯每天最多動用「當天可用現金」的百分之多少；這是個人風險承受度/財務狀況的判斷，
   // 不是能從歷史資料反推出來的東西，由使用者自己決定要保留多少緩衝現金，不動用在這個階梯裡
+  bombardLadderMaxAmpEnabled: false,  // 2026-08 新增：是否啟用「階梯底線歷史振幅上限」這個額外限制；
+  // 預設關閉——用台積電16年資料回測驗證過，這個限制反而讓報酬跟風險都變差（放棄了深跌時稀少但報酬率
+  // 極高的承接機會），維持關閉等同原本只靠跌停板保底的設計；保留這個開關讓使用者可以自己測試不同市場情境
+  bombardLadderMaxAmpPct: 0.0287,  // 2026-08 新增：底線深度的「歷史合理上限」——不管「振幅倍數×前一天振幅」這個
+  // 動態公式算出多深，底線都不會超過MA60×(1-這個值)，避免底線經常延伸到歷史上幾乎不會被觸及的深度；
+  // 用「歷史單日振幅%分布的95%分位數」算出來，代表這個深度歷史上大約5%的交易日會達到，不是幾乎不可能發生的極端情況；
+  // 預設值2.87%是用台積電16年資料驗證出的95%分位振幅，可以在「回測模擬」用按鈕依匯入的歷史資料重新計算；
+  // 只有上面「啟用階梯底線歷史振幅上限」也勾選時才會生效
   crossAssetBoostEnabled: false,  // 2026-07 新增：跨標的崩跌訊號加成，用另一個標的（例如TSM）前一交易日的異常表現，決定今天要不要加碼更多
   crossAssetRefKey: '',  // 要參考哪個標的的key（例如'asset2'代表TSM），空字串代表沒有設定、不生效
   crossAssetAmpThreshold: 0.04,  // 參考標的前一交易日的振幅門檻，超過才算「異常」
@@ -753,13 +720,11 @@ const DEFAULT_PARAMS = {
   liqFloorMult: 0.95,
   marginRatio: 0.60,
   marginCallRatio: 1.20,
-  marginDefenseEnabled: false,   // 2026-07 比照時間停損模式：融資防禦預設關閉，需要使用者主動勾選才啟用；融資買進均價/股數也移到這裡一起管理
+  marginDefenseEnabled: false,   // 融資防禦預設關閉，需要使用者主動勾選才啟用；融資買進均價/股數也移到這裡一起管理
   costExitMult: 1.10,
   exitSecondLayerEnabled: false,
   useMa60ConfirmForExit: false,
   exitMa60ConfirmDays: 3,
-  timeStopDays: 120,
-  timeStopEnabled: false,   // 2026-07 定案：時間停損預設關閉，需要使用者主動勾選才啟用；建倉起始日也移到這裡一起管理
   bombardThrottleEnabled: false,  // 加碼節流預設關閉；門檻是獨立參數throttleMult，不跟layer2Mult共用
   throttleMult: 0.99,    // 2026-07 驗證：加碼節流門檻，獨立於L2定價，1%在報酬與現金水位健康度間取得最佳平衡
   bombardThrottleConditionalOnMa60: false,  // 2026-07 新機制：節流只在MA60向下且股價<MA60時才啟用（下跌時保護），MA60健康時不節流（多頭時不犧牲機會成本）；預設關閉，維持「只要啟用節流就永遠檢查」的現行規則
@@ -777,48 +742,47 @@ const DEFAULT_PARAMS = {
   bombardAmplitudeThresholdPct: 0.05,
   bombardOpenHighCloseLowEnabled: false,  // 2026-07 從回測「測試特定機制」轉正：連續N天開高走低型態暫停加碼；預設關閉
   bombardOpenHighCloseLowDays: 3,
-  timeStopIgnoreCashGate: false,  // 2026-07 從回測「測試特定機制」轉正：時間停損不受現金水位門檻限制，只看持有天數；預設關閉（維持現行規則：時間停損是現金水位的從屬機制，現金充足時暫緩）
   momentumIgnoreDefense: false,  // 2026-07 從回測「測試特定機制」轉正：動能觸發不受MA60防禦邊界限制，只看現金是否充足；預設關閉（維持現行規則）
   liqStopIgnoreTrend: false,  // 2026-07 從回測「測試特定機制」轉正：現金水位回補不管MA60趨勢安不安全，一律當天市價強制賣股救急，不分流成「暫緩改暫停定期定額」；預設關閉（維持現行規則的趨勢分流）
   exitPartialFrac: 0.70,
   exitVolumeConfirmEnabled: false,  // 2026-07 新機制：停利第二層三選一之一——量能確認停利，股價達MA20門檻時，還要「昨天有放量」才觸發；預設關閉
   exitVolumeMult: 1.2,  // 量能確認的放量倍數：昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量
-  timeStopPartialFrac: 0.30,
 };
 
 const PARAM_META = [
-  ['usePersonalPositionData','引用標的部位資料','bool','整體設定','預設開啟，維持現行行為（需要輸入現金/股數等部位資料，訊號才會顯示具體股數/金額）。關閉後，完全不需要輸入任何個人部位資料，系統純粹根據歷史股價/均線推算訊號——「定期定額」「動能」「加碼」「停利」依然會正常判斷觸不觸發、也會顯示限價，但不再顯示具體股數/金額（因為不知道你有多少現金/股票）；「現金水位回補」「融資防禦」這類天生依賴個人部位資料的機制，會完全停用、不顯示，因為沒有部位資料，這些機制的判斷本身沒有意義'],
   ['defenseRequireMa60Trend','防禦邊界要求MA60持平或向上','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界（動能觸發／現金水位回補分流／定期定額暫停共用的核心判斷）要能算安全，MA60一定要持平或向上（只看趨勢方向）。這是獨立於「加碼要求MA60持平或向上」之外的另一組開關——加碼本身有自己專屬的判斷，不受這裡影響；關閉後，防禦邊界不再檢查MA60的趨勢方向，只看還有勾選的其他條件'],
   ['defenseRequirePriceAboveMa60','防禦邊界要求股價≥MA60','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界要能算安全，股價一定要站上MA60（只看股價位置）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，防禦邊界不再檢查股價是否站上MA60，只看還有勾選的其他條件——例如只勾選MA60趨勢、不勾選這項，就能讓動能觸發/現金水位回補等機制，在股價短暫跌破MA60、但長期趨勢仍健康時依然視為安全'],
-  ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
-  ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額防禦','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
-  ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
-  ['bombardRequirePriceAboveMa60','加碼要求股價≥MA60','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，股價一定要站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，加碼不再檢查股價是否站上MA60，只看其他還有勾選的條件——例如只勾選MA60趨勢、不勾選這項，就能讓加碼在股價短暫跌破MA60、但長期趨勢仍健康時依然有機會觸發'],
-  ['bombardMa60ObservationEnabled','啟用加碼MA60觀察期','bool','加碼條件','預設關閉。只有上面「加碼要求股價≥MA60」有勾選時才會生效（沒有這項要求，觀察期就沒有東西可以救濟）。啟用後，股價跌破MA60的頭幾天先當作「觀察期」，視同還符合「股價≥MA60」這項要求；只有連續跌破超過設定天數，才真正確認轉弱、判定不符合。用意是區分「單日急殺、可能隔天就反彈」跟「真正連續破位下跌」'],
-  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼條件','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1，改變保留天數後這個上限會跟著調整'],
-  ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
-  ['bombardRequireCash','加碼要求流動現金充足','bool','加碼條件','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
-  ['bombardReferenceMa','加碼參考均線','maref','加碼條件','決定加碼要拉回到哪一條均線才觸發——選MA20（現行預設）較敏感、較常觸發；選MA60則要股價拉回到更主要的支撐才會觸發，次數會少很多，但可能等到更值得承接的位置'],
-  ['bombardLadderMode','啟用固定層距階梯模式（取代L1/L2百分比模式）','bool','加碼條件','開啟後，加碼不再用L1/L2百分比模式，改成階梯限價；每一層的股數＝「定期定額/股」設定值×(頂層委託價÷這一層委託價)，不用另外設定公比——股價跌得越深，這一層的股數自然放大越多，完全由委託價本身的跌幅決定；最上層用「加碼參考均線」當基準，最下層用MA60再依前一天振幅動態往下延伸、且不低於跌停板價格當基準，層數會依當時價差寬窄自動增減。不使用加碼節流、不使用L1Pct/L2Pct，適合「只買不賣、之後質押」的核心資產標的'],
-  ['bombardLadderAmpMult','階梯底線振幅倍數','mult','加碼條件','底線＝MA60×(1−這個倍數×前一天振幅%)，前一天振幅%＝(前一天最高價−前一天最低價)/前一天收盤價；倍數越大，前一天股價振盪越劇烈時，底線會往下延伸得越深，讓階梯有機會接住跌破MA60的深跌；這個底線同時不會低於跌停板價格（前一天收盤價×90%，取整到合法檔位）'],
-  ['bombardLadderSpacingPct','階梯每層固定間距%','pct','加碼條件','決定階梯每一層之間要差多少%，層數＝ceil((頂層-底線)/這個間距)自動算出來，不用手動指定層數——間距設越小，同樣價差下層數越多、越密集。建議值怎麼算：從歷史資料找出「孤立崩跌」事件（開盤缺口<-1.5%、盤中振幅>2.5%、收黑，且前5天沒有連續下跌鋪墊，代表是真正突發性的崩跌，不是已經在空頭趨勢裡），統計這些事件發生當天的振幅中位數，除以3（代表希望3層左右能覆蓋一次典型的孤立崩跌），算出建議間距。用台積電16年歷史資料驗證，共找到27筆孤立崩跌，振幅中位數3.05%，算出建議間距約1.02%，這個數字剛好也是手動測試效果不錯的區間，可以在「回測模擬」卡片用「建議間距」按鈕，依匯入的歷史資料自動計算'],
-  ['bombardLadderReservePct','階梯現金緩衝比例%','pct','加碼條件','階梯每天最多動用「當天可用現金」的百分之多少（例如10%代表最多保留10%現金不動用），這是你自己的財務狀況/風險承受度判斷，沒有標準答案，不會用歷史資料反推'],
-  ['bombardLadderExtremeRatio','階梯最深/最淺層金額倍數（備援值）','mult','加碼條件','當天可用現金（扣除上面設定的緩衝比例後）依幾何級數分配到每一層——這個倍數，決定「最深那一層」分配到的金額，是「最淺那一層」的幾倍。這個值預設會「動態計算」，不是固定不變：用過去60個交易日裡曾經跌破MA60的深度分布，取20%分位深度跟80%分位深度的比值，隨最近市場波動狀況自動調整；只有在過去60天樣本不足（例如回測剛開始沒多久、完全沒發生過拉回）時，才會退回使用這裡設定的固定值當備援'],
-  ['crossAssetBoostEnabled','啟用跨標的崩跌訊號加成（目前僅支援回測模擬）','crossref','加碼條件','用另一個標的（例如美股ADR）前一交易日的異常表現，判斷今天要不要用更高的比例加碼——例如台積電可以參考TSM前一晚是否已經出現異常崩跌，因為兩者本質上是同一家公司，只是在不同時區交易，前一晚的異常表現，統計上跟隔天台股容易劇烈波動有關聯'],
-  ['crossAssetAmpThreshold','參考標的異常振幅門檻%','pct','加碼條件','參考標的前一交易日的（最高價−最低價）/收盤價，超過這個門檻才算「異常」，才會觸發加成'],
-  ['crossAssetBoostMult','異常時的加碼倍數','mult','加碼條件','符合異常條件時，這一次的L1/L2加碼比例，要乘上這個倍數（例如1.5代表比例變成原本的1.5倍）'],
-  ['tolerance','股價達加碼價位的區間容忍度%','pct','加碼條件','股價要多接近上面選的那條均線才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
-  ['layer2Mult','第二層價位為第一層價位的百分比%','pct','加碼條件','第二層加碼要比第一層便宜才掛單，這裡設定第二層是第一層的幾%，例如設98代表第二層價位是第一層的98%（也就是便宜2%）；必須小於100，才能保證第二層永遠比第一層便宜'],
-  ['bombardThrottleEnabled','啟用加碼節流','bool','加碼條件','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「資料管理」卡片手動回報；股價脫離加碼區間時會自動清空，不用手動維護'],
-  ['throttleMult','加碼節流門檻%','pct','加碼條件','這次要掛的限價，要低於「最近一次加碼價格」的這個百分比，才算真的夠低、值得再買一次，例如設99代表新價格要&lt;最近一次加碼價格的99%（也就是至少便宜1%）；沒有便宜到這個程度，就暫緩'],
-  ['bombardThrottleConditionalOnMa60','加碼節流僅在MA60向下且股價低於MA60時啟用','bool','加碼條件','預設關閉，維持現行規則：只要「啟用加碼節流」有勾選，不管趨勢好壞都一律檢查節流。啟用這個選項後，節流只在MA60向下且股價低於MA60（下跌訊號明確）時才會生效；MA60健康的時候，直接用原始的第一/第二層限價掛單，不受節流限制，用意是只保留節流在下跌時的保護效果，避免多頭時因為節流而錯失加碼機會。只有上面「啟用加碼節流」也有勾選時才會生效'],
-  ['ma5RecoveryForDefenseEnabled','MA5未轉弱時允許跌破MA60照樣加碼/動能（目前僅支援回測模擬）','bool','加碼條件','預設關閉，維持現行規則：防禦邊界需要「股價站穩MA60」才會打開，跌破當天不管其他線怎樣一律關閉。啟用後，如果MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然視為安全；但只要MA5轉弱（今天MA5低於昨天），代表短期動能已經真的鬆動，維持原本規則，防禦邊界照常關閉'],
-  ['bombardVolumeDefenseEnabled','加碼多一層量能異常防禦邊界（目前僅支援回測模擬）','bool','加碼條件','預設關閉，維持現行規則：加碼不檢查成交量，只看股價/MA20條件與現金是否足夠。啟用後，加碼觸發時會多檢查量能異常警訊——爆量（成交量>過去20天平均量×2倍）且下跌（收盤價&lt;前一天收盤價）同時發生才算警訊，單純爆量或單純下跌但量縮都不算，出現警訊當天暫停加碼'],
-  ['bombardAmplitudeDefenseEnabled','加碼多一層日振幅異常防禦邊界（目前僅支援回測模擬）','bool','加碼條件','預設關閉，維持現行規則：加碼不檢查單日振幅，只看股價/MA20條件與現金是否足夠。啟用後，加碼觸發時會多檢查振幅異常警訊——日振幅%＝(最高價-最低價)÷前一日收盤價×100%，振幅超過設定門檻 且 下跌，兩者同時發生才算警訊；單純振幅大（可能是急跌後反彈）或單純下跌但振幅正常都不算，出現警訊當天暫停加碼'],
-  ['bombardAmplitudeThresholdPct','日振幅異常門檻%','pct','加碼條件','日振幅超過這個百分比，且當天收黑，才算振幅異常警訊；只有上面「加碼多一層日振幅異常防禦邊界」有勾選才會生效'],
-  ['bombardOpenHighCloseLowEnabled','連續N天開高走低暫停加碼（目前僅支援回測模擬）','bool','加碼條件','預設關閉，維持現行規則：加碼不檢查開盤/收盤的關係。啟用後，只要連續N天都是「開高走低」（收盤價&lt;開盤價，代表當天從高點一路收黑），就暫停加碼，不管MA60、現金是否正常。只要有一天不是開高走低，連續天數就會重置為0，重新開始累計'],
-  ['bombardOpenHighCloseLowDays','連續開高走低天數門檻','int','加碼條件','連續幾天都是開高走低型態，才觸發暫停加碼；只有上面「連續N天開高走低暫停加碼」有勾選才會生效'],
-  ['momentumIgnoreDefense','動能觸發不受防禦邊界(MA60)限制（目前僅支援回測模擬）','bool','動能觸發','預設關閉，維持現行規則：動能要能觸發（連續三天股價≥MA5），除了MA5持平或向上，還要防禦邊界安全（MA60趨勢正常、流動現金充足等）同時成立。啟用後，動能觸發不再看防禦邊界，只看現金是否充足'],
+  ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
+  ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
+  ['momentumIgnoreDefense','動能觸發不受防禦邊界(MA60)限制（目前僅支援回測模擬）','bool','動能邏輯','預設關閉，維持現行規則：動能要能觸發（連續三天股價≥MA5），除了MA5持平或向上，還要防禦邊界安全（MA60趨勢正常、流動現金充足等）同時成立。啟用後，動能觸發不再看防禦邊界，只看現金是否充足'],
+  ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
+  ['bombardRequirePriceAboveMa60','加碼要求股價≥MA60','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，股價一定要站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，加碼不再檢查股價是否站上MA60，只看其他還有勾選的條件——例如只勾選MA60趨勢、不勾選這項，就能讓加碼在股價短暫跌破MA60、但長期趨勢仍健康時依然有機會觸發'],
+  ['bombardMa60ObservationEnabled','啟用加碼MA60觀察期','bool','加碼邏輯','預設關閉。只有上面「加碼要求股價≥MA60」有勾選時才會生效（沒有這項要求，觀察期就沒有東西可以救濟）。啟用後，股價跌破MA60的頭幾天先當作「觀察期」，視同還符合「股價≥MA60」這項要求；只有連續跌破超過設定天數，才真正確認轉弱、判定不符合。用意是區分「單日急殺、可能隔天就反彈」跟「真正連續破位下跌」'],
+  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼邏輯','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1，改變保留天數後這個上限會跟著調整'],
+  ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
+  ['bombardRequireCash','加碼要求流動現金充足','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
+  ['bombardReferenceMa','加碼參考均線','maref','加碼邏輯','決定加碼要拉回到哪一條均線才觸發——選MA20（現行預設）較敏感、較常觸發；選MA60則要股價拉回到更主要的支撐才會觸發，次數會少很多，但可能等到更值得承接的位置'],
+  ['bombardLadderMode','加碼計算方式','ladderRadio','加碼邏輯','兩種計算方式二選一：固定層距階梯模式——每一層的股數＝「定期定額/股」設定值×(頂層委託價÷這一層委託價)，不用另外設定公比，股價跌得越深，這一層的股數自然放大越多，完全由委託價本身的跌幅決定；最上層用「加碼參考均線」當基準，最下層用MA60再依前一天振幅動態往下延伸、且不低於跌停板價格當基準，層數會依當時價差寬窄自動增減，不使用加碼節流、不使用L1Pct/L2Pct，適合「只買不賣、之後質押」的核心資產標的。L1/L2百分比模式——現行的兩層固定比例加碼，各自用「目前現金×比例%」計算股數，支援加碼節流'],
+  ['bombardLadderAmpMult','階梯底線振幅倍數','mult','加碼邏輯','底線＝MA60×(1−這個倍數×前一天振幅%)，前一天振幅%＝(前一天最高價−前一天最低價)/前一天收盤價；倍數越大，前一天股價振盪越劇烈時，底線會往下延伸得越深，讓階梯有機會接住跌破MA60的深跌；這個底線同時不會低於跌停板價格（前一天收盤價×90%，取整到合法檔位）'],
+  ['bombardLadderSpacingPct','階梯每層固定間距%','pct','加碼邏輯','決定階梯每一層之間要差多少%，層數＝ceil((頂層-底線)/這個間距)自動算出來，不用手動指定層數——間距設越小，同樣價差下層數越多、越密集。建議值怎麼算：從歷史資料找出「孤立崩跌」事件（開盤缺口<-1.5%、盤中振幅>2.5%、收黑，且前5天沒有連續下跌鋪墊，代表是真正突發性的崩跌，不是已經在空頭趨勢裡），統計這些事件發生當天的振幅中位數，除以3（代表希望3層左右能覆蓋一次典型的孤立崩跌），算出建議間距。用台積電16年歷史資料驗證，共找到27筆孤立崩跌，振幅中位數3.05%，算出建議間距約1.02%，這個數字剛好也是手動測試效果不錯的區間，可以在「回測模擬」卡片用「建議間距」按鈕，依匯入的歷史資料自動計算'],
+  ['bombardLadderReservePct','階梯現金緩衝比例%','pct','加碼邏輯','階梯每天最多動用「當天可用現金」的百分之多少（例如10%代表最多保留10%現金不動用），這是你自己的財務狀況/風險承受度判斷，沒有標準答案，不會用歷史資料反推'],
+  ['bombardLadderMaxAmpEnabled','啟用階梯底線歷史振幅上限','bool','加碼邏輯','預設關閉——用台積電16年資料回測驗證過，這個限制反而讓報酬跟風險都變差（放棄了深跌時稀少但報酬率極高的承接機會），維持關閉等同原本只靠跌停板保底的設計。保留這個開關讓你自己測試不同市場情境／標的下，效果會不會不一樣'],
+  ['bombardLadderMaxAmpPct','階梯底線歷史振幅上限%','pct','加碼邏輯','不管「振幅倍數×前一天振幅」這個動態公式算出多深，底線都不會超過MA60×(1-這個值)——用「歷史單日振幅%分布的95%分位數」算出來，代表這個深度歷史上大約5%的交易日會達到。只有上面「啟用階梯底線歷史振幅上限」有勾選時才會生效；可以在「回測模擬」用按鈕依匯入的歷史資料重新計算'],
+  ['bombardLadderExtremeRatio','階梯最深/最淺層金額倍數（備援值）','mult','加碼邏輯','當天可用現金（扣除上面設定的緩衝比例後）依幾何級數分配到每一層——這個倍數，決定「最深那一層」分配到的金額，是「最淺那一層」的幾倍。這個值預設會「動態計算」，不是固定不變：用過去60個交易日裡曾經跌破MA60的深度分布，取20%分位深度跟80%分位深度的比值，隨最近市場波動狀況自動調整；只有在過去60天樣本不足（例如回測剛開始沒多久、完全沒發生過拉回）時，才會退回使用這裡設定的固定值當備援'],
+  ['crossAssetBoostEnabled','啟用跨標的崩跌訊號加成（目前僅支援回測模擬）','crossref','加碼邏輯','用另一個標的（例如美股ADR）前一交易日的異常表現，判斷今天要不要用更高的比例加碼——例如台積電可以參考TSM前一晚是否已經出現異常崩跌，因為兩者本質上是同一家公司，只是在不同時區交易，前一晚的異常表現，統計上跟隔天台股容易劇烈波動有關聯'],
+  ['crossAssetAmpThreshold','參考標的異常振幅門檻%','pct','加碼邏輯','參考標的前一交易日的（最高價−最低價）/收盤價，超過這個門檻才算「異常」，才會觸發加成'],
+  ['crossAssetBoostMult','異常時的加碼倍數','mult','加碼邏輯','符合異常條件時，這一次的L1/L2加碼比例，要乘上這個倍數（例如1.5代表比例變成原本的1.5倍）'],
+  ['tolerance','股價達加碼價位的區間容忍度%','pct','加碼邏輯','股價要多接近上面選的那條均線才算「夠低」，可以開始判定加碼；容忍度越高，越容易觸發'],
+  ['layer2Mult','第二層價位為第一層價位的百分比%','pct','加碼邏輯','第二層加碼要比第一層便宜才掛單，這裡設定第二層是第一層的幾%，例如設98代表第二層價位是第一層的98%（也就是便宜2%）；必須小於100，才能保證第二層永遠比第一層便宜'],
+  ['bombardThrottleEnabled','啟用加碼節流','bool','加碼邏輯','加碼節流預設關閉，勾選後才會啟用——避免同一輪拉回裡，加碼在差不多的價格反覆觸發。比對用的「最近一次加碼價格」，在「委託清單」最下面手動回報（暫時輸入，不存檔）；股價脫離加碼區間時會自動清空，不用手動維護'],
+  ['throttleMult','加碼節流門檻%','pct','加碼邏輯','這次要掛的限價，要低於「最近一次加碼價格」的這個百分比，才算真的夠低、值得再買一次，例如設99代表新價格要&lt;最近一次加碼價格的99%（也就是至少便宜1%）；沒有便宜到這個程度，就暫緩'],
+  ['bombardThrottleConditionalOnMa60','加碼節流僅在MA60向下且股價低於MA60時啟用','bool','加碼邏輯','預設關閉，維持現行規則：只要「啟用加碼節流」有勾選，不管趨勢好壞都一律檢查節流。啟用這個選項後，節流只在MA60向下且股價低於MA60（下跌訊號明確）時才會生效；MA60健康的時候，直接用原始的第一/第二層限價掛單，不受節流限制，用意是只保留節流在下跌時的保護效果，避免多頭時因為節流而錯失加碼機會。只有上面「啟用加碼節流」也有勾選時才會生效'],
+  ['ma5RecoveryForDefenseEnabled','MA5未轉弱時允許跌破MA60照樣加碼/動能（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：防禦邊界需要「股價站穩MA60」才會打開，跌破當天不管其他線怎樣一律關閉。啟用後，如果MA60、MA20、MA5同時都持平或向上，只是股價當天剛好跌破MA60，視為短暫誤殺，防禦邊界依然視為安全；但只要MA5轉弱（今天MA5低於昨天），代表短期動能已經真的鬆動，維持原本規則，防禦邊界照常關閉'],
+  ['bombardVolumeDefenseEnabled','加碼多一層量能異常防禦邊界（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：加碼不檢查成交量，只看股價/MA20條件與現金是否足夠。啟用後，加碼觸發時會多檢查量能異常警訊——爆量（成交量>過去20天平均量×2倍）且下跌（收盤價&lt;前一天收盤價）同時發生才算警訊，單純爆量或單純下跌但量縮都不算，出現警訊當天暫停加碼'],
+  ['bombardAmplitudeDefenseEnabled','加碼多一層日振幅異常防禦邊界（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：加碼不檢查單日振幅，只看股價/MA20條件與現金是否足夠。啟用後，加碼觸發時會多檢查振幅異常警訊——日振幅%＝(最高價-最低價)÷前一日收盤價×100%，振幅超過設定門檻 且 下跌，兩者同時發生才算警訊；單純振幅大（可能是急跌後反彈）或單純下跌但振幅正常都不算，出現警訊當天暫停加碼'],
+  ['bombardAmplitudeThresholdPct','日振幅異常門檻%','pct','加碼邏輯','日振幅超過這個百分比，且當天收黑，才算振幅異常警訊；只有上面「加碼多一層日振幅異常防禦邊界」有勾選才會生效'],
+  ['bombardOpenHighCloseLowEnabled','連續N天開高走低暫停加碼（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：加碼不檢查開盤/收盤的關係。啟用後，只要連續N天都是「開高走低」（收盤價&lt;開盤價，代表當天從高點一路收黑），就暫停加碼，不管MA60、現金是否正常。只要有一天不是開高走低，連續天數就會重置為0，重新開始累計'],
+  ['bombardOpenHighCloseLowDays','連續開高走低天數門檻','int','加碼邏輯','連續幾天都是開高走低型態，才觸發暫停加碼；只有上面「連續N天開高走低暫停加碼」有勾選才會生效'],
   ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
   ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
@@ -827,15 +791,11 @@ const PARAM_META = [
   ['exitVolumeConfirmEnabled','量能確認停利','bool','停利邏輯','股價達到MA20門檻時，還要「昨天有放量」（昨天成交量超過昨天之前20天均量的設定倍數）才真正觸發；不需要手動輸入任何資料（成交量本身就是股價資料的一部分），也沒有MA60條件停利那種要連續多天的延遲問題，只看昨天一天'],
   ['exitVolumeMult','放量倍數','mult','停利邏輯','上面「量能確認停利」用的放量倍數，只有那項有勾選才會生效——昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量、真正觸發停利'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金流動性','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
-  ['liqRebuildEnabled','啟用現金水位回補','bool','現金流動性','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
-  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金流動性','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
-  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金流動性','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
-  ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金流動性','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
-  ['timeStopEnabled','啟用時間停損機制','bool','時間停損','時間停損預設關閉。勾選後才會啟用：距離「建倉起始日」（下方欄位，勾選後才會顯示）已經超過設定天數，且現金水位不足時，強制分批出場。取消勾選會清空建倉起始日，之後如果重新勾選，需要重新輸入'],
-  ['timeStopDays','時間停損天數（超過未停利則分批停損）','int','時間停損','距離上次停利或時間停損已經超過幾天，且現金水位低於「最低流動現金佔比%」時，就算股價還沒達到停利價位，也強制分批出場一次；現金水位夠高時會暫緩，不會無謂出場'],
-  ['timeStopPartialFrac','時間停損分批比例%','pct','時間停損','時間停損觸發時，一次賣出目前股數的這個比例'],
-  ['timeStopIgnoreCashGate','時間停損不受現金水位門檻限制（目前僅支援回測模擬）','bool','時間停損','預設關閉，維持現行規則：時間停損是現金水位的從屬機制，現金水位已經足夠時，時間停損暫緩，只有現金真的不夠時才會照時間到了正常出場。啟用後，時間停損只看持有天數，不管現金水位夠不夠都會觸發'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金防禦','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
+  ['liqRebuildEnabled','啟用現金水位回補','bool','現金防禦','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
+  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金防禦','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
+  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金防禦','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
+  ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金防禦','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
   ['marginDefenseEnabled','啟用融資防禦機制','bool','融資防禦','融資防禦預設關閉。勾選後才會啟用：輸入融資買進均價與融資股數（下方欄位，勾選後才會顯示），才會計算融資維持率、監控融資追繳風險。取消勾選會清空融資買進均價與融資股數，之後如果重新勾選，需要重新輸入'],
   ['marginRatio','融資成數%','pct','融資防禦','融資買進時，券商借你的資金占買進總金額的比例（自備款＝1減這個比例），用來計算融資維持率'],
   ['marginCallRatio','融資維持率警戒門檻%','pct','融資防禦','融資維持率跌破這個百分比視為危險，會關閉防禦邊界、暫停動能／加碼，提醒你注意融資部位風險'],
@@ -1286,6 +1246,21 @@ function calcDynamicExtremeRatio(rows, refIdx, maAtFn, lookbackDays = 60){
   return p80 / p20;
 }
 
+// 計算「階梯底線歷史振幅上限%」：用完整歷史資料裡每一天的單日振幅%（(最高-最低)/收盤），
+// 取指定分位數（預設95%），代表這個深度歷史上大約有(100-分位數)%的交易日會達到，
+// 用來限制動態底線公式不會無謂延伸到歷史上幾乎不會被觸及的深度
+function calcLadderMaxAmpPercentile(rows, percentile = 95){
+  const amps = [];
+  for(const r of rows){
+    if(r.high == null || r.low == null || r.close == null || r.close <= 0) continue;
+    amps.push((r.high - r.low) / r.close * 100);
+  }
+  if(amps.length < 30) return { ok: false, reason: '匯入的歷史資料筆數太少，樣本不足以算出可靠的分位數' };
+  const sorted = amps.slice().sort((a,b)=>a-b);
+  const idx = Math.min(sorted.length-1, Math.floor(sorted.length * percentile/100));
+  return { ok: true, sampleCount: sorted.length, percentileValue: sorted[idx] };
+}
+
 function calcRecommendedLadderSpacing(rows, layersToConvert = 3){
   const isolatedAmps = [];
   for(let i = 6; i < rows.length; i++){
@@ -1586,9 +1561,6 @@ async function runBacktest(){
   // 停利第二層三選一之三：量能確認停利，跟MA60條件停利互斥（useMa60ConfirmForExit=true時，量能確認一律不生效）
   const ENABLE_VOLUME_CONFIRM_FOR_EXIT = P.exitSecondLayerEnabled && P.exitVolumeConfirmEnabled && !P.useMa60ConfirmForExit;
   const EXIT_VOLUME_MULT = P.exitVolumeMult || 1.2;
-  const DISABLE_CASH_GATE_FOR_TIMESTOP = P.timeStopIgnoreCashGate;
-  // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數
-  const ENABLE_TIME_STOP = P.timeStopEnabled;
   // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數——
   // 跟即時運算（renderReserve裡的liqMonitoringDisabled）用同一套判斷：cashTargetPct設為0或≥1就代表關閉
   const ENABLE_LIQ_STOP = P.cashTargetPct > 0 && P.cashTargetPct < 1 && P.liqRebuildEnabled !== false;
@@ -1703,8 +1675,7 @@ async function runBacktest(){
     let b1SkipNotTouched=0, b1SkipCashShort=0, b1SkipThrottle=0, b1SkipTooSmall=0;  // 加碼L1：限價未觸及 / 限價已觸及但現金不足 / 節流暫緩 / 金額太小不值得執行
     let b2SkipNotTouched=0, b2SkipCashShort=0, b2SkipThrottle=0, b2SkipTooSmall=0;  // 加碼L2：同上
     let b1ThrottleWouldExec=0, b2ThrottleWouldExec=0;  // 被節流擋下的那些次數裡，如果沒有節流限制，原本會不會真的成交
-    let exitExec=0, exitSkip=0, tsExec=0, tsSkip=0, liqExec=0, dcaPausedCount=0;
-    let lastTsCheck = new Date(allRows[simStart].date + 'T00:00:00');
+    let exitExec=0, exitSkip=0, liqExec=0, dcaPausedCount=0;
     const cashHistory = [];
     const lowCashRatioEvents = [];
     const exitEvents = [];
@@ -1954,11 +1925,17 @@ async function runBacktest(){
         const topPrice = Math.min(closeY, bombardRefMaY);
         const ampPctY = (yest.high != null && yest.low != null && closeY > 0) ? (yest.high - yest.low) / closeY : 0;
         let floorPriceRaw = (ma60Y != null) ? ma60Y * (1 - P.bombardLadderAmpMult * ampPctY) : topPrice;
+        // 歷史合理上限：不管上面的動態公式算出多深，底線都不會超過這個深度——用歷史振幅分布的高分位數算出來，
+        // 避免底線經常延伸到歷史上幾乎不會被觸及的極端深度；預設關閉（回測驗證過反而讓報酬變差），
+        // 只有使用者自己勾選開啟才會生效
+        const maxAmpFloorRaw = (P.bombardLadderMaxAmpEnabled && ma60Y != null) ? ma60Y * (1 - (P.bombardLadderMaxAmpPct || 0.0287)) : null;
         // 跌停板保底：底線不管公式怎麼算，都不會比「昨天收盤價的合法跌停價」更深，這是真實的市場物理邊界，
         // 也天然限制了層數不會因為某次極端振幅而無限膨脹；跌停價要無條件進位到合法檔位，不能簡化用未取整的理論值
         const limitDownRaw = closeY * 0.90;
         const limitDownPrice = applyTick(limitDownRaw, getEffectiveTick(asset, limitDownRaw), 'ceil');
-        let floorPrice = Math.max(floorPriceRaw, limitDownPrice);
+        // 取「最淺」的一個：動態公式算出的深度，先被「歷史合理上限」擋住（如果有啟用），不會無謂延伸；
+        // 「跌停板」是最終的物理極限，只有在「歷史合理上限」本身已經比跌停板更深時，才會被跌停板攔住
+        let floorPrice = (maxAmpFloorRaw != null) ? Math.max(floorPriceRaw, maxAmpFloorRaw, limitDownPrice) : Math.max(floorPriceRaw, limitDownPrice);
         if(floorPrice > topPrice) floorPrice = topPrice; // 底線不該高於頂層，異常情況下夾住避免階梯方向顛倒
         const spacing = topPrice * P.bombardLadderSpacingPct; // 間距用「頂層價格×固定間距%」換算成實際價差，不是絕對金額
         const priceRange = topPrice - floorPrice;
@@ -2114,13 +2091,8 @@ async function runBacktest(){
         scheduledExitEvents.push({ date: today_.date, price: scheduledSellPrice, shares: scheduledSellShares });
       }
       const curDate = new Date(today_.date + 'T00:00:00');
-      // 時間停損現在多一個條件：現金水位已經高於最低比例（現金現金水位回補那一段已經處理過緊急狀況）才暫緩；
-      // 現金水位還是低於最低比例，就正常照時間到了就出場，不因為「已經賣過現金現金水位回補」而完全跳過
-      const marketValueForTs = totalShares * closeT;
-      const cashSufficientNow = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (cash >= P.cashTargetPct * (cash + marketValueForTs)) : true;
-      const timeStopTrig = ENABLE_TIME_STOP && ((curDate - lastTsCheck) / 86400000 >= P.timeStopDays) && totalShares > 0 && (DISABLE_CASH_GATE_FOR_TIMESTOP || !cashSufficientNow);
 
-      let exitFlag = false, tsFlag = false;
+      let exitFlag = false;
       if(exitSignal){
         const sellLimitPrice = applyTick(thresholdY, getEffectiveTick(asset, thresholdY), 'round');
         if(today_.high != null && today_.high >= sellLimitPrice){
@@ -2129,20 +2101,9 @@ async function runBacktest(){
           const proceeds = sellShares * sellLimitPrice;
           const cashBeforeSale = cash;
           cash += proceeds; totalShares -= sellShares; totalCost -= sellCost;
-          lastTsCheck = curDate; exitExec++; exitFlag = true;
+          exitExec++; exitFlag = true;
           exitEvents.push({ date: today_.date, type: '停利', price: sellLimitPrice, shares: sellShares, proceeds, cost: sellCost, profit: proceeds - sellCost, cashBefore: cashBeforeSale, avgCostAtSale: avgCost });
         } else exitSkip++;
-      } else if(timeStopTrig){
-        const sellLimitPrice = applyTick(closeY, getEffectiveTick(asset, closeY), 'round');
-        if(today_.high != null && today_.high >= sellLimitPrice){
-          const sellShares = totalShares * P.timeStopPartialFrac;
-          const sellCost = totalCost * P.timeStopPartialFrac;
-          const proceeds = sellShares * sellLimitPrice;
-          const cashBeforeSale = cash;
-          cash += proceeds; totalShares -= sellShares; totalCost -= sellCost;
-          lastTsCheck = curDate; tsExec++; tsFlag = true;
-          exitEvents.push({ date: today_.date, type: '時間停損', price: sellLimitPrice, shares: sellShares, proceeds, cost: sellCost, profit: proceeds - sellCost, cashBefore: cashBeforeSale });
-        } else tsSkip++;
       }
 
       cashHistory.push(cash);
@@ -2173,14 +2134,13 @@ async function runBacktest(){
 
     const showBombard = document.getElementById('btShowBombard').checked;
     const showExit = document.getElementById('btShowExit').checked;
-    const showTimeStop = document.getElementById('btShowTimeStop').checked;
     const showLiqStop = document.getElementById('btShowLiqStop').checked;
     const showDcaPause = document.getElementById('btShowDcaPause').checked;
     const showLowCashRatio = document.getElementById('btShowLowCashRatio').checked;
     const showExitBelowCost = document.getElementById('btShowExitBelowCost').checked;
     const showScheduledBombard = document.getElementById('btShowScheduledBombard').checked;
     const showScheduledExit = document.getElementById('btShowScheduledExit').checked;
-    const tagVisible = { '加碼': showBombard, '停利': showExit, '時間停損': showTimeStop, '現金水位回補': showLiqStop, '暫停定期定額': showDcaPause };
+    const tagVisible = { '加碼': showBombard, '停利': showExit, '現金水位回補': showLiqStop, '暫停定期定額': showDcaPause };
 
     if(showLowCashRatio){
       if(lowCashRatioEvents.length > 0){
@@ -2276,7 +2236,7 @@ async function runBacktest(){
     ].filter(ev => tagVisible[ev.tag]).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
     if(timelineEvents.length > 0){
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／時間停損／現金水位回補／暫停定期定額明細（共${timelineEvents.length}筆）：</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text);">加碼／停利／現金水位回補／暫停定期定額明細（共${timelineEvents.length}筆）：</div>`;
       timelineEvents.forEach(ev=>{
         html += `<div class="footer-note" style="text-align:left;">［${ev.tag}］${ev.date}：${ev.detail}</div>`;
         if(ev.profitLine){
@@ -2287,7 +2247,7 @@ async function runBacktest(){
         }
       });
     } else {
-      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、時間停損、現金水位回補或暫停定期定額紀錄。</div>`;
+      html += `<div class="footer-note" style="text-align:left; margin-top:10px; color:var(--text-faint);">模擬期間內沒有任何加碼、停利、現金水位回補或暫停定期定額紀錄。</div>`;
     }
 
     if(bombardL1CashSkipEvents.length > 0){
@@ -2347,7 +2307,7 @@ async function runBacktest(){
     const bombardStatsLine = P.bombardLadderMode
       ? `加碼(階梯)=${ladderExec}次執行，共${fmtRaw(ladderShares,0)}股`
       : `加碼L1=${b1Exec}執行/${b1Skip}未成交${b1SkipBreakdown}<br>加碼L2=${b2Exec}執行/${b2Skip}未成交${b2SkipBreakdown}<br>加碼節流暫緩=${bombardThrottleSkip}次${throttleWouldExecNote}`;
-    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>${bombardStatsLine}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>時間停損=${tsExec}成交/${tsSkip}未觸及<br>現金水位回補=${liqExec}次`;
+    const tradeStatsLine = `交易執行統計：<br>定期定額=${dcaExec}執行/${dcaSkip}跳過${dcaSkipBreakdown}<br>定期定額暫停（弱勢保護）=${dcaPausedCount}次<br>動能=${momExec}執行/${momSkip}未成交${momSkipBreakdown}<br>${bombardStatsLine}<br>停利=${exitExec}成交/${exitSkip}未觸及<br>現金水位回補=${liqExec}次`;
     const finalAssetLine = `期末資產：現金=${fmtRaw(cash,0)} ${unit}、持股=${fmtRaw(totalShares,0)} 股（市值 ${fmtRaw(finalShareValue,0)} ${unit}）、總資產=${fmtRaw(finalWealth,0)} ${unit}、損益=${profit>=0?'+':''}${fmtRaw(profit,0)} ${unit}（${profit>=0?'+':''}${profitPct.toFixed(2)}%）`;
     const lowCashRatioPct = nn > 0 ? (lowCashRatioEvents.length / nn * 100) : 0;
     const cashLevelLine = `現金水位：期末現金佔比=${finalCashRatio.toFixed(1)}%、現金佔比低於門檻天數比例=${lowCashRatioPct.toFixed(1)}%（共${lowCashRatioEvents.length}天）`;
@@ -2361,7 +2321,7 @@ async function runBacktest(){
     </div>`;
     html += `<button class="btn btn-neutral btn-sm" id="btnCopySummary" style="width:100%; margin-top:8px;">複製本次模擬總結</button>`;
 
-    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／加碼／停利／時間停損為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交）、現金水位回補為當天市價單（現金比例不足立刻成交），現金為封閉式循環（不再外部注資，停利/時間停損/現金水位回補現金回到同一資金池），僅供策略參考</div>`;
+    html += `<div class="footer-note" style="text-align:left; margin-top:8px; color:var(--text-faint); font-size:10.5px;">※模擬定期定額為市價單、動能／加碼／停利為限價單（掛前一天算出的價位，需當天最高/最低價觸及才成交）、現金水位回補為當天市價單（現金比例不足立刻成交），現金為封閉式循環（不再外部注資，停利/現金水位回補現金回到同一資金池），僅供策略參考</div>`;
 
     resultEl.innerHTML = html;
     statusEl.innerHTML = `<span style="color:var(--teal)">✅ 回測完成</span>`;
@@ -2383,7 +2343,6 @@ let state = {
   marginCost: {},
   marginShares: {},
   avgCost: {},
-  positionStart: {},
   lastBombardPrice: {},
   lastBombardDate: {},
   activeTab: 'spot',
@@ -2495,7 +2454,6 @@ function isThrottled(priceNow, lastPrice, throttleMult){
 function getMarginStatus(assetKey){
   const asset = getAsset(assetKey);
   const P = asset.params;
-  if(!P.usePersonalPositionData) return { applicable:false }; // 關閉「引用部位資料」總開關時，融資防禦天生依賴個人資料，直接視為不適用
   if(!asset.stockNo) return null; // 無股票代號（如ADR）視為無融資功能，不適用
   if(!P.marginDefenseEnabled) return { applicable:false }; // 未啟用融資防禦機制，視為不適用（跟沒有股票代號同一種處理方式）
   const costPrice = state.marginCost[assetKey] || 0;
@@ -2528,12 +2486,11 @@ function computeForAsset(assetKey){
   // 只要有任何一個真的存過數字（即使是0），就視為有意義的真實資料，
   // 這個判斷跟cashTargetPct=0（監控關閉）的null語意是不同的兩件事，不能混用
   const reallyHasPersonalData = (state.cash[assetKey] != null) || (state.shares[assetKey] != null) || (state.avgCost[assetKey] != null);
-  // 「引用標的部位資料」總開關關閉時：不管使用者有沒有真的填過資料，一律當作「有資料」去通過既有的
-  // hasPersonalData閘門判斷（讓加碼/停利/防禦邊界等訊號，回到純粹依市場條件判斷觸不觸發，不被
-  // 「沒填部位資料」卡住），但另外用showPersonalAmounts這個獨立旗標，決定委託清單要不要顯示
-  // 具體股數/金額——兩者服務不同目的，不能共用同一個變數
-  out.hasPersonalData = P.usePersonalPositionData ? reallyHasPersonalData : true;
-  out.showPersonalAmounts = P.usePersonalPositionData;
+  // 2026-08：移除「引用標的部位資料」這個總開關後，簡化成單一概念——「加碼／停利／防禦邊界」等訊號，
+  // 永遠純粹依市場條件判斷觸不觸發，不受有沒有填部位資料影響（hasPersonalData永遠視為通過）；
+  // 「委託清單要不要顯示具體股數/金額」則直接看使用者是否真的填過現金/股數/持股成本
+  out.hasPersonalData = true;
+  out.showPersonalAmounts = reallyHasPersonalData;
   if(n < 1) return out;
   const today = rows[n-1];
   out.today = today;
@@ -2631,29 +2588,12 @@ function computeForAsset(assetKey){
     out.exit = (state.shares[assetKey] || 0) > 0;
   }
 
-  // 時間停損：預設關閉，只有這個標的勾選「啟用時間停損機制」才會計算；從建倉起始日算起，超過設定天數仍未停利，建議分批停損
-  out.timeStopEnabled = !!P.timeStopEnabled;
-  const posStart = state.positionStart[assetKey];
-  if(P.timeStopEnabled && posStart && (state.shares[assetKey]||0) > 0){
-    const startD = new Date(posStart + 'T00:00:00');
-    const todayD = new Date(today.date + 'T00:00:00');
-    if(!isNaN(startD.getTime())){
-      const rawHoldDays = Math.round((todayD - startD) / 86400000);
-      if(rawHoldDays < 0){
-        // 建倉起始日晚於目前的股價資料日期，這是不合理的輸入狀態（不可能在還沒到的日期就開始建倉），
-        // 不要靜默地夾成0天假裝正常，要明確標示這是異常，讓顯示層能誠實告知使用者
-        out.timeStopDateInvalid = true;
-      } else {
-        out.holdDays = rawHoldDays;
-        out.timeStopTriggered = out.holdDays >= P.timeStopDays;
-      }
-    }
-  }
-
   const requiredReserve = getRequiredReserve(assetKey);
   const cur = state.cash[assetKey] || 0;
   out.requiredReserve = requiredReserve;
-  out.cashSufficient = (requiredReserve == null) ? null : (cur >= requiredReserve);
+  // 沒有真的填過現金時，cashSufficient視為不適用（null，視為通過），不能用「state.cash沒輸入過」
+  // 直接當作「現金是0」去判斷，那樣會錯誤地讓所有需要現金的條件都判定為「不足」
+  out.cashSufficient = (state.cash[assetKey] == null || requiredReserve == null) ? null : (cur >= requiredReserve);
 
   const curShares = state.shares[assetKey] || 0;
   out.liquidityStopTriggered = false;
@@ -2688,8 +2628,9 @@ function computeForAsset(assetKey){
 
   // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
   // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
-  // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急
-  if(P.usePersonalPositionData && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
+  // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急；
+  // out.cashSufficient已經處理過「沒填現金時視為null（不適用）」，這裡不用再額外檢查有沒有填過現金
+  if(P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
     const marketValueNow = curShares * today.close;
     const totalWealthNow = cur + marketValueNow;
     const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -2715,22 +2656,6 @@ function computeForAsset(assetKey){
       // MA60弱勢、還沒跌破絕對底線：建議暫停定期定額，不逆勢賣股
       out.dcaPaused = true;
     }
-  }
-
-  // 時間停損多一個條件：現金水位已經足夠（高於最低比例）時暫緩，避免現金充裕還無謂出場；
-  // 現金水位不夠時才正常照時間到了就出場——但如果今天現金水位回補已經建議賣股救回現金，
-  // 要用「假設採納這個建議之後」的現金水位來判斷，不能用建議前的舊現金，否則會跟現金水位回補同一天重複觸發
-  if(out.timeStopTriggered !== undefined){
-    let cashSufficientAfterSuggestion = out.cashSufficient;
-    if(out.liquidityStopTriggered){
-      const hypotheticalCash = cur + (out.liquidityStopShares * out.liquidityStopPrice);
-      const hypotheticalShares = curShares - out.liquidityStopShares;
-      const hypotheticalReserve = (P.cashTargetPct > 0 && P.cashTargetPct < 1)
-        ? (P.cashTargetPct * (hypotheticalShares * today.close) / (1 - P.cashTargetPct))
-        : 0;
-      cashSufficientAfterSuggestion = hypotheticalCash >= hypotheticalReserve;
-    }
-    out.timeStopTriggered = out.timeStopTriggered && (cashSufficientAfterSuggestion !== true);
   }
 
   // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
@@ -2781,9 +2706,11 @@ function computeForAsset(assetKey){
     const t1ForAmp = rows[n-2]; // 前一天，用來算「昨天振幅%」延伸底線；即時運算這裡改用「今天自己的振幅」更即時反映當下狀況
     const ampPctToday = (today.high != null && today.low != null && today.close > 0) ? (today.high - today.low) / today.close : 0;
     let floorPriceRawLive = today.ma60 * (1 - (P.bombardLadderAmpMult || 5) * ampPctToday);
+    // 歷史合理上限：跟回測引擎同一套邏輯，預設關閉，只有使用者自己勾選開啟才會生效
+    const maxAmpFloorRawLive = P.bombardLadderMaxAmpEnabled ? today.ma60 * (1 - (P.bombardLadderMaxAmpPct || 0.0287)) : null;
     const limitDownRawLive = today.close * 0.90;
     const limitDownPriceLive = applyTick(limitDownRawLive, getEffectiveTick(asset, limitDownRawLive), 'ceil');
-    let floorPriceLive = Math.max(floorPriceRawLive, limitDownPriceLive);
+    let floorPriceLive = (maxAmpFloorRawLive != null) ? Math.max(floorPriceRawLive, maxAmpFloorRawLive, limitDownPriceLive) : Math.max(floorPriceRawLive, limitDownPriceLive);
     if(floorPriceLive > topPriceLive) floorPriceLive = topPriceLive;
     const spacingLive = topPriceLive * (P.bombardLadderSpacingPct || 0.01);
     const priceRangeLive = topPriceLive - floorPriceLive;
@@ -2861,6 +2788,8 @@ function renderHero(){
   const key = state.activeTab;
   const asset = getAsset(key);
   const P = asset.params;
+  // 2026-08：不管「引用標的部位資料」這個開關實際是開是關，Hero卡片一律強制當作「關閉」處理——
+  // 這是為了之後要完整移除這個欄位做準備，先讓Hero卡片提前套用「沒有部位資料」時的簡化行為
   const d = computeForAsset(key);
   const hero = document.getElementById('hero');
   const eyebrow = document.getElementById('heroEyebrow');
@@ -2896,10 +2825,6 @@ function renderHero(){
       headline.textContent = '💰 停利觸發';
       sub.textContent = `建議依委託清單預約停利限價單`;
     }
-  } else if(d.timeStopTriggered){
-    hero.className = 'hero st-warn';
-    headline.textContent = '⏰ 時間停損觸發';
-    sub.textContent = `建議分批停損，已持有過長時間`;
   } else if(d.dcaPaused){
     hero.className = 'hero st-warn';
     headline.textContent = '⏸ 定期定額';
@@ -3015,6 +2940,8 @@ function renderLeds(){
   const key = state.activeTab;
   const asset = getAsset(key);
   const P = asset.params;
+  // 2026-08：不管「引用標的部位資料」這個開關實際是開是關，訊號狀態卡片一律強制當作「關閉」處理——
+  // 這是為了之後要完整移除這個欄位做準備，先讓訊號狀態卡片提前套用「沒有部位資料」時的簡化行為
   const d = computeForAsset(key);
   const grid = document.getElementById('ledGrid');
   const n = (state.log[key]||[]).length;
@@ -3104,7 +3031,6 @@ function renderLeds(){
 
   // 現金流：其餘後備防線
   resultHtml += ledItem(!!d.liquidityStopTriggered, '現金水位回補觸發', d.liquidityStopTriggered?'amber':'');
-  resultHtml += ledItem(!!d.timeStopTriggered, '時間停損觸發', d.timeStopTriggered?'amber':'');
 
   grid.innerHTML = noticeHtml +
     `<div class="led-col"><div class="led-col-title">條件</div>${condHtml}</div>` +
@@ -3293,8 +3219,8 @@ function renderOrders(){
     if(d.ladderLevels && d.ladderLevels.levels.length > 0){
       const hasAnyShares = d.ladderLevels.levels.some(l => l.shares > 0);
       const levelsTxt = hasAnyShares
-        ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層${fmtRaw(l.shares,0)}股＠${fmtRaw(l.price,tickDec)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)}`).join('<br>')
-        : d.ladderLevels.levels.map(l => `第${l.layer}層＠${fmtRaw(l.price,tickDec)}`).join('<br>');
+        ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層買入${fmtRaw(l.shares,0)}股 ＠${fmtRaw(l.price,tickDec)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)}`).join('<br>')
+        : d.ladderLevels.levels.map(l => `第${l.layer}層買入 ＠${fmtRaw(l.price,tickDec)}`).join('<br>');
       const ladderTip = `底線用MA60再依今天振幅動態延伸、不低於跌停板價格；最深/最淺層金額倍數${d.ladderLevels.extremeRatio.toFixed(2)}倍（過去60天動態計算或備援值）${hasAnyShares ? '' : '；尚未輸入現金，只顯示限價，請在下方「今天可用現金」試算欄位輸入金額'}`;
       html += orderRow(!!d.bombard, `加碼(階梯，共${d.ladderLevels.numLayers}層)`, `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, levelsTxt, ladderTip);
     } else {
@@ -3302,12 +3228,17 @@ function renderOrders(){
     }
   } else {
   // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
-  // 這行整個不顯示，不是每天都顯示「買入0股」這種沒有意義的雜訊
-  if(asset.l1Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL1, '加碼(第一層)', `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, l1Detail, tip1);
-  }
-  if(asset.l2Pct > 0){
-    html += orderRow(!!d.bombard && !throttledL2, '加碼(第二層)', `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, l2Detail, tip2);
+  // 兩層都關閉時整行不顯示，不是每天都顯示一個沒有意義的判斷；有開啟的層，合併顯示在同一個委託項目裡，
+  // 呈現風格跟階梯模式一致（「加碼(L1/L2，共N層)」+ 每層各自一行），不再是「加碼(第一層)」「加碼(第二層)」分開兩個項目
+  const hasL1 = asset.l1Pct > 0, hasL2 = asset.l2Pct > 0;
+  if(hasL1 || hasL2){
+    const numLayersL12 = (hasL1?1:0) + (hasL2?1:0);
+    const linesL12 = [];
+    const tipsL12 = [];
+    if(hasL1){ linesL12.push(`第1層${l1Detail}`); if(tip1) tipsL12.push(`第1層：${tip1}`); }
+    if(hasL2){ linesL12.push(`第2層${l2Detail}`); if(tip2) tipsL12.push(`第2層：${tip2}`); }
+    const activeL12 = !!d.bombard && !((!hasL1 || throttledL1) && (!hasL2 || throttledL2));
+    html += orderRow(activeL12, `加碼(L1/L2，共${numLayersL12}層)`, `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, linesL12.join('<br>'), tipsL12.join('<br><br>'));
   }
   }
 
@@ -3339,7 +3270,7 @@ function renderOrders(){
   // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
   // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」
   // 且「有引用部位資料」時才顯示——這個機制天生就是在問「你自己的現金佔比夠不夠」，
-  // 沒有部位資料，這個問題本身沒有意義，整行不顯示，跟時間停損機制沒開啟時整行不顯示是同一套處理方式
+  // 沒有部位資料，這個問題本身沒有意義，整行不顯示
   if(d.showPersonalAmounts && (P.cashTargetPct > 0 && P.cashTargetPct < 1) && P.liqRebuildEnabled !== false){
     let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
     let liqDetail = '';
@@ -3359,32 +3290,42 @@ function renderOrders(){
     html += orderRow(!!d.liquidityStopTriggered, '現金水位回補', liqCondTxt, liqDetail, liqTip);
   }
 
-  if(d.timeStopEnabled){
-    const tsShares = Math.round((state.shares[key]||0) * P.timeStopPartialFrac);
-    // 時間停損：建倉起始日起算超過設定天數仍未停利，建議分批出場，限價掛在最近一次收盤價；
-    // 現金水位已經足夠時會暫緩（現金水位回補優先處理現金問題），只在現金水位仍不足時才正常出場
-    let tsCondTxt, tsDetail;
-    if((state.shares[key]||0) <= 0){
-      const sharesReasonTxt = state.shares[key] == null ? '尚未輸入股數，無法計算' : '目前股數為0，無法計算';
-      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（${sharesReasonTxt}）`;
-      tsDetail = '';
-    } else if(d.timeStopDateInvalid){
-      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（建倉起始日晚於目前資料日期，請確認輸入是否正確）`;
-      tsDetail = '';
-    } else if(d.timeStopTriggered === undefined){
-      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損（尚未設定建倉起始日，無法計算）`;
-      tsDetail = '';
-    } else {
-      tsCondTxt = `持有超過${P.timeStopDays}天仍未停利 且現金水位不足，建議分批停損；現金水位夠時暫緩`;
-      if(d.timeStopTriggered && d.today){
-        const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
-        tsDetail = `賣出 ${fmtRaw(tsShares,0)} 股 ＠${fmtRaw(tsPrice, tickDec)}`;
-      } else {
-        tsDetail = '';
-      }
-    }
-    html += orderRow(!!d.timeStopTriggered, '時間停損', tsCondTxt, tsDetail);
+  // 加碼觸發(第一層)/(第二層)：L1/L2百分比模式專屬參數，從「進階設定」搬過來這裡，只在L1/L2模式
+  // （非階梯模式）時才顯示，因為階梯模式完全不使用這兩個值；跟現金/股數不同，這兩個是策略參數，
+  // 用一般的data-afield機制正常存檔，不是暫時輸入
+  if(!P.bombardLadderMode){
+    html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">加碼觸發比例（L1/L2百分比模式）<span style="color:var(--text-faint); font-weight:400;">（佔目前流動現金%，各層獨立設定，設0代表關閉這一層）</span></label>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>第一層</label><input type="number" step="0.01" id="inL1PctNow" value="${(asset.l1Pct*100).toFixed(2)}"></div>
+      <div class="field"><label>第二層</label><input type="number" step="0.01" id="inL2PctNow" value="${(asset.l2Pct*100).toFixed(2)}"></div>
+    </div>`;
   }
+
+  // 目前活存現金／股數／平均成本／最近一次加碼價格／日期：從「資料管理」搬過來這裡，改成暫時輸入、
+  // 不存檔，每次重新整理頁面都要重新輸入；直接寫入跟原本同一組state變數(state.cash/shares/avgCost/
+  // lastBombardPrice/lastBombardDate)，讓既有的所有計算邏輯不用改，只是不再呼叫storageSet持久化
+  const cashNowVal = (state.cash[key] != null) ? state.cash[key] : '';
+  const sharesNowVal = (state.shares[key] != null) ? state.shares[key] : '';
+  const avgCostNowVal = (state.avgCost[key] != null) ? state.avgCost[key] : '';
+  const lastBombardPriceVal = (state.lastBombardPrice[key] != null) ? state.lastBombardPrice[key] : '';
+  const lastBombardDateVal = state.lastBombardDate[key] || '';
+  html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+    <label style="color:var(--text);">目前活存現金／股數／平均成本<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔，每次重新整理頁面都要重新輸入；計算現金水位與停利基準）</span></label>
+  </div>
+  <div class="grid3">
+    <div class="field"><label>活存現金</label><input type="number" step="1" id="inCashNow" placeholder="0" value="${cashNowVal}"></div>
+    <div class="field"><label>股數</label><input type="number" step="1" id="inSharesNow" placeholder="0" value="${sharesNowVal}"></div>
+    <div class="field"><label>平均成本</label><input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00" value="${avgCostNowVal}"></div>
+  </div>
+  <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
+    <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔；計算加碼節流）</span></label>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>最近一次加碼價格</label><input type="number" step="0.01" id="inLastBombardPriceNow" placeholder="0.00" value="${lastBombardPriceVal}"></div>
+    <div class="field date-field"><label>最近一次加碼日期</label><input type="text" id="inLastBombardDateNow" readonly placeholder="YYYY-MM-DD" value="${lastBombardDateVal}"></div>
+  </div>`;
 
   // 階梯模式的「今天可用現金」試算輸入：放在委託清單最下面，只在階梯模式開啟時顯示；
   // 這是暫時輸入，不會存進正式的部位資料，純粹讓「引用標的部位資料=關」的使用者，
@@ -3398,6 +3339,44 @@ function renderOrders(){
   }
 
   list.innerHTML = html;
+
+  // 因為這些輸入框是每次renderOrders動態產生的（innerHTML整個替換），舊的監聽器不會殘留，
+  // 每次都要重新綁定一次；用change事件（失去焦點才觸發，不是每打一個字就觸發），避免輸入到一半
+  // 因為畫面重新渲染而丟失游標焦點；這幾個欄位直接寫入跟原本同一組state變數，但不呼叫storageSet，
+  // 所以不會被永久存檔，重新整理頁面就會消失，符合「每次都要重新輸入」的設計
+  const bindPositionField = (id, stateObj, isDate) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', (e)=>{
+      if(isDate){
+        stateObj[key] = e.target.value || null;
+      } else {
+        const v = parseFloat(e.target.value);
+        stateObj[key] = (e.target.value === '' || isNaN(v)) ? null : v;
+      }
+      renderAll();
+    });
+  };
+  bindPositionField('inCashNow', state.cash, false);
+  bindPositionField('inSharesNow', state.shares, false);
+  bindPositionField('inAvgCostNow', state.avgCost, false);
+  bindPositionField('inLastBombardPriceNow', state.lastBombardPrice, false);
+  bindPositionField('inLastBombardDateNow', state.lastBombardDate, true);
+
+  // 加碼觸發比例(第一層/第二層)：這兩個是策略參數(asset.l1Pct/l2Pct)，不是暫時輸入，
+  // 要正常存檔；跟部位資料欄位不同，改變後直接寫入asset物件本身、呼叫storageSet(KEY_ASSETS)
+  const bindL12PctField = (id, field) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', async (e)=>{
+      const v = parseFloat(e.target.value);
+      asset[field] = (e.target.value === '' || isNaN(v)) ? 0 : v/100;
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAll();
+    });
+  };
+  bindL12PctField('inL1PctNow', 'l1Pct');
+  bindL12PctField('inL2PctNow', 'l2Pct');
 
   // 因為這個輸入框是每次renderOrders動態產生的（innerHTML整個替換），舊的監聽器不會殘留，
   // 每次都要重新綁定一次；輸入變更時，只更新這個暫時值、重新渲染委託清單，不觸發整個renderAll
@@ -3505,6 +3484,8 @@ function renderReserve(){
 
   document.getElementById('reserveTitle').textContent = '訊號明細';
 
+  // 2026-08：不管「引用標的部位資料」這個開關實際是開是關，訊號明細卡片一律強制當作「關閉」處理——
+  // 這是為了之後要完整移除這個欄位做準備，先讓訊號明細卡片提前套用「沒有部位資料」時的簡化行為
   const d = computeForAsset(key);
   const exportReserveBtn = document.getElementById('btnExportReserve');
   if(!d.ready1){
@@ -3515,7 +3496,7 @@ function renderReserve(){
   }
   if(exportReserveBtn) exportReserveBtn.style.display = '';
 
-  // 引導性提示：資料筆數不足、尚未輸入MA60、尚未設定建倉起始日，集中顯示在最上方，跟下方固定監控欄位分開
+  // 引導性提示：資料筆數不足、尚未輸入MA60，集中顯示在最上方，跟下方固定監控欄位分開
   let noticeHtml = '';
   const n = (state.log[key]||[]).length;
   if(d.ready2 && !d.hasMa60){
@@ -3529,7 +3510,6 @@ function renderReserve(){
 
   // ---- 1. 流動現金（對應條件欄第8個燈號） ----
   const avgCostVal = state.avgCost[key] || 0;
-  const positionStartTxt = state.positionStart[key] || '（未輸入）';
   const hasMarginPrice = !!(d.marginStatus && d.marginStatus.hasPrice);
   const priceDecFor = (v) => getTickDecimals(getEffectiveTick(asset, v));
   const marginRawTxt = hasMarginPrice
@@ -3541,17 +3521,20 @@ function renderReserve(){
   const lastBombardDateTxt = lastBombardDateVal || '（未輸入）';
   const cashTxt = state.cash[key] != null ? `${st.cur.toLocaleString()} ${st.unit}` : '（未輸入）';
   const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
-  // 沒有引用部位資料時，這兩行天生沒有意義（沒有任何個人資料可以顯示），直接不顯示
-  const cashSectionTop = !d.showPersonalAmounts ? '' :
+  // 這兩行要不要顯示，直接看使用者「有沒有真的填過現金/股數/平均成本/最近一次加碼價格/日期」——
+  // 這幾個欄位放在「委託清單」最下面，使用者確實填了的資料，就老實顯示出來
+  const reallyHasAnyPersonalData = state.cash[key] != null || state.shares[key] != null || state.avgCost[key] != null
+    || state.lastBombardPrice[key] != null || state.lastBombardDate[key] != null;
+  const cashSectionTop = !reallyHasAnyPersonalData ? '' :
     `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
     `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
   // 流動現金：唯一一行，恆常顯示現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字；
-  // 沒有引用部位資料時，這整行天生沒有意義（沒有現金數字可以判斷夠不夠），直接不顯示
+  // 同樣改成看使用者是否真的填過現金，不再用d.showPersonalAmounts判斷
   let bombardAffordTxt;
   const affordBase = `現金應保留${st.requiredTxt}`;
-  if(!d.showPersonalAmounts){
+  if(!reallyHasAnyPersonalData){
     bombardAffordTxt = '';
-  } else if(!d.hasPersonalData){
+  } else if(state.cash[key] == null){
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：（尚未輸入部位資料）</span>`;
   } else if(state.shares[key] == null){
     // 現金填了但股數還沒填：不要把affordBase的「—（尚無收盤價或股數資料）」跟通用的原因文字疊在一起講兩次，
@@ -3611,7 +3594,7 @@ function renderReserve(){
   let dcaStateHtml;
   if(asset.dcaValue <= 0){
     // 金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟「今天判斷結果」無關，
-    // 是一個靜態設定，整行都不顯示，優先於hasPersonalData等其他判斷，跟時間停損/融資防禦處理方式一致
+    // 是一個靜態設定，整行都不顯示，優先於hasPersonalData等其他判斷，跟融資防禦處理方式一致
     dcaStateHtml = '';
   } else if(!d.hasPersonalData){
     dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
@@ -3624,9 +3607,10 @@ function renderReserve(){
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
   let bombardTriggerTxt, bombardColor;
-  if(asset.l1Pct <= 0 && asset.l2Pct <= 0){
+  if(!asset.params.bombardLadderMode && asset.l1Pct <= 0 && asset.l2Pct <= 0){
     // 兩層加碼比例都設成0，代表這個標的完全關閉了加碼機制，整行不顯示——跟「委託清單」裡
-    // l1Pct/l2Pct=0時分別隱藏對應行是同一個道理，這裡兩層都關閉時直接整行不顯示，不是每天都顯示一個沒有意義的判斷
+    // l1Pct/l2Pct=0時分別隱藏對應行是同一個道理，這裡兩層都關閉時直接整行不顯示，不是每天都顯示一個沒有意義的判斷；
+    // 階梯模式完全不依賴l1Pct/l2Pct這兩個值，即使它們剛好都是0（例如切換模式後殘留的舊值），也不代表階梯關閉了
     bombardTriggerTxt = null;
   } else if(!d.ready2){
     bombardTriggerTxt = '未觸發｜資料不足，無法判斷';
@@ -3635,9 +3619,10 @@ function renderReserve(){
     bombardTriggerTxt = '（尚未輸入部位資料）';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombardPriceReached){
-    bombardTriggerTxt = (asset.l2Pct > 0)
-      ? `加碼價位＠${st.bombardCostTxt}｜加碼第二層價位＠${st.layer2CostTxt}`
-      : `加碼價位＠${st.bombardCostTxt}`;
+    // 只顯示第一個/頂層加碼價位這個摘要事實；完整的分層明細（不管是L1/L2兩層，還是階梯模式的N層），
+    // 請到「委託清單」查看，這裡不重複列出——尤其階梯模式下，「第二層」這個概念本身已經不存在，
+    // 繼續顯示layer2CostTxt（依賴L1/L2模式專屬的layer2Mult算出來）在階梯模式下沒有意義、甚至是誤導的
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}`;
     bombardColor = 'var(--teal)';
   } else if(d.touch && d.bombardMa20Ok && d.bombardMa60Ok && d.bombardPriceAboveMa60Ok && d.cashSufficient === false){
     // 股價、以及所有有勾選要求的MA相關條件都已經符合，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
@@ -3735,7 +3720,7 @@ function renderReserve(){
   const liqMonitoringDisabled = !d.showPersonalAmounts || !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1) || asset.params.liqRebuildEnabled === false;
   if(liqMonitoringDisabled){
     // 沒有設定現金水位監控時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
-    // 跟時間停損機制沒開啟時的處理方式一致，監控沒設定這件事，跟有沒有輸入部位資料無關
+    // 監控沒設定這件事，跟有沒有輸入部位資料無關
     liquidityStopHtml = '';
   } else if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
@@ -3762,33 +3747,6 @@ function renderReserve(){
     liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜流動現金充足</span>`;
   }
 
-  // ---- 7. 時間停損觸發（對應結果欄第7個燈號，顯示方式比照現金水位回補觸發） ----
-  const holdDaysTxt = (d.holdDays !== undefined) ? `${d.holdDays}天` : '—';
-  let timeStopHtml;
-  if(!d.timeStopEnabled){
-    // 沒有啟用時間停損機制時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
-    // 機制沒開啟這件事，跟有沒有輸入部位資料完全無關，不能讓後者搶先顯示「尚未輸入部位資料」
-    timeStopHtml = '';
-  } else if(!d.hasPersonalData){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：（尚未輸入部位資料）</span>`;
-  } else if((state.shares[key]||0) <= 0){
-    // timeStopTriggered算不出來（undefined）可能有兩種完全不同的原因：股數是0，或是沒填建倉起始日；
-    // 兩者要分開判斷，不能一律怪罪建倉起始日，否則即使真的填了建倉起始日，也會被誤判成「尚未設定」
-    const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜${sharesReasonTxt}</span>`;
-  } else if(d.timeStopDateInvalid){
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日晚於資料日期：${positionStartTxt}</span>`;
-  } else if(d.timeStopTriggered === undefined){
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜建倉起始日：${positionStartTxt}</span>`;
-  } else if(d.timeStopTriggered && d.today){
-    const tsShares = Math.round((state.shares[key]||0) * asset.params.timeStopPartialFrac);
-    const tsPrice = applyTick(d.today.close, getEffectiveTick(asset, d.today.close), 'round');
-    const tickDec2 = getTickDecimals(getEffectiveTick(asset, tsPrice));
-    timeStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 時間停損觸發：分批停損${fmtRaw(tsShares,0)}股＠${fmtRaw(tsPrice, tickDec2)}｜已持有：${holdDaysTxt}</span>`;
-  } else {
-    timeStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 時間停損觸發：未觸發｜已持有：${holdDaysTxt}</span>`;
-  }
-
   const marginSectionHtml = asset.params.marginDefenseEnabled
     ? `<div style="border-top:1px solid var(--hair); margin-top:8px; padding-top:8px;"></div>` +
       `<span style="color:var(--text-faint);">${marginRawTxt}</span><br>` +
@@ -3796,7 +3754,7 @@ function renderReserve(){
     : '';
 
   const judgmentLines = [
-    defenseLedLine, dcaStateHtml, bombardLine, throttleLine, costLine, liquidityStopHtml, timeStopHtml
+    defenseLedLine, dcaStateHtml, bombardLine, throttleLine, costLine, liquidityStopHtml
   ].filter(s => s); // 過濾掉空字串（功能沒開啟/不適用時整行隱藏的情況），避免多餘或缺少的換行
 
   document.getElementById('reserveHint').innerHTML =
@@ -3863,16 +3821,8 @@ function renderTabs(){
         const newMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
         tabWindowStart = Math.max(0, Math.min(newMaxStart, newActiveIdx - 1));
       }
-      document.getElementById('inCashNow').value = '';
-      document.getElementById('inSharesNow').value = '';
-      document.getElementById('inAvgCostNow').value = '';
-      document.getElementById('inLastBombardPriceNow').value = '';
-      document.getElementById('inLastBombardDateNow').value = '';
-      document.getElementById('inPasteParse').value = '';
-      document.getElementById('parsePasteStatus').innerHTML = '';
       document.getElementById('importStatus').innerHTML = '';
       document.getElementById('updateDailyStatus').innerHTML = '';
-      document.getElementById('saveManualFieldsStatus').innerHTML = '';
       document.getElementById('clearAssetDataStatus').innerHTML = '';
       document.getElementById('backtestResult').innerHTML = '';
       document.getElementById('backtestStatus').innerHTML = '';
@@ -3910,7 +3860,7 @@ function updateTabsArrows(windowStart, maxStart, leftId, rightId){
 
 // 加碼節流記憶的自動重置：股價脫離加碼容忍區間（touch從true變false）就客觀代表這一輪拉回結束，
 // 不管使用者有沒有真的執行過加碼，都自動清空「最近一次加碼價格／日期」，不用手動維護；
-// state先同步更新（畫面立即反映），storageSet背景寫入不阻塞渲染
+// 這兩個值已經不再持久化存檔（每次重新整理頁面都要重新輸入），這裡只需要更新state，不用再呼叫storageSet
 function checkAndResetBombardMemory(){
   state.assets.forEach(a=>{
     const key = a.key;
@@ -3919,8 +3869,6 @@ function checkAndResetBombardMemory(){
     if(d.today && d.touch === false){
       state.lastBombardPrice[key] = null;
       state.lastBombardDate[key] = null;
-      storageSet(KEY_LAST_BOMBARD_PRICE(key), null);
-      storageSet(KEY_LAST_BOMBARD_DATE(key), null);
     }
   });
 }
@@ -3967,28 +3915,6 @@ function renderAll(){
   safe(renderLeds, 'renderLeds');
   safe(renderReserve, 'renderReserve');
   safe(renderOrders, 'renderOrders');
-  safe(()=>{
-    // 沒有引用部位資料時，「部位管理」這整塊輸入欄位天生沒有存在的意義（不管填什麼都不會被使用），
-    // 直接整塊隱藏，避免讓人誤以為還需要填寫
-    const asset = getAsset(state.activeTab);
-    const section = document.getElementById('positionMgmtSection');
-    if(section) section.style.display = (asset.params && asset.params.usePersonalPositionData === false) ? 'none' : '';
-  }, 'positionMgmtVisibility');
-  safe(()=>{
-    // 「最近一次加碼價格／日期」只服務加碼節流機制（判斷要不要節流、算節流建議價位），
-    // 沒開節流時這兩個欄位完全不會被讀取，用disabled明確傳達「不用填也沒差」
-    const asset = getAsset(state.activeTab);
-    const throttleOn = !!(asset.params && asset.params.bombardThrottleEnabled);
-    const priceInput = document.getElementById('inLastBombardPriceNow');
-    const dateInput = document.getElementById('inLastBombardDateNow');
-    if(priceInput) priceInput.disabled = !throttleOn;
-    if(dateInput) dateInput.disabled = !throttleOn;
-    // 「平均成本」只有在「啟用第二層閥門」且選擇「成本倍數停利」（不是「MA60條件停利」）時才會真正影響判斷；
-    // 其餘情況下這個欄位對任何計算都沒有作用（hasPersonalData只要現金或股數其中一項有值就滿足，不靠它）
-    const costExitActive = !!(asset.params && asset.params.exitSecondLayerEnabled && !asset.params.useMa60ConfirmForExit);
-    const avgCostInput = document.getElementById('inAvgCostNow');
-    if(avgCostInput) avgCostInput.disabled = !costExitActive;
-  }, 'lastBombardFieldsDisabled');
   safe(()=>{
     const asset = getAsset(state.activeTab);
     const updateHint = document.getElementById('updateHintText');
@@ -4042,7 +3968,6 @@ function ensureAssetData(key){
   if(state.marginCost[key] === undefined) state.marginCost[key] = 0;
   if(state.marginShares[key] === undefined) state.marginShares[key] = 0;
   if(state.avgCost[key] === undefined) state.avgCost[key] = null;
-  if(state.positionStart[key] === undefined) state.positionStart[key] = '';
   if(state.lastBombardPrice[key] === undefined) state.lastBombardPrice[key] = null;
   if(state.lastBombardDate[key] === undefined) state.lastBombardDate[key] = null;
 }
@@ -4063,7 +3988,7 @@ function renderAssetManageInner(){
   const wrap = document.getElementById('assetManageList');
   // calendarPop是全站共用的日曆彈出元件，平常待在「進階資料輸入」卡片裡，
   // 但openCalendar()每次開啟時會把它動態搬到「目前正在使用的日期欄位」旁邊，
-  // 如果使用者曾經點開過「設定」畫面裡的「建倉起始日」日期選擇器，calendarPop就會借住在這個wrap容器裡；
+  // 如果使用者曾經點開過「設定」畫面裡的日期選擇器，calendarPop就會借住在這個wrap容器裡；
   // 這時候如果不先移出來，接下來的wrap.innerHTML重新賦值，會把它整個連根摧毀，
   // 導致之後任何一次點擊畫面，全域的calendarPop點擊監聽器都會找不到這個元素、對null呼叫classList出錯
   const existingPop = document.getElementById('calendarPop');
@@ -4078,8 +4003,8 @@ function renderAssetManageInner(){
   const a = state.assets[idx];
   const sub = assetSubTab[a.key] || 'basic';
   // 這個標的是否關閉了「引用標的部位資料」，決定「基本設定」裡跟部位規模有關的欄位（定期定額/加碼比例等），
-  // 以及「進階設定」裡天生依賴個人資料的三個分類（現金流動性/時間停損/融資防禦），要不要停用
-  const noPersonalDataMode = !(a.params || DEFAULT_PARAMS).usePersonalPositionData;
+  // 以及「進階設定」裡天生依賴個人資料的分類（現金流動性/融資防禦），要不要停用
+  // dcaValue/boostMult/l1Pct/l2Pct不再因為「引用標的部位資料」這個已經移除的開關而被disabled
 
   const mgmtMaxStart = Math.max(0, state.assets.length - TAB_WINDOW_SIZE);
   // 拿掉箭頭後，設定視窗的分頁列不再支援手動捲動，改成每次渲染都強制置中目前鎖定的標的；
@@ -4112,14 +4037,6 @@ function renderAssetManageInner(){
       </div>
     </div>
     <div class="grid2">
-      <div class="field"><label>定期定額/股</label><input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}" ${noPersonalDataMode?'disabled':''}></div>
-      <div class="field"><label>動能觸發加額（定期定額倍數）</label><input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}" ${noPersonalDataMode?'disabled':''}></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>加碼觸發(第一層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l1Pct" value="${(a.l1Pct*100).toFixed(2)}" ${noPersonalDataMode?'disabled':''}></div>
-      <div class="field"><label>加碼觸發(第二層)（佔目前流動現金%）</label><input type="number" data-aidx="${idx}" data-afield="l2Pct" value="${(a.l2Pct*100).toFixed(2)}" ${noPersonalDataMode?'disabled':''}></div>
-    </div>
-    <div class="grid2">
       <div class="field"><label>證交所／美股代號（台股填數字代號如2330，美股填英文代號如TSM）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
       <div class="field"><label>更新標的資料保留天數<span style="color:var(--text-faint); font-weight:400;">（從證交所/Twelve Data抓取最新收盤資料時，保留最近幾天）</span></label>
         <select data-aidx="${idx}" data-afield="dataKeepDays">
@@ -4131,7 +4048,6 @@ function renderAssetManageInner(){
     </div>
   `;
   let lastCat = null;
-  const timeStopEnabledVal = !!(a.params || DEFAULT_PARAMS).timeStopEnabled;
   const marginDefenseEnabledVal = !!(a.params || DEFAULT_PARAMS).marginDefenseEnabled;
   const useMa60ConfirmForExitVal = !!(a.params || DEFAULT_PARAMS).useMa60ConfirmForExit;
   const exitVolumeConfirmEnabledVal = !!(a.params || DEFAULT_PARAMS).exitVolumeConfirmEnabled;
@@ -4198,6 +4114,38 @@ function renderAssetManageInner(){
       </div>`);
       return;
     }
+    // 加碼計算方式：固定層距階梯模式 vs L1/L2百分比模式，二選一，用radio呈現（不是checkbox），
+    // 讓使用者一眼看出這是「兩種互斥的計算方式選一種」，不是「打勾開啟一個額外功能」
+    // 定期定額/股：跟「定期定額」這個分類底下的防禦機制直接相關，從基本設定移過來，放在這個分類最前面
+    if(pkey === 'dcaDefensiveLimitEnabled'){
+      catGroups[cat].push(`<div class="param-row-mini">
+        <div class="plabel">定期定額/股</div>
+        <input type="number" data-aidx="${idx}" data-afield="dcaValue" value="${a.dcaValue}">
+      </div>`);
+    }
+    // 動能觸發加額：跟「動能邏輯」這個分類直接相關，從基本設定移過來，放在這個分類最前面
+    if(pkey === 'momentumIgnoreDefense'){
+      catGroups[cat].push(`<div class="param-row-mini">
+        <div class="plabel">動能觸發加額（定期定額倍數）</div>
+        <input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}">
+      </div>`);
+    }
+    if(pkey === 'bombardLadderMode'){
+      const ladderModeVal = !!(a.params || DEFAULT_PARAMS).bombardLadderMode;
+      catGroups[cat].push(`<div class="param-row-mini">
+        <div class="plabel">${label}</div>
+        <div class="pdesc" style="margin-bottom:6px;">${desc || ''}</div>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-bottom:4px;">
+          <input type="radio" name="bombardModeRadio_${idx}" data-aidx="${idx}" data-laddermoderadio="ladder" ${ladderModeVal?'checked':''} style="width:auto;">
+          <span class="plabel" style="margin:0;">固定層距階梯模式</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="radio" name="bombardModeRadio_${idx}" data-aidx="${idx}" data-laddermoderadio="percentage" ${!ladderModeVal?'checked':''} style="width:auto;">
+          <span class="plabel" style="margin:0;">L1/L2百分比模式（現行）</span>
+        </label>
+      </div>`);
+      return;
+    }
     // 成本倍數停利／MA60條件停利：改用radio二選一呈現，不用預設的checkbox/number渲染方式，
     // 讓使用者一眼就看出這是互斥選項，不用去理解「勾選A會自動改變B」這種隱藏邏輯
     if(pkey === 'costExitMult'){
@@ -4244,26 +4192,29 @@ function renderAssetManageInner(){
     if(pkey === 'exitVolumeMult'){
       return; // 已經併入上面「量能確認停利」那一行一起輸出，這裡不重複渲染
     }
-    // 時間停損天數／分批比例、融資成數／融資維持率門檻，只有各自的「啟用...機制」被勾選時才能編輯；
+    // 融資成數／融資維持率門檻，只有「啟用融資防禦機制」被勾選時才能編輯；
     // 用disabled控制，不是顯示/隱藏，這樣勾選/取消勾選checkbox時，不需要重新渲染整段HTML，畫面不會跳動
-    const isTimeStopSubField = (pkey === 'timeStopDays' || pkey === 'timeStopPartialFrac');
     const isMarginSubField = (pkey === 'marginRatio' || pkey === 'marginCallRatio');
     const isMa60ObservationField = (pkey === 'bombardMa60ObservationEnabled' || pkey === 'bombardMa60ObservationDays');
     // 這三個階梯參數，都是「靠回測模擬的按鈕，依歷史資料算出來」的值，不該讓使用者直接手動打數字進去，
     // 只能透過「計算建議間距」「自動最佳化」按鈕改變；階梯現金緩衝比例%不在這裡，那個是使用者自己的財務判斷，維持可編輯
-    const isLadderAutoCalcField = (pkey === 'bombardLadderSpacingPct' || pkey === 'bombardLadderAmpMult' || pkey === 'bombardLadderExtremeRatio');
+    const isLadderAutoCalcField = (pkey === 'bombardLadderSpacingPct' || pkey === 'bombardLadderAmpMult' || pkey === 'bombardLadderExtremeRatio' || pkey === 'bombardLadderMaxAmpPct');
     // 加碼節流機制，只服務L1/L2百分比模式；階梯模式本身用「每天重新計算的多層限價」天生避免了同一輪拉回反覆買在
     // 差不多價格的問題，完全不會檢查節流，開啟階梯模式時，這三個節流相關欄位停用編輯，避免誤以為勾了有效果
     const bombardLadderModeVal = !!(a.params && a.params.bombardLadderMode);
     const isThrottleField = (pkey === 'bombardThrottleEnabled' || pkey === 'throttleMult' || pkey === 'bombardThrottleConditionalOnMa60');
-    const disabledAttr = (isTimeStopSubField && !timeStopEnabledVal) ? 'disabled'
-      : (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
-      : (pkey === 'layer2Mult' && !(a.l2Pct > 0)) ? 'disabled'
+    // 「加碼要求流動現金充足」依賴真實的現金部位資料才有意義，還沒在「委託清單」填過現金時，
+    // 這個開關勾了也沒用（底層邏輯視為不適用），畫面上一併disabled，避免誤以為勾選有效果
+    const hasEnteredCash = state.cash[a.key] != null;
+    const isCashDependentField = (pkey === 'bombardRequireCash');
+    const disabledAttr = (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
+      : (pkey === 'layer2Mult' && (!(a.l2Pct > 0) || bombardLadderModeVal)) ? 'disabled'
       : (pkey === 'costExitMult' && useMa60ConfirmForExitVal) ? 'disabled'
       : (pkey === 'exitMa60ConfirmDays' && !useMa60ConfirmForExitVal) ? 'disabled'
       : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled'
       : isLadderAutoCalcField ? 'disabled'
-      : (isThrottleField && bombardLadderModeVal) ? 'disabled' : '';
+      : (isThrottleField && bombardLadderModeVal) ? 'disabled'
+      : (isCashDependentField && !hasEnteredCash) ? 'disabled' : '';
     let rowHtml;
     if(type === 'bool'){
       // checkbox放在label左邊、同一行；說明文字放在下一行
@@ -4285,19 +4236,6 @@ function renderAssetManageInner(){
     </div>`;
     }
     catGroups[cat].push(rowHtml);
-    // 建倉起始日：不是策略參數（是這個標的實際的日期資料），永遠渲染在這裡，只用disabled控制能不能編輯；
-    // 用跟主畫面一樣的共用日曆選擇器（readonly文字框+點擊跳出日曆），不是原生的日期輸入框
-    if(pkey === 'timeStopEnabled'){
-      const posStartVal = state.positionStart[a.key] || '';
-      const posStartDisabled = timeStopEnabledVal ? '' : 'disabled';
-      catGroups[cat].push(`<div class="param-row-mini">
-        <div class="plabel">建倉起始日</div>
-        <div class="pdesc">計算「已持有天數」的起點；只有你在這裡手動修改才會變動，日常在「資料管理」卡片更新現金/股數等資料不會影響這個日期</div>
-        <div class="field date-field" style="margin:0;">
-          <input type="text" id="inAssetPositionStart" data-aidx="${idx}" data-positionstart="1" readonly placeholder="YYYY-MM-DD" value="${posStartVal}" ${posStartDisabled}>
-        </div>
-      </div>`);
-    }
     // 融資買進均價／融資股數：同樣不是策略參數（是實際的部位資料），永遠渲染在這裡，只用disabled控制能不能編輯
     if(pkey === 'marginDefenseEnabled'){
       const marginCostVal = state.marginCost[a.key] || '';
@@ -4315,27 +4253,21 @@ function renderAssetManageInner(){
   });
 
   const catTipMap = {
-    '加碼條件': '加碼要不要有機會觸發，先看股價達加碼價位這個基本門檻，接著看MA20、MA60、股價≥MA60、流動現金這四項，各自可以獨立勾選要不要當作必要條件（下面四個「加碼要求...」開關），全部勾選就等同過去的完整判斷；不管有沒有勾選哪幾項，融資維持率安全、已輸入部位資料，這兩項都會強制檢查。所有「有勾選要求」的條件都成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
+    '加碼邏輯': '加碼要不要有機會觸發，先看股價達加碼價位這個基本門檻，接著看MA20、MA60、股價≥MA60、流動現金這四項，各自可以獨立勾選要不要當作必要條件（下面四個「加碼要求...」開關），全部勾選就等同過去的完整判斷；不管有沒有勾選哪幾項，融資維持率安全、已輸入部位資料，這兩項都會強制檢查。所有「有勾選要求」的條件都成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
     '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是兩種模式共用的基本門檻。第二關二選一：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者；「MA60條件停利」則不看平均成本，改成額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立才觸發。不管哪種模式，這個判斷都完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
-    '現金流動性': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位回補、防禦邊界的現金因子、時間停損的現金判斷全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
-    '時間停損': '第一層：要先同時滿足三個前提，才會開始計算已持有天數——你有勾選啟用這個機制、你有輸入建倉起始日、你目前股數大於0；只要少一個，時間停損就完全不會計算，維持未觸發（不是條件不成立，是根本沒開始判斷）。第二層：已持有天數（今天−建倉起始日）是不是超過設定天數，這是初步觸發。第三層：現金水位夠不夠，決定初步觸發要不要變成真的觸發——現金水位已經足夠就暫緩，不會無謂出場；現金水位仍然不夠才真正觸發，建議分批停損；如果同一天現金水位回補剛好也建議賣股救回現金，這裡會用「假設你真的照做之後」的現金水位來判斷，不是用賣股前的舊現金，避免兩個機制同一天重複觸發、賣過頭。第四層：真正觸發時，只賣掉目前股數的分批比例%，不是一次全部出清，這個比例是固定的，跟現金水位回補倍數那種「賣到補回某個目標」的算法不一樣，刻意維持時間停損原本「固定規律性減碼」的性質，不跟現金水位回補混在一起。',
+    '現金防禦': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位回補、防禦邊界的現金因子全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
     '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
   };
   state.paramCatCollapsed = state.paramCatCollapsed || {};
-  // 這三個分類天生圍繞個人部位資料運作（現金水位回補、時間停損、融資防禦），
-  // 關閉「引用標的部位資料」總開關時，這幾個分類的設定完全沒有意義，強制折疊、且內部欄位停用編輯
-  const personalDataOnlyCats = new Set(['現金流動性', '時間停損', '融資防禦']);
   const advHtml = catOrder.map(cat=>{
     const catTip = catTipMap[cat]
       ? `<span class="test-flag-icon">i<div class="test-flag-tip">${catTipMap[cat]}</div></span>`
       : '';
-    const forceCollapsed = noPersonalDataMode && personalDataOnlyCats.has(cat);
-    const isCollapsed = forceCollapsed || !!state.paramCatCollapsed[cat];
-    const disabledNote = forceCollapsed ? `<span style="color:var(--text-faint); font-weight:400; font-size:10px;">（需要引用部位資料才能設定）</span>` : '';
+    const isCollapsed = !!state.paramCatCollapsed[cat];
     return `<div class="param-cat-mini" data-paramcat="${cat}">
-        <span class="chev ${isCollapsed?'collapsed':''}">▾</span>${cat}${disabledNote}${catTip}
+        <span class="chev ${isCollapsed?'collapsed':''}">▾</span>${cat}${catTip}
       </div>
-      <div class="param-cat-group ${isCollapsed?'collapsed':''} ${forceCollapsed?'param-cat-disabled':''}" data-paramcatgroup="${cat}">${catGroups[cat].join('')}</div>`;
+      <div class="param-cat-group ${isCollapsed?'collapsed':''}" data-paramcatgroup="${cat}">${catGroups[cat].join('')}</div>`;
   }).join('');
 
   wrap.innerHTML = `
@@ -4424,6 +4356,16 @@ function renderAssetManageInner(){
       renderAll();
     });
   });
+  // 加碼計算方式：固定層距階梯模式／L1/L2百分比模式二選一
+  wrap.querySelectorAll('input[data-laddermoderadio]').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const i = parseInt(e.target.dataset.aidx, 10);
+      if(!state.assets[i].params) state.assets[i].params = {...DEFAULT_PARAMS};
+      state.assets[i].params.bombardLadderMode = (e.target.dataset.laddermoderadio === 'ladder');
+      await storageSet(KEY_ASSETS, state.assets);
+      renderAll();
+    });
+  });
   // 跨標的崩跌訊號加成：select下拉選單需要獨立監聽（通用監聽器只綁定input，不含select）
   wrap.querySelectorAll('select[data-pfield="crossAssetRefKey"]').forEach(el=>{
     el.addEventListener('change', async (e)=>{
@@ -4452,21 +4394,6 @@ function renderAssetManageInner(){
       if(ptype === 'bool'){
         const v = e.target.checked;
         state.assets[i].params[pfield] = v;
-        // 取消勾選「啟用時間停損機制」時，建倉起始日不保留，直接清空
-        if(pfield === 'timeStopEnabled'){
-          const key = state.assets[i].key;
-          const daysInput = wrap.querySelector('input[data-pfield="timeStopDays"]');
-          const fracInput = wrap.querySelector('input[data-pfield="timeStopPartialFrac"]');
-          const dateInput = wrap.querySelector('input[data-positionstart]');
-          if(daysInput) daysInput.disabled = !v;
-          if(fracInput) fracInput.disabled = !v;
-          if(dateInput) dateInput.disabled = !v;
-          if(!v){
-            state.positionStart[key] = '';
-            await storageSet(KEY_POSITION_START(key), '');
-            if(dateInput) dateInput.value = '';
-          }
-        }
         // 取消勾選「啟用融資防禦機制」時，融資買進均價／融資股數不保留，直接清空
         if(pfield === 'marginDefenseEnabled'){
           const key = state.assets[i].key;
@@ -4496,12 +4423,6 @@ function renderAssetManageInner(){
           if(obsDaysInput) obsDaysInput.disabled = !v;
         }
         await storageSet(KEY_ASSETS, state.assets);
-        // 「引用標的部位資料」這個總開關，會決定「現金流動性」「時間停損」「融資防禦」
-        // 這三個分類要不要強制折疊/停用，這個判斷只在renderAssetManageInner重新執行時才會生效，
-        // renderAll()本身不會重新渲染進階設定畫面，所以這裡要額外強制重新渲染，才能即時反映
-        if(pfield === 'usePersonalPositionData'){
-          renderAssetManage();
-        }
         renderAll();
         return;
       }
@@ -4518,22 +4439,6 @@ function renderAssetManageInner(){
       state.assets[i].params[pfield] = v;
       await storageSet(KEY_ASSETS, state.assets);
       renderAll();
-    });
-  });
-  wrap.querySelectorAll('input[data-positionstart]').forEach(el=>{
-    el.addEventListener('change', async (e)=>{
-      const i = parseInt(e.target.dataset.aidx, 10);
-      const key = state.assets[i].key;
-      state.positionStart[key] = e.target.value;
-      await storageSet(KEY_POSITION_START(key), e.target.value);
-      renderAll();
-    });
-    // 這個欄位是每次重新渲染才會出現的動態元素，用共用日曆選擇器（跟主畫面同一套），
-    // 不用app啟動時綁一次的清單，改成每次渲染完直接在這裡綁點擊事件；
-    // 永遠綁定，不用判斷disabled與否——瀏覽器原生就會擋掉disabled元素的click，之後勾選啟用時才不會漏綁
-    el.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      openCalendar('inAssetPositionStart');
     });
   });
   wrap.querySelectorAll('input[data-marginfield]').forEach(el=>{
@@ -4822,15 +4727,6 @@ document.getElementById('toggleAdvancedInput').addEventListener('click', ()=>{
   btn.title = state.advancedInputCollapsed ? '展開' : '收合';
 });
 
-document.getElementById('toggleInputPosition').addEventListener('click', ()=>{
-  state.inputPositionCollapsed = !state.inputPositionCollapsed;
-  const body = document.getElementById('inputPositionBody');
-  const btn = document.getElementById('toggleInputPosition');
-  body.style.display = state.inputPositionCollapsed ? 'none' : 'block';
-  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.inputPositionCollapsed);
-  btn.title = state.inputPositionCollapsed ? '展開' : '收合';
-});
-
 document.getElementById('toggleChipData').addEventListener('click', ()=>{
   // 初始值要跟HTML本身的display:none（預設收合）一致，state.chipDataCollapsed若還沒設定過，
   // 視為「目前是收合」，這樣第一次點擊才會正確變成「展開」，不會反過來
@@ -4894,7 +4790,7 @@ document.getElementById('btnRunBacktest').addEventListener('click', runBacktest)
 const collapseStateKeyMap = {
   toggleHist: 'histCollapsed', toggleInput: 'inputCollapsed', toggleAdvancedInput: 'advancedInputCollapsed',
   toggleLed: 'ledCollapsed', toggleReserve: 'reserveCollapsed', toggleOrders: 'ordersCollapsed', toggleBacktest: 'backtestCollapsed',
-  toggleInputPosition: 'inputPositionCollapsed', toggleChipData: 'chipDataCollapsed',
+  toggleChipData: 'chipDataCollapsed',
 };
 Object.keys(collapseStateKeyMap).forEach(id=>{
   const btn = document.getElementById(id);
@@ -4973,6 +4869,27 @@ document.getElementById('btnSuggestLadderSpacing').addEventListener('click', ()=
   asset.params.bombardLadderSpacingPct = result.recommendedPct / 100;
   storageSet(KEY_ASSETS, state.assets);
   statusEl.innerHTML = `<span style="color:var(--teal)">✅ 找到${result.sampleCount}筆孤立崩跌事件，振幅中位數${result.medianAmpPct.toFixed(2)}%，已自動填入建議間距${result.recommendedPct.toFixed(2)}%到「進階設定」。</span>`;
+  renderAll();
+});
+
+document.getElementById('btnCalcMaxAmpPct').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('maxAmpPctStatus');
+  const key = state.activeTab;
+  const rows = btImportedData[key];
+  if(!rows || rows.length < 30){
+    statusEl.innerHTML = `<span style="color:var(--red)">請先在上面「匯入歷史資料」，匯入足夠長的歷史資料，才能計算可靠的分位數。</span>`;
+    return;
+  }
+  const result = calcLadderMaxAmpPercentile(rows, 95);
+  if(!result.ok){
+    statusEl.innerHTML = `<span style="color:var(--red)">${result.reason}</span>`;
+    return;
+  }
+  const asset = getAsset(key);
+  if(!asset.params) asset.params = {...DEFAULT_PARAMS};
+  asset.params.bombardLadderMaxAmpPct = result.percentileValue / 100;
+  storageSet(KEY_ASSETS, state.assets);
+  statusEl.innerHTML = `<span style="color:var(--teal)">✅ 用${result.sampleCount}筆歷史資料，算出單日振幅95%分位數為${result.percentileValue.toFixed(2)}%，已自動填入「階梯底線歷史振幅上限%」到「進階設定」。</span>`;
   renderAll();
 });
 
@@ -5167,20 +5084,14 @@ armConfirmClick(document.getElementById('btnClearAssetData'), '清除全部資�
   state.cash[key] = null;
   state.shares[key] = null;
   state.avgCost[key] = null;
-  state.positionStart[key] = '';
   state.marginCost[key] = 0;
   state.marginShares[key] = 0;
   state.lastBombardPrice[key] = null;
   state.lastBombardDate[key] = null;
   await storageSet(KEY_LOG(key), state.log[key]);
-  await storageSet(KEY_CASH(key), state.cash[key]);
-  await storageSet(KEY_SHARES(key), state.shares[key]);
-  await storageSet(KEY_AVG_COST(key), state.avgCost[key]);
-  await storageSet(KEY_POSITION_START(key), state.positionStart[key]);
+  // 現金/股數/平均成本/最近一次加碼價格/日期已經不再持久化存檔，這裡只需要清空state，不用再呼叫storageSet
   await storageSet(KEY_MARGIN_COST(key), state.marginCost[key]);
   await storageSet(KEY_MARGIN_SHARES(key), state.marginShares[key]);
-  await storageSet(KEY_LAST_BOMBARD_PRICE(key), state.lastBombardPrice[key]);
-  await storageSet(KEY_LAST_BOMBARD_DATE(key), state.lastBombardDate[key]);
   document.getElementById('clearAssetDataStatus').innerHTML = `<span style="color:var(--teal);">已清除這個標的的全部資料</span>`;
   renderAll();
 });
@@ -5212,7 +5123,7 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
       for(let i=rows.length-1; i>=0; i--){
         if(rows[i].cash != null){
           state.cash[key] = rows[i].cash;
-          await storageSet(KEY_CASH(key), rows[i].cash);
+          // 現金已經不再持久化存檔，這裡只更新state，不用再呼叫storageSet
           break;
         }
       }
@@ -5222,8 +5133,6 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
     } else {
       renderAssetManage();
       renderAll();
-      document.getElementById('inCashNow').value = '';
-      document.getElementById('inSharesNow').value = '';
       const curKey = state.activeTab;
       const curCount = perKeyCount[curKey] || 0;
       const curName = getAsset(curKey).name;
@@ -5250,119 +5159,6 @@ document.getElementById('histList').addEventListener('click', async (e)=>{
 });
 
 
-// 貼上「訊號明細」文字，自動解析出現金／股數／平均成本／最近一次加碼價格／日期，填入對應欄位——
-// 只解析有值的欄位，「（未輸入）」不會匹配到任何規則，維持該欄位空白，不會誤把使用者已經打好的其他欄位清空
-function parsePastedSignalText(text){
-  const result = {};
-  const cashM = text.match(/目前活存現金：([\d,]+\.?\d*)/);
-  if(cashM) result.cash = cashM[1].replace(/,/g,'');
-  const sharesM = text.match(/股數：([\d,]+)\s*股/);
-  if(sharesM) result.shares = sharesM[1].replace(/,/g,'');
-  const avgCostM = text.match(/平均成本：([\d,]+\.?\d*)/);
-  if(avgCostM) result.avgCost = avgCostM[1].replace(/,/g,'');
-  const lbPriceM = text.match(/最近一次加碼價格([\d,]+\.?\d*)/);
-  if(lbPriceM) result.lastBombardPrice = lbPriceM[1].replace(/,/g,'');
-  const lbDateM = text.match(/日期：(\d{4}-\d{2}-\d{2})/);
-  if(lbDateM) result.lastBombardDate = lbDateM[1];
-  return result;
-}
-function applyParsedPasteResult(){
-  const text = document.getElementById('inPasteParse').value;
-  const statusEl = document.getElementById('parsePasteStatus');
-  if(!text.trim()){
-    statusEl.innerHTML = `<span style="color:var(--text-faint)">請先貼上文字。</span>`;
-    return;
-  }
-  const parsed = parsePastedSignalText(text);
-  const filledFields = [];
-  if(parsed.cash !== undefined){ document.getElementById('inCashNow').value = parsed.cash; filledFields.push('活存現金'); }
-  if(parsed.shares !== undefined){ document.getElementById('inSharesNow').value = parsed.shares; filledFields.push('股數'); }
-  if(parsed.avgCost !== undefined){ document.getElementById('inAvgCostNow').value = parsed.avgCost; filledFields.push('平均成本'); }
-  if(parsed.lastBombardPrice !== undefined){ document.getElementById('inLastBombardPriceNow').value = parsed.lastBombardPrice; filledFields.push('最近一次加碼價格'); }
-  if(parsed.lastBombardDate !== undefined){ document.getElementById('inLastBombardDateNow').value = parsed.lastBombardDate; filledFields.push('最近一次加碼日期'); }
-  statusEl.innerHTML = filledFields.length > 0
-    ? `<span style="color:var(--teal)">已解析並填入：${filledFields.join('、')}，請確認無誤後按下方「儲存」。</span>`
-    : `<span style="color:var(--red)">沒有解析到任何欄位，請確認貼上的文字格式是否正確。</span>`;
-}
-document.getElementById('btnParsePaste').addEventListener('click', applyParsedPasteResult);
-document.getElementById('inPasteParse').addEventListener('paste', ()=>{
-  // 貼上事件觸發時，瀏覽器還沒把內容真正塞進textarea，要延遲一個tick再讀取
-  setTimeout(applyParsedPasteResult, 0);
-});
-
-document.getElementById('btnSaveManualFields').addEventListener('click', async ()=>{
-  document.getElementById('clearAssetDataStatus').innerHTML = '';
-  const key = state.activeTab;
-  const asset = getAsset(key);
-  const statusEl = document.getElementById('saveManualFieldsStatus');
-  const cashRaw = document.getElementById('inCashNow').value;
-  const sharesRaw = document.getElementById('inSharesNow').value;
-  const avgCostRaw = document.getElementById('inAvgCostNow').value;
-  const lastBombardPriceRaw = document.getElementById('inLastBombardPriceNow').value;
-  const lastBombardDateRaw = document.getElementById('inLastBombardDateNow').value;
-  if(cashRaw !== '' && isNaN(parseFloat(cashRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">活存現金格式錯誤。</span>`;
-    return;
-  }
-  if(sharesRaw !== '' && isNaN(parseFloat(sharesRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">股數格式錯誤。</span>`;
-    return;
-  }
-  if(avgCostRaw !== '' && isNaN(parseFloat(avgCostRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">平均持股成本格式錯誤。</span>`;
-    return;
-  }
-  if(lastBombardPriceRaw !== '' && isNaN(parseFloat(lastBombardPriceRaw))){
-    statusEl.innerHTML = `<span style="color:var(--red)">最近一次加碼價格格式錯誤。</span>`;
-    return;
-  }
-
-  const msgs = [];
-  if(cashRaw !== ''){
-    const cashVal = parseFloat(cashRaw);
-    state.cash[key] = cashVal;
-    await storageSet(KEY_CASH(key), cashVal);
-    msgs.push('活存現金已更新');
-  }
-  if(sharesRaw !== ''){
-    const sharesVal = parseFloat(sharesRaw);
-    state.shares[key] = sharesVal;
-    await storageSet(KEY_SHARES(key), sharesVal);
-    msgs.push('股數已更新');
-  }
-  if(avgCostRaw !== ''){
-    const avgCostVal = parseFloat(avgCostRaw);
-    state.avgCost[key] = avgCostVal;
-    await storageSet(KEY_AVG_COST(key), avgCostVal);
-    msgs.push('持股成本已更新');
-  }
-  if(lastBombardPriceRaw !== ''){
-    const lastBombardPriceVal = parseFloat(lastBombardPriceRaw);
-    state.lastBombardPrice[key] = lastBombardPriceVal;
-    await storageSet(KEY_LAST_BOMBARD_PRICE(key), lastBombardPriceVal);
-    msgs.push('最近一次加碼價格已更新');
-  }
-  if(lastBombardDateRaw !== ''){
-    state.lastBombardDate[key] = lastBombardDateRaw;
-    await storageSet(KEY_LAST_BOMBARD_DATE(key), lastBombardDateRaw);
-    msgs.push('最近一次加碼日期已更新');
-  }
-
-  document.getElementById('inCashNow').value = '';
-  document.getElementById('inSharesNow').value = '';
-  document.getElementById('inAvgCostNow').value = '';
-  document.getElementById('inLastBombardPriceNow').value = '';
-  document.getElementById('inLastBombardDateNow').value = '';
-  document.getElementById('inPasteParse').value = '';
-  document.getElementById('parsePasteStatus').innerHTML = '';
-  renderAll();
-  if(msgs.length === 0){
-    statusEl.innerHTML = `<span style="color:var(--text-faint)">沒有欄位需要儲存。</span>`;
-  } else {
-    statusEl.innerHTML = `<span style="color:var(--teal)">✅ ${msgs.join('；')}</span>`;
-  }
-});
-
 document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   document.getElementById('clearAssetDataStatus').innerHTML = '';
   const statusEl = document.getElementById('updateDailyStatus');
@@ -5382,11 +5178,53 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   btn.disabled = false;
 });
 
+// 查詢盤中即時價格：純參考用途，透過既有的CORS_PROXY轉發到證交所「基本市況報導網站」背後的API；
+// 不寫入state.log（不影響任何歷史資料/訊號計算），只是單純顯示給使用者看一眼目前盤中價格；
+// 同時查tse(上市)跟otc(上櫃)兩種前綴，不用使用者自己選，程式自動抓有資料的那一個
+document.getElementById('btnQueryRealtime').addEventListener('click', async ()=>{
+  const key = state.activeTab;
+  const asset = getAsset(key);
+  const statusEl = document.getElementById('realtimeQuoteStatus');
+  const btn = document.getElementById('btnQueryRealtime');
+  if(!asset.stockNo){
+    statusEl.innerHTML = `<span style="color:var(--red)">這個標的還沒設定證交所代號，請先到「設定」→「基本設定」輸入</span>`;
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = '查詢中...';
+  btn.disabled = true;
+  statusEl.innerHTML = '';
+  try {
+    const target = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${asset.stockNo}.tw|otc_${asset.stockNo}.tw&json=1&delay=0`;
+    const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+    const data = await res.json();
+    const info = (data.msgArray || []).find(m => m.z && m.z !== '-') || (data.msgArray || [])[0];
+    if(!info){
+      statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
+    } else {
+      const price = (info.z && info.z !== '-') ? info.z : (info.y || '—');
+      const isLive = !!(info.z && info.z !== '-');
+      const changeTxt = (info.z && info.z !== '-' && info.y) ? `（較昨收${(parseFloat(info.z)-parseFloat(info.y))>=0?'+':''}${(parseFloat(info.z)-parseFloat(info.y)).toFixed(2)}）` : '';
+      statusEl.innerHTML = `<span style="color:var(--teal)">${info.n||asset.stockNo}　${isLive?'現價':'昨收'}：${price} ${changeTxt}</span><br>` +
+        `<span style="color:var(--text-faint);">開${info.o||'—'}／高${info.h||'—'}／低${info.l||'—'}／昨收${info.y||'—'}｜更新時間：${info.t||'—'}（僅供參考，不影響任何策略判斷）</span>`;
+    }
+  } catch(err){
+    statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：${err.message}</span>`;
+  }
+  btn.textContent = originalText;
+  btn.disabled = false;
+});
+
 
 document.getElementById('btnParams').addEventListener('click', ()=>{
   // 打開「設定」時，直接顯示使用者目前主畫面正在看的標的，不要每次都停留在第一個/上次選過的標的
   assetMgmtActiveKey = state.activeTab;
   settingsLockedKey = state.activeTab;
+  // 每次點擊「設定」圖示打開視窗，進階設定裡所有分類都強制收合（不管上次是展開還是收合），
+  // 讓使用者每次打開都是一致、乾淨的畫面；動態從PARAM_META取出完整分類清單，不寫死，
+  // 未來新增/移除分類時這裡不用跟著改
+  state.paramCatCollapsed = {};
+  PARAM_META.forEach(([,,,cat])=>{ state.paramCatCollapsed[cat] = true; });
   // 一定要先讓彈出視窗真正顯示出來，再渲染內容——renderAssetManage()裡的分頁列置中計算
   // 需要量測實際的元素寬度，如果視窗還是display:none，量到的寬度全部都是0，會影響計算結果
   document.getElementById('paramsBackdrop').classList.add('show');
@@ -5467,7 +5305,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btnExportAssets').addEventListener('click', ()=>{
-  // 融資買進均價／融資股數／建倉起始日／現金／股數／平均成本／最近一次加碼價格／日期，
+  // 融資買進均價／融資股數／現金／股數／平均成本／最近一次加碼價格／日期，
   // 雖然不是asset.params的一部分（存在獨立的state物件裡），但因為都是使用者輸入的部位資料，
   // 換手機/清除資料後會期待這些也一併還原，這裡一併打包進去；
   // 現金／股數／平均成本／最近一次加碼價格／日期，這幾個欄位「未輸入」的正確表示方式是null，不是0
@@ -5477,7 +5315,6 @@ document.getElementById('btnExportAssets').addEventListener('click', ()=>{
     ...a,
     marginCost: state.marginCost[a.key] || 0,
     marginShares: state.marginShares[a.key] || 0,
-    positionStart: state.positionStart[a.key] || '',
     cash: state.cash[a.key],
     shares: state.shares[a.key],
     avgCost: state.avgCost[a.key],
@@ -5572,7 +5409,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         }
       }
       ensureAssetData(clean.key);
-      // 融資買進均價／融資股數／建倉起始日：跟asset.params分開存放，等clean.key確定最終值後（可能因合併而改用既有key）才寫入，
+      // 融資買進均價／融資股數：跟asset.params分開存放，等clean.key確定最終值後（可能因合併而改用既有key）才寫入，
       // 避免合併情境下用到匯入檔案裡舊的key、對不上實際資料
       const numOr2 = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
       // 現金／股數／平均成本／最近一次加碼價格／日期：跟融資那三個不一樣，「未輸入」要還原成null，不能給0這種fallback，
@@ -5581,7 +5418,6 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       const strOrNull = (v) => (typeof v === 'string' && v !== '') ? v : null;
       const importedMarginCost = numOr2(imported.marginCost, 0);
       const importedMarginShares = numOr2(imported.marginShares, 0);
-      const importedPositionStart = (typeof imported.positionStart === 'string') ? imported.positionStart : '';
       const importedCash = numOrNull(imported.cash);
       const importedShares = numOrNull(imported.shares);
       const importedAvgCost = numOrNull(imported.avgCost);
@@ -5589,7 +5425,6 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       const importedLastBombardDate = strOrNull(imported.lastBombardDate);
       state.marginCost[clean.key] = importedMarginCost;
       state.marginShares[clean.key] = importedMarginShares;
-      state.positionStart[clean.key] = importedPositionStart;
       state.cash[clean.key] = importedCash;
       state.shares[clean.key] = importedShares;
       state.avgCost[clean.key] = importedAvgCost;
@@ -5597,12 +5432,8 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       state.lastBombardDate[clean.key] = importedLastBombardDate;
       await storageSet(KEY_MARGIN_COST(clean.key), importedMarginCost);
       await storageSet(KEY_MARGIN_SHARES(clean.key), importedMarginShares);
-      await storageSet(KEY_POSITION_START(clean.key), importedPositionStart);
-      await storageSet(KEY_CASH(clean.key), importedCash);
-      await storageSet(KEY_SHARES(clean.key), importedShares);
-      await storageSet(KEY_AVG_COST(clean.key), importedAvgCost);
-      await storageSet(KEY_LAST_BOMBARD_PRICE(clean.key), importedLastBombardPrice);
-      await storageSet(KEY_LAST_BOMBARD_DATE(clean.key), importedLastBombardDate);
+      // 現金/股數/平均成本/最近一次加碼價格/日期已經不再持久化存檔，這裡只更新state（這次匯入當下能用），
+      // 不再呼叫storageSet——跟頁面上其他輸入方式（手動輸入、貼上訊號明細）一致，都是「這次有效、不記住」
       finalKeysInOrder.push(clean.key);
     }
     // 依照匯入檔案的順序，重新排列整個state.assets——這次匯入有提到的標的，
@@ -5693,14 +5524,15 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
   for(const a of state.assets){
     ensureAssetData(a.key);
     state.log[a.key] = await storageGet(KEY_LOG(a.key), []);
-    state.cash[a.key] = await storageGet(KEY_CASH(a.key), null);
-    state.shares[a.key] = await storageGet(KEY_SHARES(a.key), null);
+    // 現金/股數/平均成本/最近一次加碼價格/日期：改成暫時輸入、不存檔，每次重新整理頁面都要重新輸入，
+    // 所以這裡不再從storage讀取，永遠從null開始（即使storage裡還留著舊資料，也不會被載入使用）
+    state.cash[a.key] = null;
+    state.shares[a.key] = null;
     state.marginCost[a.key] = await storageGet(KEY_MARGIN_COST(a.key), 0);
     state.marginShares[a.key] = await storageGet(KEY_MARGIN_SHARES(a.key), 0);
-    state.avgCost[a.key] = await storageGet(KEY_AVG_COST(a.key), null);
-    state.positionStart[a.key] = await storageGet(KEY_POSITION_START(a.key), '');
-    state.lastBombardPrice[a.key] = await storageGet(KEY_LAST_BOMBARD_PRICE(a.key), null);
-    state.lastBombardDate[a.key] = await storageGet(KEY_LAST_BOMBARD_DATE(a.key), null);
+    state.avgCost[a.key] = null;
+    state.lastBombardPrice[a.key] = null;
+    state.lastBombardDate[a.key] = null;
   }
 
   renderAll();
