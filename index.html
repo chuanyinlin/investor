@@ -615,7 +615,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 19:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 22:30</div>
   </div>
   </div>
 
@@ -2967,7 +2967,10 @@ function renderLeds(){
 
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
-  const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
+  // 「加碼」有沒有真的啟用，現在有兩種計算方式：階梯模式開啟時，l1Pct/l2Pct這兩個欄位已經停用、
+  // 不代表任何意義，只要階梯模式本身有開，就算啟用；沒開階梯模式，才回頭看L1/L2百分比模式的
+  // l1Pct/l2Pct是否至少有一層大於0
+  const bombardCondEnabled = P.bombardLadderMode || asset.l1Pct > 0 || asset.l2Pct > 0;
   condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
   condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
 
@@ -3924,6 +3927,18 @@ function renderAll(){
   safe(renderTabs, 'renderTabs');
   safe(renderHero, 'renderHero');
   safe(renderHistory, 'renderHistory');
+  safe(()=>{
+    // 「自動更新」只服務台股（證交所免費API沒有嚴格的每日總次數限制），美股改用Twelve Data，
+    // 免費方案每日只有800個credits，自動更新每5秒會很快把額度用光，還會排擠到「更新標的資料」
+    // 這個更重要的核心功能，所以美股標的時，這個checkbox直接停用、並強制停止任何正在跑的定時器
+    const asset = getAsset(state.activeTab);
+    const checkbox = document.getElementById('inRealtimeAutoUpdate');
+    if(checkbox){
+      const isUs = isUsTicker(asset.stockNo);
+      checkbox.disabled = isUs;
+      if(isUs && typeof stopRealtimeAutoUpdate === 'function') stopRealtimeAutoUpdate();
+    }
+  }, 'realtimeAutoUpdateAvailability');
   safe(renderLeds, 'renderLeds');
   safe(renderReserve, 'renderReserve');
   safe(renderOrders, 'renderOrders');
@@ -5195,31 +5210,69 @@ async function queryRealtimeQuoteCore(){
     return;
   }
   try {
-    const target = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${asset.stockNo}.tw|otc_${asset.stockNo}.tw&json=1&delay=0`;
-    const res = await fetch(CORS_PROXY + encodeURIComponent(target));
-    const data = await res.json();
-    const info = (data.msgArray || []).find(m => m.z && m.z !== '-') || (data.msgArray || [])[0];
-    if(!info){
-      if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
-      return;
+    // 統一格式：不管台股還是美股，最後都整理成同一組欄位，顯示邏輯只需要寫一次
+    let quote = null; // { name, price, isLive, open, high, low, prevClose, time, volTxt, limitUpTxt, limitDownTxt }
+    if(isUsTicker(asset.stockNo)){
+      // 美股：改用Twelve Data的quote端點（免費方案每日800個credits額度有限，這裡只在使用者
+      // 手動點擊「查詢」時才呼叫一次，不會像台股那樣被自動更新每5秒消耗掉）
+      const apiKey = await storageGet(KEY_TWELVEDATA_APIKEY, '');
+      if(!apiKey){
+        if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢美股即時報價需要先在「設定」→「Twelve Data金鑰」輸入你的API金鑰</span>`;
+        return;
+      }
+      const target = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(asset.stockNo)}&apikey=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+      const info = await res.json();
+      if(info.code || info.status === 'error' || !info.close){
+        if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的即時資料（${info.message || '可能非交易時段，或代號/金鑰不正確'}）</span>`;
+        return;
+      }
+      quote = {
+        name: info.name || asset.stockNo,
+        price: parseFloat(info.close),
+        isLive: info.is_market_open === true,
+        open: info.open, high: info.high, low: info.low, prevClose: info.previous_close,
+        time: info.datetime || '—',
+        volTxt: (info.volume && info.volume !== '0') ? `${parseInt(info.volume).toLocaleString()}股` : '—',
+        limitUpTxt: '—', limitDownTxt: '—', // 美股沒有漲跌停限制，這兩項天生不適用
+      };
+    } else {
+      // 台股/櫃買：走證交所「基本市況報導網站」背後的免費API，同時查tse(上市)跟otc(上櫃)，不用使用者自己選
+      const target = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${asset.stockNo}.tw|otc_${asset.stockNo}.tw&json=1&delay=0`;
+      const res = await fetch(CORS_PROXY + encodeURIComponent(target));
+      const data = await res.json();
+      const info = (data.msgArray || []).find(m => m.z && m.z !== '-') || (data.msgArray || [])[0];
+      if(!info){
+        if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
+        return;
+      }
+      const isLive = !!(info.z && info.z !== '-');
+      quote = {
+        name: info.n || asset.stockNo,
+        price: parseFloat(isLive ? info.z : (info.y || 0)),
+        isLive,
+        open: info.o, high: info.h, low: info.l, prevClose: info.y,
+        time: info.t || '—',
+        _d: info.d || '',
+        // 累積成交量(v)證交所單位是股，換算成「張」比較符合台股習慣（1張=1000股）
+        volTxt: (info.v && info.v !== '-' && info.v !== '0') ? `${Math.round(parseFloat(info.v)/1000).toLocaleString()}張` : '—',
+        limitUpTxt: (info.u && info.u !== '-') ? info.u : '—',
+        limitDownTxt: (info.w && info.w !== '-') ? info.w : '—',
+      };
     }
-    const price = (info.z && info.z !== '-') ? info.z : (info.y || '—');
-    const isLive = !!(info.z && info.z !== '-');
-    const changeTxt = (info.z && info.z !== '-' && info.y) ? `（較昨收${(parseFloat(info.z)-parseFloat(info.y))>=0?'+':''}${(parseFloat(info.z)-parseFloat(info.y)).toFixed(2)}）` : '';
-    // 累積成交量(v)證交所單位是股，換算成「張」比較符合台股習慣（1張=1000股）；漲停價(u)/跌停價(w)供對照參考
-    const volTxt = (info.v && info.v !== '-' && info.v !== '0') ? `${Math.round(parseFloat(info.v)/1000).toLocaleString()}張` : '—';
-    const limitUpTxt = (info.u && info.u !== '-') ? info.u : '—';
-    const limitDownTxt = (info.w && info.w !== '-') ? info.w : '—';
+
+    const changeTxt = (quote.price && quote.prevClose) ? `（較昨收${(quote.price-parseFloat(quote.prevClose))>=0?'+':''}${(quote.price-parseFloat(quote.prevClose)).toFixed(2)}）` : '';
     if(statusEl){
-      statusEl.innerHTML = `<span style="color:var(--teal)">${info.n||asset.stockNo}　${isLive?'現價':'昨收'}：${price} ${changeTxt}</span><br>` +
-        `<span style="color:var(--text-faint);">開${info.o||'—'}／高${info.h||'—'}／低${info.l||'—'}／昨收${info.y||'—'}｜漲停${limitUpTxt}／跌停${limitDownTxt}｜累積成交量${volTxt}｜更新時間：${info.t||'—'}（僅供參考，不影響任何策略判斷）</span>`;
+      statusEl.innerHTML = `<span style="color:var(--teal)">${quote.name}　${quote.isLive?'現價':'昨收'}：${quote.price} ${changeTxt}</span><br>` +
+        `<span style="color:var(--text-faint);">開${quote.open||'—'}／高${quote.high||'—'}／低${quote.low||'—'}／昨收${quote.prevClose||'—'}｜漲停${quote.limitUpTxt}／跌停${quote.limitDownTxt}｜成交量${quote.volTxt}｜更新時間：${quote.time}（僅供參考，不影響任何策略判斷）</span>`;
     }
     // 把今天的最高/最低價存起來，讓「委託清單」「訊號狀態」「訊號明細」可以「對照顯示」今天的即時價格
     // 有沒有觸及既有的限價——只是對照顯示，不會拿這些值重新計算限價本身，限價依然完全只看昨天收盤
-    const todayHigh = (info.h && info.h !== '-') ? parseFloat(info.h) : null;
-    const todayLow = (info.l && info.l !== '-') ? parseFloat(info.l) : null;
+    const todayHigh = (quote.high && quote.high !== '-') ? parseFloat(quote.high) : null;
+    const todayLow = (quote.low && quote.low !== '-') ? parseFloat(quote.low) : null;
     if(todayHigh != null && todayLow != null){
-      state.realtimeQuote[key] = { date: info.d || '', high: todayHigh, low: todayLow, price: parseFloat(price), time: info.t || '' };
+      const todayDate = (()=>{ const now = new Date(); return `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`; })();
+      state.realtimeQuote[key] = { date: isUsTicker(asset.stockNo) ? todayDate : (quote._d || ''), high: todayHigh, low: todayLow, price: quote.price, time: quote.time };
     }
     renderAll();
   } catch(err){
