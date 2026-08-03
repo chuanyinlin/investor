@@ -233,7 +233,7 @@
   .btn-sm{
     width:auto; padding:7px 12px; font-size:12px; margin-top:0; border-radius:10px;
   }
-  #toggleInput, #toggleAdvancedInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleChipData{
+  #toggleInput, #toggleHist, #toggleLed, #toggleReserve, #toggleOrders, #toggleBacktest, #toggleTwelveDataKey, #toggleChipData{
     width:28px; height:28px; padding:0; font-size:17px; line-height:28px;
     text-align:center; flex-shrink:0;
     background: var(--panel); color: var(--text);
@@ -426,42 +426,47 @@
   <div id="scrollArea" class="scroll-area">
   <div class="app">
 
-  <!-- ============ INPUT CARD ============ -->
+  <!-- ============ HISTORY CARD (moved to top, renamed 收盤資訊) ============ -->
   <div class="card">
-    <div class="card-title"><h3>資料管理</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="展開"><span class="chev collapsed">▾</span></button></div>
-    <div id="inputBody" style="display:none; margin-top:10px;">
-
-    <!-- 日常操作：每天收盤後第一件事，先更新最新股價/均線，後面的判斷都依賴這個資料 -->
-    <div class="field">
-      <label style="color:var(--text);">更新標的資料<span id="updateHintText" style="color:var(--text-faint); font-weight:400;">（「更新」會抓取最近3個交易日的資料）</span></label>
+    <div class="card-title"><h3>收盤資訊</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="histBody" style="display:none; margin-top:10px;">
+    <div id="histList" style="max-height:307px; overflow-y:auto;"></div>
+    <!-- 更新標的資料／上傳歷史紀錄：從原本「資料管理」卡片搬過來，日常操作，收盤後第一件事，先更新最新股價/均線 -->
+    <div class="footer-note" id="updateHintText" style="text-align:left; margin-bottom:6px;"></div>
+    <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="flex:1; width:auto;">更新</button>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnClearAssetData" style="flex:1; width:auto;">清除</button>
+      <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="flex:1; width:auto;">上傳</button>
+      <button class="btn btn-neutral btn-sm" id="btnExportHist" style="flex:1; width:auto; display:block; margin:0;">下載</button>
     </div>
-    <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="width:100%;">更新</button>
     <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="footer-note" id="clearAssetDataStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- ============ INPUT CARD (moved below, renamed 即時資訊) ============ -->
+  <div class="card">
+    <div class="card-title"><h3>即時資訊</h3><button class="btn btn-primary btn-sm" id="toggleInput" title="展開"><span class="chev collapsed">▾</span></button></div>
+    <div id="inputBody" style="display:none; margin-top:10px;">
 
     <!-- 查詢盤中即時價格：純參考用途，完全不影響任何策略計算——InvestOS核心設計是「所有買賣決策均以
          收盤資料試算，不因盤中波動調整掛單」，這裡查到的價格，不會被寫入歷史資料、不會觸發任何訊號重算 -->
-    <div class="field" style="margin-top:10px;">
-      <label style="color:var(--text);">查詢盤中即時價格<span style="color:var(--text-faint); font-weight:400;">（僅供參考，不影響任何策略判斷；資料來源證交所，約5秒更新一次，收盤後才不會反映在正式的歷史資料裡）</span></label>
+    <div class="field">
+      <label style="color:var(--text);">查詢盤中即時價格<span style="color:var(--text-faint); font-weight:400;">（僅供參考，不影響任何策略判斷；資料來源證交所，收盤後才不會反映在正式的歷史資料裡）</span></label>
     </div>
     <button class="btn btn-neutral btn-sm" id="btnQueryRealtime" style="width:100%;">查詢</button>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:8px;">
+      <input type="checkbox" id="inRealtimeAutoUpdate" style="width:auto;">
+      <span style="font-size:12px; color:var(--text);">自動更新（每5秒查詢一次，只服務目前這個標的；切換標的、離開頁面會自動停止；證交所這個免費查詢有請求頻率限制，不建議同時開多個標的分頁一起自動更新）</span>
+    </label>
     <div class="footer-note" id="realtimeQuoteStatus" style="text-align:left; margin-top:6px;"></div>
 
     <!-- 部位管理(現金/股數/平均成本/最近一次加碼價格日期)已搬到「委託清單」最下面，
          改成暫時輸入、不存檔，每次都要重新輸入；「貼上訊號明細快速填入」已完整移除；不再放在這裡 -->
 
-    <!-- 進階/例外處理：收合，平常不會用到 -->
-    <div class="card-title" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);">
-      <h3 style="font-size:13px;">進階資料管理</h3>
-      <button class="btn btn-primary btn-sm" id="toggleAdvancedInput" title="展開"><span class="chev collapsed">▾</span></button>
-    </div>
-    <div id="advancedInputBody" style="display:none;">
-
-    <div class="field">
-      <label style="color:var(--text);">上傳歷史紀錄<span style="color:var(--text-faint); font-weight:400;">（上傳「歷史紀錄」下載的檔案，只會保留該標的設定的天數，見「設定」→「基本設定」→「更新標的資料保留天數」）</span></label>
-      <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
-      <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="width:100%;">上傳</button>
-      <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
-    </div>
+    <!-- 上傳歷史紀錄已搬到「收盤資訊」卡片，跟「更新」「下載」放在一起 -->
 
     <div class="field date-field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair); display:none;">
       <!-- calendarPop是全站共用的日曆彈出元件（其他日期欄位如「回測起始日」都會借用），
@@ -479,22 +484,8 @@
       </div>
     </div>
 
-    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">清除這個標的的全部資料<span style="color:var(--text-faint); font-weight:400;">（歷史紀錄與所有部位/日期資料全部清空；策略參數與標的本身不受影響）</span></label>
-      <button type="button" class="btn btn-neutral btn-sm" id="btnClearAssetData" style="width:100%;">清除全部資料</button>
-      <div class="footer-note" id="clearAssetDataStatus" style="text-align:left; margin-top:6px;"></div>
-    </div>
+    <!-- 清除全部資料已搬到「收盤資訊」卡片，改名為「清除」，跟「更新」「上傳」「下載」放在一起 -->
 
-    </div>
-    </div>
-  </div>
-
-  <!-- ============ HISTORY CARD ============ -->
-  <div class="card">
-    <div class="card-title"><h3>歷史紀錄</h3><button class="btn btn-primary btn-sm" id="toggleHist" title="展開"><span class="chev collapsed">▾</span></button></div>
-    <div id="histBody" style="display:none; margin-top:10px;">
-    <div id="histList" style="max-height:307px; overflow-y:auto;"></div>
-    <button class="btn btn-neutral btn-sm" id="btnExportHist">下載</button>
     </div>
   </div>
 
@@ -624,7 +615,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 13:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 19:00</div>
   </div>
   </div>
 
@@ -2352,9 +2343,7 @@ let state = {
   activeTab: 'spot',
   histCollapsed: true,
   inputCollapsed: true,
-  advancedInputCollapsed: true,
   ledCollapsed: true,
-  inputPositionCollapsed: true,
   twelveDataKeyCollapsed: true,
   reserveCollapsed: true,
   ordersCollapsed: true,
@@ -2890,10 +2879,10 @@ function renderHistory(){
   const rowsAsc = sortedLog(key);
   if(rowsAsc.length === 0){
     list.innerHTML = '<div class="empty-hint">還沒有紀錄，請先在資料管理「更新」，或「上傳」歷史紀錄，或於「進階」手動輸入，開始追蹤。</div>';
-    downloadBtn.style.display = 'none';
+    downloadBtn.disabled = true;
     return;
   }
-  downloadBtn.style.display = '';
+  downloadBtn.disabled = false;
 
   const rows = [...rowsAsc].reverse();
   const fmtOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
@@ -2979,8 +2968,8 @@ function renderLeds(){
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
   const bombardCondEnabled = asset.l1Pct > 0 || asset.l2Pct > 0;
-  condHtml += ledItem(bombardCondEnabled, `股價達加碼價位 ${getRealtimeTouchNote(key, d.bombardTouchThreshold, true)}`, bombardCondEnabled && !d.touch ? 'red' : '');
-  condHtml += ledItem(true, `股價達停利價位 ${getRealtimeTouchNote(key, d.exitThreshold, false)}`, d.exitPriceReached?'':'red');
+  condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
+  condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
 
   // 現金流：沒有引用部位資料時，這顆燈天生沒有意義（沒有真實現金數字可以判斷夠不夠），直接不亮
   const cashStatus = getCashStatus(key);
@@ -3407,7 +3396,7 @@ function getRealtimeTouchNote(assetKey, limitPrice, isBuy = true){
   if(rt.date && rt.date !== todayStr) return ''; // 查詢到的資料不是今天的，不顯示（避免誤導）
   const touched = isBuy ? (rt.low <= limitPrice) : (rt.high >= limitPrice);
   if(!touched) return '';
-  return `<span style="color:var(--amber); font-weight:700;">（今日已觸及＠${rt.time}）</span>`;
+  return `<span style="color:var(--teal); font-weight:700;">（今日已觸及＠${rt.time}）</span>`;
 }
 
 function getCashStatus(key){
@@ -3833,6 +3822,9 @@ function renderTabs(){
   row.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       state.activeTab = t.dataset.tab;
+      // 切換標的時，自動停止即時查詢的自動更新——這個功能只服務「目前正在看的標的」，
+      // 不應該在背景默默繼續查詢一個已經切換離開的標的，浪費資源也浪費證交所的request額度
+      if(typeof stopRealtimeAutoUpdate === 'function') stopRealtimeAutoUpdate();
       // 切換分頁後，讓新選中的標的盡量置中顯示（視窗3格，置中＝往左讓1格）；
       // Math.max(0,...)跟Math.min(maxStart,...)天生就會處理邊界情況——
       // 選到第一個標的時算出負數會被夾到0（自然貼左），選到最後一個會被夾到maxStart（自然貼右）
@@ -4738,15 +4730,6 @@ document.getElementById('toggleInput').addEventListener('click', ()=>{
   btn.title = state.inputCollapsed ? '展開' : '收合';
 });
 
-document.getElementById('toggleAdvancedInput').addEventListener('click', ()=>{
-  state.advancedInputCollapsed = !state.advancedInputCollapsed;
-  const body = document.getElementById('advancedInputBody');
-  const btn = document.getElementById('toggleAdvancedInput');
-  body.style.display = state.advancedInputCollapsed ? 'none' : 'block';
-  const chev = btn.querySelector('.chev'); if(chev) chev.classList.toggle('collapsed', state.advancedInputCollapsed);
-  btn.title = state.advancedInputCollapsed ? '展開' : '收合';
-});
-
 document.getElementById('toggleChipData').addEventListener('click', ()=>{
   // 初始值要跟HTML本身的display:none（預設收合）一致，state.chipDataCollapsed若還沒設定過，
   // 視為「目前是收合」，這樣第一次點擊才會正確變成「展開」，不會反過來
@@ -4808,7 +4791,7 @@ document.getElementById('btnRunBacktest').addEventListener('click', runBacktest)
 // 收合卡片時，雙擊整張卡片任何地方（不只標題列）都能展開；
 // 但卡片已經展開時，雙擊裡面的輸入框/文字不會誤觸收合，避免雙擊選取文字時卡片突然收合
 const collapseStateKeyMap = {
-  toggleHist: 'histCollapsed', toggleInput: 'inputCollapsed', toggleAdvancedInput: 'advancedInputCollapsed',
+  toggleHist: 'histCollapsed', toggleInput: 'inputCollapsed',
   toggleLed: 'ledCollapsed', toggleReserve: 'reserveCollapsed', toggleOrders: 'ordersCollapsed', toggleBacktest: 'backtestCollapsed',
   toggleChipData: 'chipDataCollapsed',
 };
@@ -5043,7 +5026,7 @@ document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${asset.name}_歷史紀錄_${dateOnly}.txt`;
+  a.download = `${asset.name}_收盤資訊_${dateOnly}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -5098,7 +5081,7 @@ document.getElementById('btnImportFile').addEventListener('click', ()=>{
   document.getElementById('inImportFile').click();
 });
 
-armConfirmClick(document.getElementById('btnClearAssetData'), '清除全部資料', '確定清除？', async ()=>{
+armConfirmClick(document.getElementById('btnClearAssetData'), '清除', '確定清除？', async ()=>{
   const key = state.activeTab;
   state.log[key] = [];
   state.cash[key] = null;
@@ -5201,46 +5184,76 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 // 查詢盤中即時價格：純參考用途，透過既有的CORS_PROXY轉發到證交所「基本市況報導網站」背後的API；
 // 不寫入state.log（不影響任何歷史資料/訊號計算），只是單純顯示給使用者看一眼目前盤中價格；
 // 同時查tse(上市)跟otc(上櫃)兩種前綴，不用使用者自己選，程式自動抓有資料的那一個
-document.getElementById('btnQueryRealtime').addEventListener('click', async ()=>{
+// 查詢盤中即時價格的核心邏輯：抽成獨立函式，讓「手動點擊查詢」跟「自動更新」共用同一份程式碼，
+// 避免重複維護兩份幾乎一樣的邏輯
+async function queryRealtimeQuoteCore(){
   const key = state.activeTab;
   const asset = getAsset(key);
   const statusEl = document.getElementById('realtimeQuoteStatus');
-  const btn = document.getElementById('btnQueryRealtime');
   if(!asset.stockNo){
-    statusEl.innerHTML = `<span style="color:var(--red)">這個標的還沒設定證交所代號，請先到「設定」→「基本設定」輸入</span>`;
+    if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">這個標的還沒設定證交所代號，請先到「設定」→「基本設定」輸入</span>`;
     return;
   }
-  const originalText = btn.textContent;
-  btn.textContent = '查詢中...';
-  btn.disabled = true;
-  statusEl.innerHTML = '';
   try {
     const target = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${asset.stockNo}.tw|otc_${asset.stockNo}.tw&json=1&delay=0`;
     const res = await fetch(CORS_PROXY + encodeURIComponent(target));
     const data = await res.json();
     const info = (data.msgArray || []).find(m => m.z && m.z !== '-') || (data.msgArray || [])[0];
     if(!info){
-      statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
-    } else {
-      const price = (info.z && info.z !== '-') ? info.z : (info.y || '—');
-      const isLive = !!(info.z && info.z !== '-');
-      const changeTxt = (info.z && info.z !== '-' && info.y) ? `（較昨收${(parseFloat(info.z)-parseFloat(info.y))>=0?'+':''}${(parseFloat(info.z)-parseFloat(info.y)).toFixed(2)}）` : '';
-      statusEl.innerHTML = `<span style="color:var(--teal)">${info.n||asset.stockNo}　${isLive?'現價':'昨收'}：${price} ${changeTxt}</span><br>` +
-        `<span style="color:var(--text-faint);">開${info.o||'—'}／高${info.h||'—'}／低${info.l||'—'}／昨收${info.y||'—'}｜更新時間：${info.t||'—'}（僅供參考，不影響任何策略判斷）</span>`;
-      // 把今天的最高/最低價存起來，讓「委託清單」「訊號狀態」「訊號明細」可以「對照顯示」今天的即時價格
-      // 有沒有觸及既有的限價——只是對照顯示，不會拿這些值重新計算限價本身，限價依然完全只看昨天收盤
-      const todayHigh = (info.h && info.h !== '-') ? parseFloat(info.h) : null;
-      const todayLow = (info.l && info.l !== '-') ? parseFloat(info.l) : null;
-      if(todayHigh != null && todayLow != null){
-        state.realtimeQuote[key] = { date: info.d || '', high: todayHigh, low: todayLow, price: parseFloat(price), time: info.t || '' };
-      }
+      if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
+      return;
     }
+    const price = (info.z && info.z !== '-') ? info.z : (info.y || '—');
+    const isLive = !!(info.z && info.z !== '-');
+    const changeTxt = (info.z && info.z !== '-' && info.y) ? `（較昨收${(parseFloat(info.z)-parseFloat(info.y))>=0?'+':''}${(parseFloat(info.z)-parseFloat(info.y)).toFixed(2)}）` : '';
+    // 累積成交量(v)證交所單位是股，換算成「張」比較符合台股習慣（1張=1000股）；漲停價(u)/跌停價(w)供對照參考
+    const volTxt = (info.v && info.v !== '-' && info.v !== '0') ? `${Math.round(parseFloat(info.v)/1000).toLocaleString()}張` : '—';
+    const limitUpTxt = (info.u && info.u !== '-') ? info.u : '—';
+    const limitDownTxt = (info.w && info.w !== '-') ? info.w : '—';
+    if(statusEl){
+      statusEl.innerHTML = `<span style="color:var(--teal)">${info.n||asset.stockNo}　${isLive?'現價':'昨收'}：${price} ${changeTxt}</span><br>` +
+        `<span style="color:var(--text-faint);">開${info.o||'—'}／高${info.h||'—'}／低${info.l||'—'}／昨收${info.y||'—'}｜漲停${limitUpTxt}／跌停${limitDownTxt}｜累積成交量${volTxt}｜更新時間：${info.t||'—'}（僅供參考，不影響任何策略判斷）</span>`;
+    }
+    // 把今天的最高/最低價存起來，讓「委託清單」「訊號狀態」「訊號明細」可以「對照顯示」今天的即時價格
+    // 有沒有觸及既有的限價——只是對照顯示，不會拿這些值重新計算限價本身，限價依然完全只看昨天收盤
+    const todayHigh = (info.h && info.h !== '-') ? parseFloat(info.h) : null;
+    const todayLow = (info.l && info.l !== '-') ? parseFloat(info.l) : null;
+    if(todayHigh != null && todayLow != null){
+      state.realtimeQuote[key] = { date: info.d || '', high: todayHigh, low: todayLow, price: parseFloat(price), time: info.t || '' };
+    }
+    renderAll();
   } catch(err){
-    statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：${err.message}</span>`;
+    if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：${err.message}</span>`;
   }
+}
+
+// 自動更新計時器：每5秒查一次，只服務「目前正在看的標的」；切換標的、取消勾選、關閉頁面都要正確清除，
+// 避免背景一直查詢已經不在看的標的，浪費資源也浪費證交所的request額度
+// （證交所這個免費API有請求頻率限制，大約每5秒3次，這裡固定5秒一次、同時間只服務一個標的，在安全範圍內）
+let realtimeAutoTimer = null;
+function stopRealtimeAutoUpdate(){
+  if(realtimeAutoTimer){ clearInterval(realtimeAutoTimer); realtimeAutoTimer = null; }
+  const checkbox = document.getElementById('inRealtimeAutoUpdate');
+  if(checkbox) checkbox.checked = false;
+}
+document.getElementById('inRealtimeAutoUpdate').addEventListener('change', (e)=>{
+  if(e.target.checked){
+    queryRealtimeQuoteCore();
+    realtimeAutoTimer = setInterval(queryRealtimeQuoteCore, 5000);
+  } else {
+    if(realtimeAutoTimer){ clearInterval(realtimeAutoTimer); realtimeAutoTimer = null; }
+  }
+});
+
+document.getElementById('btnQueryRealtime').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btnQueryRealtime');
+  const originalText = btn.textContent;
+  btn.textContent = '查詢中...';
+  btn.disabled = true;
+  document.getElementById('realtimeQuoteStatus').innerHTML = '';
+  await queryRealtimeQuoteCore();
   btn.textContent = originalText;
   btn.disabled = false;
-  renderAll();
 });
 
 
