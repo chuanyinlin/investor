@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 09:35</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 10:00</div>
   </div>
   </div>
 
@@ -625,15 +625,12 @@
     <div id="assetManageList"></div>
 
     <div class="field" style="margin-top:6px; padding-top:12px; border-top:1px solid var(--hair);">
-      <div style="position:relative; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <button class="btn btn-neutral btn-sm" id="btnAddAsset">＋ 新增投資標的</button>
-        <button class="btn btn-neutral btn-sm" id="btnSaveAsset" style="position:absolute; left:50%; transform:translateX(-50%);">儲存</button>
-        <span class="footer-note" id="assetSaveStatus" style="position:absolute; left:calc(50% + 46px); top:50%; transform:translateY(-50%); color:var(--teal); font-weight:600; white-space:nowrap;"></span>
-        <div style="display:flex; gap:10px;">
-          <button class="btn btn-neutral btn-sm" id="btnExportAssets">匯出</button>
-          <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
-          <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets">匯入</button>
-        </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-neutral btn-sm" id="btnAddAsset" style="flex:1; width:auto; min-width:80px;">新增</button>
+        <button class="btn btn-neutral btn-sm" id="btnSaveAsset" style="flex:1; width:auto; min-width:80px;">儲存</button>
+        <input type="file" id="inImportAssets" accept=".json,application/json" style="display:none;">
+        <button type="button" class="btn btn-neutral btn-sm" id="btnImportAssets" style="flex:1; width:auto; min-width:80px;">匯入</button>
+        <button class="btn btn-neutral btn-sm" id="btnExportAssets" style="flex:1; width:auto; min-width:80px;">匯出</button>
       </div>
       <div class="footer-note" id="assetImportStatus" style="text-align:center; margin-top:6px;"></div>
     </div>
@@ -5414,9 +5411,10 @@ document.getElementById('assetManageList').addEventListener('click', (e)=>{
 });
 document.getElementById('btnSaveAsset').addEventListener('click', async ()=>{
   await storageSet(KEY_ASSETS, state.assets);
-  const statusEl = document.getElementById('assetSaveStatus');
-  statusEl.textContent = '已儲存✓';
-  setTimeout(()=>{ if(statusEl) statusEl.textContent = ''; }, 2000);
+  const btn = document.getElementById('btnSaveAsset');
+  const originalText = btn.textContent;
+  btn.textContent = '已儲存✓';
+  setTimeout(()=>{ if(btn) btn.textContent = originalText; }, 2000);
 });
 document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   let idx = state.assets.length + 1;
