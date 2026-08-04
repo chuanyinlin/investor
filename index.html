@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 11:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 11:20</div>
   </div>
   </div>
 
@@ -5240,7 +5240,11 @@ async function queryRealtimeQuoteCore(){
       }
       quote = {
         name: info.name || asset.stockNo,
+        fullName: info.name || asset.stockNo,
+        stockNo: info.symbol || asset.stockNo,
+        exchange: info.exchange || '—',
         price: parseFloat(info.close),
+        priceRaw: info.close != null ? String(info.close) : '-',
         isLive: info.is_market_open === true,
         open: info.open, high: info.high, low: info.low, prevClose: info.previous_close,
         time: info.datetime || '—',
@@ -5248,6 +5252,7 @@ async function queryRealtimeQuoteCore(){
         _displayDate: (info.datetime && /^\d{4}-\d{2}-\d{2}/.test(info.datetime)) ? info.datetime.slice(0,10) : '',
         volTxt: (info.volume && info.volume !== '0') ? `${parseInt(info.volume).toLocaleString()}股` : '—',
         limitUpTxt: '—', limitDownTxt: '—', // 美股沒有漲跌停限制，這兩項天生不適用
+        askLevels: [], bidLevels: [], // Twelve Data免費方案的quote端點不提供五檔買賣資料
       };
     } else {
       // 台股/櫃買：走證交所「基本市況報導網站」背後的免費API，同時查tse(上市)跟otc(上櫃)，不用使用者自己選
@@ -5259,23 +5264,26 @@ async function queryRealtimeQuoteCore(){
         if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
         return;
       }
-      // 「有沒有即時報價」不能只看z這一個欄位——z是「最近一筆成交價」，在開盤初期交易極度清淡時，
-      // 這個欄位可能間歇性是空值，即使當下確實已經有交易（開高低、成交量都有真實資料）。
-      // 判斷「今天有沒有開始交易」，改成同時看成交量/開高低這些欄位，只要任一有值，就代表今天確實
-      // 已經有交易，不能因為z剛好查詢到空值，就誤判成「還沒開始交易」、退回顯示昨收
-      const hasZ = !!(info.z && info.z !== '-');
-      const hasVolume = !!(info.v && info.v !== '-' && parseFloat(info.v) > 0);
-      const hasTodayRange = !!(info.h && info.h !== '-' && info.l && info.l !== '-');
-      const hasTodayTrading = hasZ || hasVolume || hasTodayRange;
-      const isLive = hasZ;
-      // z可用時，用z（真正的最近成交價）；z不可用但今天確實有交易時，改用「最高價」當作參考現價
-      // （比昨收更接近當下實際情況）；完全沒有今天任何交易資料時，才真的顯示昨收
-      const priceRaw = hasZ ? info.z : (hasTodayTrading ? info.h : info.y);
+      // 不再用「最高價」猜測性地代替現價——z是這個API唯一代表「最近一筆成交價」的欄位，
+      // 交易清淡時可能間歇性是空值，這裡誠實呈現z的原始狀態，不做任何替代或加工；
+      // 同時完整收集這個API所有其他可用欄位（五檔買賣、股票代號、交易所別、公司全名），
+      // 讓使用者自己判斷目前的完整盤面狀況，而不是由InvestOS幫忙下判斷、給一個推測值
+      const isLive = !!(info.z && info.z !== '-');
+      // 五檔買賣：a=賣價(低到高)/f=賣量，b=買價(高到低)/g=買量，都是用_分隔的字串
+      const parseLevels = (priceStr, volStr) => {
+        if(!priceStr || priceStr === '-') return [];
+        const prices = priceStr.split('_').filter(s => s !== '');
+        const vols = (volStr || '').split('_').filter(s => s !== '');
+        return prices.map((p, i) => ({ price: p, vol: vols[i] || '—' })).filter(x => x.price && x.price !== '-');
+      };
       quote = {
         name: info.n || asset.stockNo,
-        price: parseFloat(priceRaw || 0),
+        fullName: info.nf || info.n || asset.stockNo,
+        stockNo: info.c || asset.stockNo,
+        exchange: info.ex || '—',
+        price: isLive ? parseFloat(info.z) : null,
+        priceRaw: info.z || '-',
         isLive,
-        hasTodayTrading,
         open: info.o, high: info.h, low: info.l, prevClose: info.y,
         time: info.t || '—',
         _d: info.d || '',
@@ -5285,10 +5293,14 @@ async function queryRealtimeQuoteCore(){
         volTxt: (info.v && info.v !== '-' && info.v !== '0') ? `${Math.round(parseFloat(info.v)/1000).toLocaleString()}張` : '—',
         limitUpTxt: (info.u && info.u !== '-') ? info.u : '—',
         limitDownTxt: (info.w && info.w !== '-') ? info.w : '—',
+        askLevels: parseLevels(info.a, info.f),
+        bidLevels: parseLevels(info.b, info.g),
       };
     }
 
-    const changeVal = (quote.price && quote.prevClose) ? (quote.price - parseFloat(quote.prevClose)) : null;
+    // 現價這一行不再猜測替代——isLive時顯示z算出來的真正現價；不是isLive時，誠實顯示「尚無成交」，
+    // 不用任何其他欄位（例如最高價）去頂替，避免讓使用者誤以為那是真正的最近成交價
+    const changeVal = (quote.isLive && quote.price != null && quote.prevClose) ? (quote.price - parseFloat(quote.prevClose)) : null;
     if(statusEl){
       // 套用跟「收盤資訊」完全一樣的卡片格式，讓兩張卡片視覺上一致；MA5/MA20/MA60顯示的是
       // 「最新一筆已經算好的收盤資料」裡的值，不是拿即時價格重新計算——均線本身不會因為
@@ -5311,13 +5323,20 @@ async function queryRealtimeQuoteCore(){
       const maDateNote = (maDateStr && maDateStr !== quoteDateStr)
         ? `<span style="color:var(--amber);">（均線資料仍停留在${maDateStr}，尚未更新到${quoteDateStr}）</span>`
         : '';
+      const priceValTxt = quote.isLive ? fmtRaw(quote.price, priceDec(quote.price)) : `尚無成交（原始值：${quote.priceRaw}）`;
+      // 五檔買賣：由外到內排列——賣價由低到高(最靠近成交價的賣一在最上面)，買價由高到低(買一在最上面)
+      const askRows = quote.askLevels.map((lvl,i) => `<div class="hist-grid2"><div><div class="hist-stat-label">賣${i+1}</div><div class="hist-stat-value" style="color:var(--red);">${lvl.price}</div></div><div><div class="hist-stat-label">賣${i+1}量</div><div class="hist-stat-value" style="color:var(--text-faint);">${lvl.vol}</div></div></div>`).join('');
+      const bidRows = quote.bidLevels.map((lvl,i) => `<div class="hist-grid2"><div><div class="hist-stat-label">買${i+1}</div><div class="hist-stat-value" style="color:var(--teal);">${lvl.price}</div></div><div><div class="hist-stat-label">買${i+1}量</div><div class="hist-stat-value" style="color:var(--text-faint);">${lvl.vol}</div></div></div>`).join('');
+      const depthSection = (quote.askLevels.length || quote.bidLevels.length)
+        ? `<div class="footer-note" style="text-align:left; margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">五檔買賣（賣價由低到高、買價由高到低排列）</div>${askRows}${bidRows}`
+        : '';
       statusEl.innerHTML = `<div class="hist-entry" style="border-bottom:none; padding-bottom:0;">
         <div class="hist-entry-head">
-          <div class="hist-entry-date">${quote.name}｜${quoteDateStr}｜更新時間：${quote.time}</div>
+          <div class="hist-entry-date">${quote.fullName || quote.name}｜${quote.stockNo}｜${quote.exchange}｜${quoteDateStr}｜更新時間：${quote.time}</div>
         </div>
         ${maDateNote ? `<div class="footer-note" style="text-align:left; margin-bottom:6px;">${maDateNote}</div>` : ''}
         <div class="hist-grid2">
-          <div><div class="hist-stat-label">${quote.isLive?'現價':(quote.hasTodayTrading?'現價(參考最高價)':'昨收')}</div><div class="hist-stat-value">${fmtRaw(quote.price, priceDec(quote.price))}</div></div>
+          <div><div class="hist-stat-label">現價</div><div class="hist-stat-value">${priceValTxt}</div></div>
           <div><div class="hist-stat-label">MA5${maDateStr?`（${maDateStr}）`:''}</div><div class="hist-stat-value">${ma5Txt}</div></div>
         </div>
         <div class="hist-grid2">
@@ -5330,7 +5349,7 @@ async function queryRealtimeQuoteCore(){
         </div>
         <div class="hist-grid2">
           <div><div class="hist-stat-label">最低價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.low)}</div></div>
-          <div><div class="hist-stat-label">漲跌價差</div><div class="hist-stat-value" style="color:${changeVal>=0?'var(--teal)':'var(--red)'};">${changeVal!=null?(changeVal>=0?'+':'')+changeVal.toFixed(2):'—'}</div></div>
+          <div><div class="hist-stat-label">漲跌價差</div><div class="hist-stat-value" style="color:${changeVal==null?'var(--text-faint)':(changeVal>=0?'var(--teal)':'var(--red)')};">${changeVal!=null?(changeVal>=0?'+':'')+changeVal.toFixed(2):'—（現價尚無成交，無法計算）'}</div></div>
         </div>
         <div class="hist-grid2">
           <div><div class="hist-stat-label">昨收</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.prevClose)}</div></div>
@@ -5340,6 +5359,7 @@ async function queryRealtimeQuoteCore(){
           <div><div class="hist-stat-label">漲停</div><div class="hist-stat-value" style="color:var(--text-faint);">${quote.limitUpTxt}</div></div>
           <div><div class="hist-stat-label">跌停</div><div class="hist-stat-value" style="color:var(--text-faint);">${quote.limitDownTxt}</div></div>
         </div>
+        ${depthSection}
         <div class="footer-note" style="text-align:left; margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">僅供參考，不影響任何策略判斷</div>
       </div>`;
     }
