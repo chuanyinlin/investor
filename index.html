@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 13:15</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 13:30</div>
   </div>
   </div>
 
@@ -3405,7 +3405,7 @@ function getRealtimeTouchNote(assetKey, limitPrice, isBuy = true){
   if(rt.date && rt.date !== todayStr) return ''; // 查詢到的資料不是今天的，不顯示（避免誤導）
   const touched = isBuy ? (rt.low <= limitPrice) : (rt.high >= limitPrice);
   if(!touched) return '';
-  return `<span style="color:var(--teal); font-weight:700;">（今日已觸及＠${rt.time}）</span>`;
+  return `<span style="color:var(--teal); font-weight:700;">（今日已觸及）</span>`;
 }
 
 function getCashStatus(key){
