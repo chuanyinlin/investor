@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 12:50</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 13:15</div>
   </div>
   </div>
 
@@ -5233,7 +5233,14 @@ async function queryRealtimeQuoteCore(){
       }
       const target = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(asset.stockNo)}&apikey=${encodeURIComponent(apiKey)}`;
       const res = await fetch(CORS_PROXY + encodeURIComponent(target));
-      const info = await res.json();
+      const rawTextUs = await res.text();
+      let info;
+      try {
+        info = JSON.parse(rawTextUs);
+      } catch(parseErr){
+        if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：Twelve Data這次回傳的不是正常資料格式，原始回應：${rawTextUs.slice(0,150) || '(空白)'}</span>`;
+        return;
+      }
       if(info.code || info.status === 'error' || !info.close){
         if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的即時資料（${info.message || '可能非交易時段，或代號/金鑰不正確'}）</span>`;
         return;
@@ -5258,7 +5265,17 @@ async function queryRealtimeQuoteCore(){
       // 台股/櫃買：走證交所「基本市況報導網站」背後的免費API，同時查tse(上市)跟otc(上櫃)，不用使用者自己選
       const target = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${asset.stockNo}.tw|otc_${asset.stockNo}.tw&json=1&delay=0`;
       const res = await fetch(CORS_PROXY + encodeURIComponent(target));
-      const data = await res.json();
+      // 先讀成文字、自己try/catch解析，不要直接呼叫res.json()——如果這個API或轉發用的CORS代理，
+      // 偶爾回傳非JSON內容（例如錯誤頁面、空白回應），直接呼叫res.json()在Safari會拋出「The string
+      // did not match the expected pattern.」這種完全看不出根本原因的通用錯誤，這樣才能看到originaltext內容方便診斷
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch(parseErr){
+        if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：這個免費API這次回傳的不是正常資料格式（可能暫時性異常或已達查詢限制），原始回應：${rawText.slice(0,150) || '(空白)'}</span>`;
+        return;
+      }
       const info = (data.msgArray || []).find(m => m.z && m.z !== '-') || (data.msgArray || [])[0];
       if(!info){
         if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
@@ -5308,13 +5325,10 @@ async function queryRealtimeQuoteCore(){
       const asset2 = getAsset(key);
       const priceDec = (v) => getTickDecimals(getEffectiveTick(asset2, v));
       const fmtOrDash2 = (v) => (v != null && v !== '-' && !isNaN(parseFloat(v))) ? fmtRaw(parseFloat(v), 2) : '—';
-      // 卡片標題的日期，改用「這筆報價實際對應的日期」（來自API回應），不能用new Date()（今天的真實日曆日期）——
-      // 如果現在非交易時段、或查到的是「昨收」，報價本身就不是今天的，用今天日期當標題會誤導使用者
-      const quoteDateStr = quote._displayDate || '（無法確認日期）';
       const priceValTxt = displayPrice != null ? fmtRaw(displayPrice, priceDec(displayPrice)) : `尚無資料（原始值：${quote.priceRaw}）`;
       statusEl.innerHTML = `<div class="hist-entry" style="border-bottom:none; padding-bottom:0;">
         <div class="hist-entry-head">
-          <div class="hist-entry-date">${quote.fullName || quote.name}｜${quote.stockNo}｜${quote.exchange}｜${quoteDateStr}｜更新時間：${quote.time}</div>
+          <div class="hist-entry-date">${quote.fullName || quote.name}｜${quote.stockNo}｜更新時間：${quote.time}</div>
         </div>
         <div style="text-align:center; margin:10px 0;">
           <div class="hist-stat-label" style="font-size:12px;">現價</div>
