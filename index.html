@@ -457,11 +457,7 @@
       <label style="color:var(--text);">查詢盤中即時價格<span style="color:var(--text-faint); font-weight:400;">（僅供參考，不影響任何策略判斷；資料來源證交所，收盤後才不會反映在正式的歷史資料裡）</span></label>
     </div>
     <button class="btn btn-neutral btn-sm" id="btnQueryRealtime" style="width:100%;">查詢</button>
-    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:8px;">
-      <input type="checkbox" id="inRealtimeAutoUpdate" style="width:auto;">
-      <span style="font-size:12px; color:var(--text);">自動更新（每5秒查詢一次，只服務目前這個標的；切換標的、離開頁面會自動停止；證交所這個免費查詢有請求頻率限制，不建議同時開多個標的分頁一起自動更新）</span>
-    </label>
-    <div class="footer-note" id="realtimeQuoteStatus" style="text-align:left; margin-top:6px;"></div>
+    <div class="footer-note" id="realtimeQuoteStatus" style="text-align:left; margin-top:6px; max-height:307px; overflow-y:auto;"></div>
 
     <!-- 部位管理(現金/股數/平均成本/最近一次加碼價格日期)已搬到「委託清單」最下面，
          改成暫時輸入、不存檔，每次都要重新輸入；「貼上訊號明細快速填入」已完整移除；不再放在這裡 -->
@@ -615,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-03 22:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 09:35</div>
   </div>
   </div>
 
@@ -733,7 +729,9 @@ const DEFAULT_PARAMS = {
   bombardAmplitudeThresholdPct: 0.05,
   bombardOpenHighCloseLowEnabled: false,  // 2026-07 從回測「測試特定機制」轉正：連續N天開高走低型態暫停加碼；預設關閉
   bombardOpenHighCloseLowDays: 3,
-  momentumIgnoreDefense: false,  // 2026-07 從回測「測試特定機制」轉正：動能觸發不受MA60防禦邊界限制，只看現金是否充足；預設關閉（維持現行規則）
+  momentumRequireMa60Trend: true,  // 2026-08 新增：動能要能觸發，是否要求MA60持平或向上；預設開啟，維持現行規則。
+  // 比照「加碼邏輯」的設計，動能現在有自己專屬的獨立開關，不再綁死在「防禦邊界」分類共用的判斷上
+  momentumRequireCash: true,  // 2026-08 新增：動能要能觸發，是否要求流動現金充足；預設開啟，維持現行規則
   liqStopIgnoreTrend: false,  // 2026-07 從回測「測試特定機制」轉正：現金水位回補不管MA60趨勢安不安全，一律當天市價強制賣股救急，不分流成「暫緩改暫停定期定額」；預設關閉（維持現行規則的趨勢分流）
   exitPartialFrac: 0.70,
   exitVolumeConfirmEnabled: false,  // 2026-07 新機制：停利第二層三選一之一——量能確認停利，股價達MA20門檻時，還要「昨天有放量」才觸發；預設關閉
@@ -745,7 +743,8 @@ const PARAM_META = [
   ['defenseRequirePriceAboveMa60','防禦邊界要求股價≥MA60','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界要能算安全，股價一定要站上MA60（只看股價位置）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，防禦邊界不再檢查股價是否站上MA60，只看還有勾選的其他條件——例如只勾選MA60趨勢、不勾選這項，就能讓動能觸發/現金水位回補等機制，在股價短暫跌破MA60、但長期趨勢仍健康時依然視為安全'],
   ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
   ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
-  ['momentumIgnoreDefense','動能觸發不受防禦邊界(MA60)限制（目前僅支援回測模擬）','bool','動能邏輯','預設關閉，維持現行規則：動能要能觸發（連續三天股價≥MA5），除了MA5持平或向上，還要防禦邊界安全（MA60趨勢正常、流動現金充足等）同時成立。啟用後，動能觸發不再看防禦邊界，只看現金是否充足'],
+  ['momentumRequireMa60Trend','動能要求MA60持平或向上','bool','動能邏輯','預設開啟，維持現行規則：動能要能觸發（MA5連續三天上升），MA60也要持平或向上。關閉後，動能觸發不再檢查MA60趨勢，只看還有勾選的其他條件'],
+  ['momentumRequireCash','動能要求流動現金充足','bool','動能邏輯','預設開啟，維持現行規則：動能要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，動能觸發不再檢查現金是否充足，只看還有勾選的其他條件；不管有沒有勾選哪幾項，融資維持率安全都會強制檢查'],
   ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
   ['bombardRequirePriceAboveMa60','加碼要求股價≥MA60','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，股價一定要站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，加碼不再檢查股價是否站上MA60，只看其他還有勾選的條件——例如只勾選MA60趨勢、不勾選這項，就能讓加碼在股價短暫跌破MA60、但長期趨勢仍健康時依然有機會觸發'],
   ['bombardMa60ObservationEnabled','啟用加碼MA60觀察期','bool','加碼邏輯','預設關閉。只有上面「加碼要求股價≥MA60」有勾選時才會生效（沒有這項要求，觀察期就沒有東西可以救濟）。啟用後，股價跌破MA60的頭幾天先當作「觀察期」，視同還符合「股價≥MA60」這項要求；只有連續跌破超過設定天數，才真正確認轉弱、判定不符合。用意是區分「單日急殺、可能隔天就反彈」跟「真正連續破位下跌」'],
@@ -1761,7 +1760,6 @@ async function runBacktest(){
       const marketValue = totalShares * closeY;
       const requiredReserve = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (P.cashTargetPct * marketValue / (1 - P.cashTargetPct)) : 0;
       const cashSufficient = cash >= requiredReserve;
-      const defenseOk = priceDefenseOk && cashSufficient;
       // 新機制：加碼要能觸發，MA20持平向上／MA60防禦邊界安全／流動現金充足，三項各自可以獨立選擇要不要當作必要條件；
       // 三項都勾選＝跟現行規則完全一樣，關閉某一項＝拿掉那一關的限制，讓使用者自己決定要用哪幾條防線
       const bombardMa20Ok = !P.bombardRequireMa20 || ma20upFlat;
@@ -1784,13 +1782,16 @@ async function runBacktest(){
       const bombard = bombardOk;
 
       const ma5upFlat = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
-      let threeDay = false;
-      if(i >= 3){
-        const m1 = maAt(i-2,5), m2 = maAt(i-3,5);
-        threeDay = (m1 != null && m2 != null) && closeY > ma5Y && yest2.close > m1 && allRows[i-3].close > m2;
-      }
-      const momentumDefenseOk = P.momentumIgnoreDefense ? cashSufficient : defenseOk;
-      const momentum = threeDay && ma5upFlat && momentumDefenseOk;
+      // MA5連續3天上升（不是「股價連3日≥MA5」）：跟即時運算同一套邏輯，純粹衡量MA5這條均線本身的
+      // 趨勢方向，不看股價相對MA5的位置——修正跟原始設計文件意圖不符的實作偏差
+      const ma5Y3 = maAt(i-3,5);
+      const ma5Rising3Days = (ma5Y != null && ma5Y2 != null && ma5Y3 != null)
+        && ma5Y >= ma5Y2 && ma5Y2 >= ma5Y3;
+      // 動能要能觸發，比照「加碼邏輯」的設計，MA60趨勢跟流動現金這兩項各自可以獨立勾選要不要當作必要條件，
+      // 不再綁死在「防禦邊界」分類共用的defenseOk判斷上；融資維持率安全這裡回測引擎目前沒有納入判斷
+      const momentumMa60Ok = (P.momentumRequireMa60Trend === false) ? true : ma60upFlat;
+      const momentumCashOk = (P.momentumRequireCash === false) ? true : cashSufficient;
+      const momentum = ma5Rising3Days && momentumMa60Ok && momentumCashOk;
       const closeT = today_.close;
 
       // 新機制：MA60向下且股價<MA60時，定期定額/定股改用「前一天最低價」掛限價單，
@@ -2772,8 +2773,16 @@ function computeForAsset(assetKey){
   if(n >= 3){
     const t2 = rows[n-3];
     out.t2 = t2;
-    out.threeDay = today.close >= today.ma5 && t1.close >= t1.ma5 && t2.close >= t2.ma5;
-    out.momentum = out.threeDay && out.ma5upFlat && out.defenseOk;
+    // MA5連續3天上升（不是「股價連3日≥MA5」）：今天MA5≥昨天MA5 且 昨天MA5≥前天MA5，
+    // 純粹衡量MA5這條均線本身的趨勢方向，不看股價相對MA5的位置——這是修正跟原始設計文件意圖不符的
+    // 實作偏差，避免單日價格跳動就符合「股價連3日≥MA5」，但MA5本身根本還沒真正反映出動能持續累積
+    out.ma5Rising3Days = (today.ma5 != null && t1.ma5 != null && t2.ma5 != null)
+      && today.ma5 >= t1.ma5 && t1.ma5 >= t2.ma5;
+    // 動能要能觸發，比照「加碼邏輯」的設計，MA60趨勢跟流動現金這兩項各自可以獨立勾選要不要當作必要條件，
+    // 不再綁死在「防禦邊界」分類共用的defenseOk判斷上；融資維持率安全則不管有沒有勾選都強制檢查
+    out.momentumMa60Ok = (P.momentumRequireMa60Trend === false) ? true : out.ma60upFlat;
+    out.momentumCashOk = (P.momentumRequireCash === false) ? true : cashFactorOk;
+    out.momentum = out.ma5Rising3Days && out.momentumMa60Ok && out.momentumCashOk && out.marginSafe && out.hasPersonalData;
   }
   return out;
 }
@@ -2963,7 +2972,7 @@ function renderLeds(){
 
   // MA5（動能線）
   condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
-  condHtml += d.ready ? ledItem(true, '股價連3日≥MA5', d.threeDay?'':'red') : need(3, '股價連3日≥MA5');
+  condHtml += (d.ma5Rising3Days !== undefined) ? ledItem(true, 'MA5連3日上升', d.ma5Rising3Days?'':'red') : need(3, 'MA5連3日上升');
 
   // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
   // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
@@ -2996,6 +3005,9 @@ function renderLeds(){
   const dcaLedOn = d.hasPersonalData && getAsset(key).dcaValue > 0;
   resultHtml += ledItem(dcaLedOn, dcaLabelLed, dcaLedOn && d.dcaPaused ? 'amber' : '');
 
+  // MA5（動能線）：搬到定期定額之後、加碼觸發之前，符合「動能先於加碼」的邏輯順序
+  resultHtml += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
+
   // MA20（戰略線）
   resultHtml += d.ready2 ? ledItem(d.bombardPriceReached && bombardCondEnabled, '加碼觸發') : need(2, '加碼觸發');
   // 加碼節流觸發：加碼機制本身沒在用（兩層比例都是0）時，不管節流開關有沒有勾選，都該灰色不亮——
@@ -3022,9 +3034,6 @@ function renderLeds(){
   // 停利閥門觸發：暫時永遠不亮——只是「啟用第二層閥門」這個設定有沒有勾選，不代表真的有東西被擋下，
   // 跟旁邊其他「XX觸發」LED的語意（真的發生某件事才亮）不一致，真正的觸發邏輯之後再接上
   resultHtml += ledItem(false, '停利閥門觸發', '');
-
-  // MA5（動能線）
-  resultHtml += d.ready ? ledItem(d.momentum, '動能觸發') : need(3, '動能觸發');
 
   // 現金流：其餘後備防線
   resultHtml += ledItem(!!d.liquidityStopTriggered, '現金水位回補觸發', d.liquidityStopTriggered?'amber':'');
@@ -3107,7 +3116,7 @@ function renderOrders(){
   // 動能加額＝定期定額(或定期定股)×動能倍數，兩個因子只要有一個是0，結果永遠是0，
   // 這種情況下整行隱藏，不顯示沒有意義的「買入0」，跟定期定額/加碼L1/L2用同一套邏輯
   if(asset.dcaValue > 0 && asset.boostMult > 0){
-    html += orderRow(!!d.momentum, '動能', 'MA5持平或向上 且股價連續三日不低於MA5 且防禦邊界安全', boostDetail);
+    html += orderRow(!!d.momentum, '動能', 'MA5連續三天上升 且MA60趨勢/現金等已勾選條件符合', boostDetail);
   }
 
   // 加碼觸發(第一層／第二層)（只需要2筆資料即可試算），股數＝目前現金×比例%÷限價
@@ -3617,6 +3626,26 @@ function renderReserve(){
     dcaStateHtml = `<span style="color:var(--teal); font-weight:700;">→ ${dcaLabelReserve}：正常執行</span>`;
   }
 
+  // ---- 動能觸發（對應結果欄第2個燈號）：跟加碼觸發同樣風格，只顯示觸發狀態跟限價，
+  // 具體股數/金額細節留給「委託清單」負責，這裡只是判斷邏輯的摘要 ----
+  let momentumTriggerTxt, momentumColor;
+  if(asset.dcaValue <= 0){
+    // 定期定額本身金額/股數是0，代表這個標的完全關閉了定期定額，動能加碼（定期定額的倍數）也跟著沒有意義，整行不顯示
+    momentumTriggerTxt = null;
+  } else if(d.momentum === undefined){
+    momentumTriggerTxt = null;
+  } else {
+    const momentumPriceTxt = (d.today != null) ? fmtRaw(d.today.close, getTickDecimals(getEffectiveTick(asset, d.today.close))) : '—';
+    if(d.momentum){
+      momentumTriggerTxt = `觸發｜動能限價＠${momentumPriceTxt}`;
+      momentumColor = 'var(--teal)';
+    } else {
+      momentumTriggerTxt = `未觸發｜動能限價＠${momentumPriceTxt}`;
+      momentumColor = 'var(--text-faint)';
+    }
+  }
+  const momentumLine = (momentumTriggerTxt === null) ? '' : `<span style="color:${momentumColor}; font-weight:700;">→ 動能觸發：${momentumTriggerTxt}</span>`;
+
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
   let bombardTriggerTxt, bombardColor;
   if(!asset.params.bombardLadderMode && asset.l1Pct <= 0 && asset.l2Pct <= 0){
@@ -3634,7 +3663,7 @@ function renderReserve(){
     // 只顯示第一個/頂層加碼價位這個摘要事實；完整的分層明細（不管是L1/L2兩層，還是階梯模式的N層），
     // 請到「委託清單」查看，這裡不重複列出——尤其階梯模式下，「第二層」這個概念本身已經不存在，
     // 繼續顯示layer2CostTxt（依賴L1/L2模式專屬的layer2Mult算出來）在階梯模式下沒有意義、甚至是誤導的
-    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt} ${getRealtimeTouchNote(key, d.bombardTouchThreshold, true)}`;
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}`;
     bombardColor = 'var(--teal)';
   } else if(d.touch && d.bombardMa20Ok && d.bombardMa60Ok && d.bombardPriceAboveMa60Ok && d.cashSufficient === false){
     // 股價、以及所有有勾選要求的MA相關條件都已經符合，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
@@ -3716,14 +3745,14 @@ function renderReserve(){
       const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
       exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
       exitColor = 'var(--amber)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else if(d.exitPriceReached){
       const exitShares = Math.round((state.shares[key]||0) * asset.params.exitPartialFrac);
       exitColor = 'var(--teal)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt} ${getRealtimeTouchNote(key, exitThresholdTicked, false)}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
     }
   }
 
@@ -3766,7 +3795,7 @@ function renderReserve(){
     : '';
 
   const judgmentLines = [
-    defenseLedLine, dcaStateHtml, bombardLine, throttleLine, costLine, liquidityStopHtml
+    defenseLedLine, dcaStateHtml, momentumLine, bombardLine, throttleLine, costLine, liquidityStopHtml
   ].filter(s => s); // 過濾掉空字串（功能沒開啟/不適用時整行隱藏的情況），避免多餘或缺少的換行
 
   document.getElementById('reserveHint').innerHTML =
@@ -3825,9 +3854,6 @@ function renderTabs(){
   row.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       state.activeTab = t.dataset.tab;
-      // 切換標的時，自動停止即時查詢的自動更新——這個功能只服務「目前正在看的標的」，
-      // 不應該在背景默默繼續查詢一個已經切換離開的標的，浪費資源也浪費證交所的request額度
-      if(typeof stopRealtimeAutoUpdate === 'function') stopRealtimeAutoUpdate();
       // 切換分頁後，讓新選中的標的盡量置中顯示（視窗3格，置中＝往左讓1格）；
       // Math.max(0,...)跟Math.min(maxStart,...)天生就會處理邊界情況——
       // 選到第一個標的時算出負數會被夾到0（自然貼左），選到最後一個會被夾到maxStart（自然貼右）
@@ -3927,18 +3953,6 @@ function renderAll(){
   safe(renderTabs, 'renderTabs');
   safe(renderHero, 'renderHero');
   safe(renderHistory, 'renderHistory');
-  safe(()=>{
-    // 「自動更新」只服務台股（證交所免費API沒有嚴格的每日總次數限制），美股改用Twelve Data，
-    // 免費方案每日只有800個credits，自動更新每5秒會很快把額度用光，還會排擠到「更新標的資料」
-    // 這個更重要的核心功能，所以美股標的時，這個checkbox直接停用、並強制停止任何正在跑的定時器
-    const asset = getAsset(state.activeTab);
-    const checkbox = document.getElementById('inRealtimeAutoUpdate');
-    if(checkbox){
-      const isUs = isUsTicker(asset.stockNo);
-      checkbox.disabled = isUs;
-      if(isUs && typeof stopRealtimeAutoUpdate === 'function') stopRealtimeAutoUpdate();
-    }
-  }, 'realtimeAutoUpdateAvailability');
   safe(renderLeds, 'renderLeds');
   safe(renderReserve, 'renderReserve');
   safe(renderOrders, 'renderOrders');
@@ -4151,7 +4165,7 @@ function renderAssetManageInner(){
       </div>`);
     }
     // 動能觸發加額：跟「動能邏輯」這個分類直接相關，從基本設定移過來，放在這個分類最前面
-    if(pkey === 'momentumIgnoreDefense'){
+    if(pkey === 'momentumRequireMa60Trend'){
       catGroups[cat].push(`<div class="param-row-mini">
         <div class="plabel">動能觸發加額（定期定額倍數）</div>
         <input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}">
@@ -5199,8 +5213,6 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 // 查詢盤中即時價格：純參考用途，透過既有的CORS_PROXY轉發到證交所「基本市況報導網站」背後的API；
 // 不寫入state.log（不影響任何歷史資料/訊號計算），只是單純顯示給使用者看一眼目前盤中價格；
 // 同時查tse(上市)跟otc(上櫃)兩種前綴，不用使用者自己選，程式自動抓有資料的那一個
-// 查詢盤中即時價格的核心邏輯：抽成獨立函式，讓「手動點擊查詢」跟「自動更新」共用同一份程式碼，
-// 避免重複維護兩份幾乎一樣的邏輯
 async function queryRealtimeQuoteCore(){
   const key = state.activeTab;
   const asset = getAsset(key);
@@ -5213,8 +5225,7 @@ async function queryRealtimeQuoteCore(){
     // 統一格式：不管台股還是美股，最後都整理成同一組欄位，顯示邏輯只需要寫一次
     let quote = null; // { name, price, isLive, open, high, low, prevClose, time, volTxt, limitUpTxt, limitDownTxt }
     if(isUsTicker(asset.stockNo)){
-      // 美股：改用Twelve Data的quote端點（免費方案每日800個credits額度有限，這裡只在使用者
-      // 手動點擊「查詢」時才呼叫一次，不會像台股那樣被自動更新每5秒消耗掉）
+      // 美股：改用Twelve Data的quote端點
       const apiKey = await storageGet(KEY_TWELVEDATA_APIKEY, '');
       if(!apiKey){
         if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢美股即時報價需要先在「設定」→「Twelve Data金鑰」輸入你的API金鑰</span>`;
@@ -5261,10 +5272,50 @@ async function queryRealtimeQuoteCore(){
       };
     }
 
-    const changeTxt = (quote.price && quote.prevClose) ? `（較昨收${(quote.price-parseFloat(quote.prevClose))>=0?'+':''}${(quote.price-parseFloat(quote.prevClose)).toFixed(2)}）` : '';
+    const changeVal = (quote.price && quote.prevClose) ? (quote.price - parseFloat(quote.prevClose)) : null;
     if(statusEl){
-      statusEl.innerHTML = `<span style="color:var(--teal)">${quote.name}　${quote.isLive?'現價':'昨收'}：${quote.price} ${changeTxt}</span><br>` +
-        `<span style="color:var(--text-faint);">開${quote.open||'—'}／高${quote.high||'—'}／低${quote.low||'—'}／昨收${quote.prevClose||'—'}｜漲停${quote.limitUpTxt}／跌停${quote.limitDownTxt}｜成交量${quote.volTxt}｜更新時間：${quote.time}（僅供參考，不影響任何策略判斷）</span>`;
+      // 套用跟「收盤資訊」完全一樣的卡片格式，讓兩張卡片視覺上一致；MA5/MA20/MA60顯示的是
+      // 「最新一筆已經算好的收盤資料」裡的值，不是拿即時價格重新計算——均線本身不會因為
+      // 盤中價格跳動而改變，這樣呈現反而更能凸顯「僅供參考、不影響策略」這個核心精神
+      const asset2 = getAsset(key);
+      const priceDec = (v) => getTickDecimals(getEffectiveTick(asset2, v));
+      const rowsAsc = sortedLog(key);
+      const lastCalc = rowsAsc.length ? rowsAsc[rowsAsc.length - 1] : null;
+      const ma5Txt = (lastCalc && lastCalc.ma5 != null) ? fmtRaw(lastCalc.ma5, priceDec(lastCalc.ma5)) : '—';
+      const ma20Txt = (lastCalc && lastCalc.ma20 != null) ? fmtRaw(lastCalc.ma20, priceDec(lastCalc.ma20)) : '—';
+      const ma60Txt = (lastCalc && lastCalc.ma60 != null) ? fmtRaw(lastCalc.ma60, priceDec(lastCalc.ma60)) : '—';
+      const fmtOrDash2 = (v) => (v != null && v !== '-' && !isNaN(parseFloat(v))) ? fmtRaw(parseFloat(v), 2) : '—';
+      const todayStr = (()=>{ const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; })();
+      statusEl.innerHTML = `<div class="hist-entry" style="border-bottom:none; padding-bottom:0;">
+        <div class="hist-entry-head">
+          <div class="hist-entry-date">${quote.name}｜${todayStr}｜更新時間：${quote.time}</div>
+        </div>
+        <div class="hist-grid2">
+          <div><div class="hist-stat-label">${quote.isLive?'現價':'昨收'}</div><div class="hist-stat-value">${fmtRaw(quote.price, priceDec(quote.price))}</div></div>
+          <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${ma5Txt}</div></div>
+        </div>
+        <div class="hist-grid2">
+          <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${ma20Txt}</div></div>
+          <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
+        </div>
+        <div class="hist-grid2" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">
+          <div><div class="hist-stat-label">開盤價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.open)}</div></div>
+          <div><div class="hist-stat-label">最高價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.high)}</div></div>
+        </div>
+        <div class="hist-grid2">
+          <div><div class="hist-stat-label">最低價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.low)}</div></div>
+          <div><div class="hist-stat-label">漲跌價差</div><div class="hist-stat-value" style="color:${changeVal>=0?'var(--teal)':'var(--red)'};">${changeVal!=null?(changeVal>=0?'+':'')+changeVal.toFixed(2):'—'}</div></div>
+        </div>
+        <div class="hist-grid2">
+          <div><div class="hist-stat-label">昨收</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.prevClose)}</div></div>
+          <div><div class="hist-stat-label">成交量</div><div class="hist-stat-value" style="color:var(--text-faint);">${quote.volTxt}</div></div>
+        </div>
+        <div class="hist-grid2">
+          <div><div class="hist-stat-label">漲停</div><div class="hist-stat-value" style="color:var(--text-faint);">${quote.limitUpTxt}</div></div>
+          <div><div class="hist-stat-label">跌停</div><div class="hist-stat-value" style="color:var(--text-faint);">${quote.limitDownTxt}</div></div>
+        </div>
+        <div class="footer-note" style="text-align:left; margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">僅供參考，不影響任何策略判斷</div>
+      </div>`;
     }
     // 把今天的最高/最低價存起來，讓「委託清單」「訊號狀態」「訊號明細」可以「對照顯示」今天的即時價格
     // 有沒有觸及既有的限價——只是對照顯示，不會拿這些值重新計算限價本身，限價依然完全只看昨天收盤
@@ -5279,24 +5330,6 @@ async function queryRealtimeQuoteCore(){
     if(statusEl) statusEl.innerHTML = `<span style="color:var(--red)">查詢失敗：${err.message}</span>`;
   }
 }
-
-// 自動更新計時器：每5秒查一次，只服務「目前正在看的標的」；切換標的、取消勾選、關閉頁面都要正確清除，
-// 避免背景一直查詢已經不在看的標的，浪費資源也浪費證交所的request額度
-// （證交所這個免費API有請求頻率限制，大約每5秒3次，這裡固定5秒一次、同時間只服務一個標的，在安全範圍內）
-let realtimeAutoTimer = null;
-function stopRealtimeAutoUpdate(){
-  if(realtimeAutoTimer){ clearInterval(realtimeAutoTimer); realtimeAutoTimer = null; }
-  const checkbox = document.getElementById('inRealtimeAutoUpdate');
-  if(checkbox) checkbox.checked = false;
-}
-document.getElementById('inRealtimeAutoUpdate').addEventListener('change', (e)=>{
-  if(e.target.checked){
-    queryRealtimeQuoteCore();
-    realtimeAutoTimer = setInterval(queryRealtimeQuoteCore, 5000);
-  } else {
-    if(realtimeAutoTimer){ clearInterval(realtimeAutoTimer); realtimeAutoTimer = null; }
-  }
-});
 
 document.getElementById('btnQueryRealtime').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnQueryRealtime');
