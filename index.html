@@ -610,7 +610,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 19:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 20:45</div>
   </div>
   </div>
 
@@ -802,8 +802,8 @@ const PARAM_META = [
 
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位、以及一整組獨立的策略參數
 const DEFAULT_ASSETS = [
-  { key:'spot', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'2330', params:{...DEFAULT_PARAMS} },
-  { key:'asset2',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', params:{...DEFAULT_PARAMS} },
+  { key:'spot', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, stockNo:'2330', params:{...DEFAULT_PARAMS} },
+  { key:'asset2',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, stockNo:'', params:{...DEFAULT_PARAMS} },
 ];
 
 // ---------- 自動抓取（台股走證交所，美股走Twelve Data，依代號內容自動判斷） ----------
@@ -2012,13 +2012,14 @@ async function runBacktest(){
             crossBoostMultUsed = CROSS_ASSET_BOOST_MULT;
           }
         }
-        const cost1 = cashAtDayStart * asset.l1Pct * crossBoostMultUsed;
-        const cost2 = cashAtDayStart * asset.l2Pct * crossBoostMultUsed;
+        const { l1Pct: l1PctCalc, l2Pct: l2PctCalc } = getL1L2Pct(asset);
+        const cost1 = cashAtDayStart * l1PctCalc * crossBoostMultUsed;
+        const cost2 = cashAtDayStart * l2PctCalc * crossBoostMultUsed;
         // 每日預約加碼明細：不管今天最低價有沒有真的觸及p1/p2，只要訊號有觸發，就先記下這筆預約掛單
         // （限價、預計股數、金額是否夠買到有意義的股數），呼應「掛單即紀律」──每天都該有一張預約單
         const scheduledShares1 = (cost1 >= closeT && p1 > 0) ? (cost1 / p1) : 0;
-        const scheduledShares2 = (asset.l2Pct > 0 && cost2 >= closeT && p2 > 0) ? (cost2 / p2) : 0;
-        scheduledBombardEvents.push({ date: today_.date, p1, p2, cost1, cost2, scheduledShares1, scheduledShares2, hasL2: asset.l2Pct > 0, throttled: priceWasAdjusted, crossBoosted: crossBoostApplied });
+        const scheduledShares2 = (l2PctCalc > 0 && cost2 >= closeT && p2 > 0) ? (cost2 / p2) : 0;
+        scheduledBombardEvents.push({ date: today_.date, p1, p2, cost1, cost2, scheduledShares1, scheduledShares2, hasL2: l2PctCalc > 0, throttled: priceWasAdjusted, crossBoosted: crossBoostApplied });
         const p1Touched = today_.low != null && today_.low <= p1;
         // 防呆：算出來的加碼金額，要至少能買到最近收盤價的1股，太小的金額（現金被榨乾到極低時常見）
         // 買不到有意義的股數，直接跳過，避免現金被一連串無意義的微額交易一點一滴榨乾
@@ -2436,6 +2437,19 @@ function sortedLog(assetKey){
 // 現金應保留金額 = 最低現金佔比% 換算出的等值金額，
 // 公式推導：cash / (cash + 市值) >= targetPct  =>  cash >= targetPct * 市值 / (1 - targetPct)
 // 市值 = 目前股數 × 今日收盤價，因此需要股數與今日收盤價才能計算
+// L1/L2要各自用多少%現金，不再是使用者手動輸入、存檔的固定值，改成完全由「階梯現金緩衝比例%」
+// 跟「第二層價位為第一層價位的百分比%」這兩個既有參數反推：L1%+L2%＝(1-緩衝比例%)（用滿緩衝之外的
+// 全部額度），且L1%÷L2%＝layer2Mult（價位比較深、比較便宜的那一層，分配到相對更多現金）——
+// 這是變動的、跟著layer2Mult/緩衝比例連動的比例，不是寫死的固定50/50或任何其他固定數字
+function getL1L2Pct(asset){
+  const P = asset.params;
+  const reservePct = P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10;
+  const totalBudgetPct = 1 - reservePct;
+  const l2Pct = totalBudgetPct / (1 + P.layer2Mult);
+  const l1Pct = P.layer2Mult * l2Pct;
+  return { l1Pct, l2Pct };
+}
+
 function getRequiredReserve(assetKey){
   const P = getAsset(assetKey).params;
   // 「啟用現金防禦」關閉時，這整個機制視為不適用，回傳null（跟「還沒輸入股數」等其他不適用情況
@@ -2793,13 +2807,14 @@ function computeForAsset(assetKey){
   const shouldCheckThrottleLive = P.bombardThrottleEnabled && (!P.bombardThrottleConditionalOnMa60 || ma60WeakForThrottleLive);
   if(n >= 2 && shouldCheckThrottleLive){
     const asset = getAsset(assetKey);
+    const { l1Pct: l1PctCalc2, l2Pct: l2PctCalc2 } = getL1L2Pct(asset);
     const basePrice = Math.min(today.close, bombardRefMaToday);
     const lastPrice = state.lastBombardPrice[assetKey];
-    if(asset.l1Pct > 0){
+    if(l1PctCalc2 > 0){
       const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
       out.throttledL1 = isThrottled(p1, lastPrice, P.throttleMult);
     }
-    if(asset.l2Pct > 0){
+    if(l2PctCalc2 > 0){
       const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
       out.throttledL2 = isThrottled(p2, lastPrice, P.throttleMult);
     }
@@ -3158,15 +3173,22 @@ function renderOrders(){
   let p1 = null, p2 = null;  // 提升到外層，確保即使資料筆數不足(d.ready2=false)，這兩個變數依然存在（值為null），
   // 避免下面「對照今日即時價格」那段程式碼，在資料不足時因為引用未宣告的變數而拋出ReferenceError
   const throttledL1 = d.throttledL1, throttledL2 = d.throttledL2;
+  // L1/L2要各自用多少%現金，不再是使用者手動輸入、存檔的固定值，改成完全由「階梯現金緩衝比例%」
+  // 跟「第二層價位為第一層價位的百分比%」這兩個既有參數即時算出：L1%+L2%＝(1-緩衝比例%)（用滿緩衝
+  // 之外的全部額度），且L1%÷L2%＝layer2Mult（價位比較深、比較便宜的那一層，分配到相對更多現金）
+  const { l1Pct: l1PctCalc, l2Pct: l2PctCalc } = getL1L2Pct(asset);
+  const pctExplainNote1 = `（依緩衝比例${(P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10)*100}%與第二層價位比例${(P.layer2Mult*100).toFixed(0)}%即時算出：${(l1PctCalc*100).toFixed(2)}%）`;
+  const pctExplainNote2 = `（依緩衝比例${(P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10)*100}%與第二層價位比例${(P.layer2Mult*100).toFixed(0)}%即時算出：${(l2PctCalc*100).toFixed(2)}%）`;
   if(d.ready2 && !d.showPersonalAmounts){
-    // 沒有引用部位資料：只顯示限價本身，不顯示股數（節流建議股數同樣依賴現金，這個模式下也一併省略）
+    // 沒有引用部位資料：只顯示限價本身，不顯示股數（節流建議股數同樣依賴現金，這個模式下也一併省略）；
+    // 建議比例本身不需要現金資料，依然照常顯示，只是沒辦法進一步換算成參考股數
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
     l1Detail = throttledL1 ? `買入 ＠${fmtRaw(p1, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p1, tickDec)}`;
     l2Detail = throttledL2 ? `買入 ＠${fmtRaw(p2, tickDec)}（受節流限制）` : `買入 ＠${fmtRaw(p2, tickDec)}`;
-    tip1 = `未引用部位資料，僅顯示限價，不計算股數`;
-    tip2 = tip1;
+    tip1 = `未引用部位資料，僅顯示限價，不計算股數${pctExplainNote1}`;
+    tip2 = `未引用部位資料，僅顯示限價，不計算股數${pctExplainNote2}`;
   } else if(d.ready2){
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
@@ -3190,47 +3212,52 @@ function renderOrders(){
     // 因為「跌到多少才通過節流」是獨立於防禦邊界之外的參考資訊，不該因為防禦邊界關閉就完全看不到
     let throttleNote1 = '', throttleNote2 = '';
     if(throttledL1){
-      if(!throttledL2 && asset.l2Pct > 0){
+      if(!throttledL2 && l2PctCalc > 0){
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（受加碼節流限制，建議委託第二層）</span>`;
-      } else if(asset.l2Pct > 0){
-        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
+      } else if(l2PctCalc > 0){
+        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * l1PctCalc / suggestedThrottlePrice) : 0;
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares1,0)}股＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       } else {
         // 這個標的沒有設定第二層（l2Pct=0），沒有「改委託第二層」這個替代方案可以建議，
         // 直接給第一層自己的節流建議價位，不能提到一個根本不存在的第二層
-        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * asset.l1Pct / suggestedThrottlePrice) : 0;
+        const suggestedShares1 = suggestedThrottlePrice > 0 ? Math.floor(cashNow * l1PctCalc / suggestedThrottlePrice) : 0;
         throttleNote1 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares1,0)}股＠${fmtRaw(suggestedThrottlePrice, tickDec)}）</span>`;
       }
     }
     if(throttledL2){
-      const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * asset.l2Pct / suggestedThrottlePriceL2) : 0;
+      const suggestedShares2 = suggestedThrottlePriceL2 > 0 ? Math.floor(cashNow * l2PctCalc / suggestedThrottlePriceL2) : 0;
       throttleNote2 = `<span style="color:var(--text); font-weight:700;">（建議下修至加碼節流價位，委託${fmtRaw(suggestedShares2,0)}股＠${fmtRaw(suggestedThrottlePriceL2, tickDec)}）</span>`;
     }
     // 「第一層/第二層」旁邊i圖示的完整計算過程說明，滑鼠移過去才顯示，平常不佔畫面空間
     const tickDecForTip = tickDec;
     let tipBase1 = `原本掛單價：基準價＝min(收盤價＠${fmtRaw(d.today.close, tickDecForTip)}, MA20＠${fmtRaw(d.today.ma20, tickDecForTip)})＝${fmtRaw(basePrice, tickDecForTip)}，第一層價位＝基準價無條件進位＝${fmtRaw(p1, tickDecForTip)}`;
     let tipBase2 = `原本掛單價：第二層價位＝基準價${fmtRaw(basePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件進位＝${fmtRaw(p2, tickDecForTip)}`;
-    tip1 = tipBase1; tip2 = tipBase2;
-    if(P.bombardThrottleEnabled && throttledL1 && !throttledL2 && asset.l2Pct > 0){
+    tip1 = tipBase1 + pctExplainNote1; tip2 = tipBase2 + pctExplainNote2;
+    if(P.bombardThrottleEnabled && throttledL1 && !throttledL2 && l2PctCalc > 0){
       const lastPriceForTip1 = state.lastBombardPrice[key];
       tip1 += `<br><br>此層被節流擋下：最近一次加碼價格${fmtRaw(lastPriceForTip1, tickDecForTip)}×節流門檻${P.throttleMult}＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}，第一層價位${fmtRaw(p1, tickDecForTip)}大於這個門檻，還不夠便宜。<br><br>但第二層價位＠${fmtRaw(p2, tickDecForTip)}本身已經比節流門檻更便宜、不用等待，系統直接建議改委託第二層，不會另外算一個「第一層下修價」。`;
     } else if(P.bombardThrottleEnabled && throttledL1 && suggestedThrottlePrice != null){
       const lastPriceForTip = state.lastBombardPrice[key];
-      tip1 += `<br><br>節流建議價：最近一次加碼價格${fmtRaw(lastPriceForTip, tickDecForTip)}×節流門檻${P.throttleMult}，無條件捨去＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第一層比例${(asset.l1Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+      tip1 += `<br><br>節流建議價：最近一次加碼價格${fmtRaw(lastPriceForTip, tickDecForTip)}×節流門檻${P.throttleMult}，無條件捨去＝${fmtRaw(suggestedThrottlePrice, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第一層比例${(l1PctCalc*100).toFixed(2)}%÷節流價，無條件捨去`;
     } else if(P.bombardThrottleEnabled && !throttledL1){
       tip1 += `<br><br>此價位＠${fmtRaw(p1, tickDecForTip)}已經比節流門檻更便宜，不需要下修，直接照原價位掛單。`;
     }
     if(P.bombardThrottleEnabled && throttledL2 && suggestedThrottlePriceL2 != null){
-      tip2 += `<br><br>節流建議價：第一層節流價${fmtRaw(suggestedThrottlePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件捨去＝${fmtRaw(suggestedThrottlePriceL2, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第二層比例${(asset.l2Pct*100).toFixed(0)}%÷節流價，無條件捨去`;
+      tip2 += `<br><br>節流建議價：第一層節流價${fmtRaw(suggestedThrottlePrice, tickDecForTip)}×第二層加碼乘數${P.layer2Mult}，無條件捨去＝${fmtRaw(suggestedThrottlePriceL2, tickDecForTip)}<br>建議股數＝目前現金${fmtRaw(cashNow,0)}×第二層比例${(l2PctCalc*100).toFixed(2)}%÷節流價，無條件捨去`;
     } else if(P.bombardThrottleEnabled && !throttledL2){
       tip2 += `<br><br>此價位＠${fmtRaw(p2, tickDecForTip)}已經比節流門檻更便宜，不需要下修，直接照原價位掛單。`;
     }
-    if(!d.defenseOk){
+    // 股數要不要算，直接看d.bombard本身（加碼有沒有真的觸發，已經完整包含使用者自己選擇要不要
+    // 檢查的MA20/MA60/股價/現金這幾個獨立開關）——不再用defenseOk這個「防禦邊界」判斷，那是動能觸發／
+    // 現金水位回補／定期定額暫停共用的判斷，混進來會讓「加碼明明觸發了，股數卻被迫顯示0」這種矛盾發生：
+    // 例如使用者已經透過「加碼要求流動現金充足」關閉了現金檢查，bombard本身認為該觸發，但defenseOk
+    // 裡強制、不可關閉的現金因子，卻還是會把股數壓成0，這是兩條本該獨立的判斷路徑意外耦合的結果
+    if(!d.bombard){
       l1Detail = `買入 0 股 ＠${fmtRaw(p1, tickDec)}${throttleNote1}`;
       l2Detail = `買入 0 股 ＠${fmtRaw(p2, tickDec)}${throttleNote2}`;
     } else {
-      const shares1 = p1 > 0 ? Math.floor(cashNow * asset.l1Pct / p1) : 0;
-      const shares2 = p2 > 0 ? Math.floor(cashNow * asset.l2Pct / p2) : 0;
+      const shares1 = p1 > 0 ? Math.floor(cashNow * l1PctCalc / p1) : 0;
+      const shares2 = p2 > 0 ? Math.floor(cashNow * l2PctCalc / p2) : 0;
       // 節流擋下時，股數顯示0（跟防禦邊界關閉的呈現方式一致，不要顯示「算出來但今天不該掛」的數字造成誤會）；
       // 明確給出「要跌到多少才會放行、跌到那邊可以買多少股」的完整建議，這是決策支援工具該給的資訊，
       // 不能只說「還不夠便宜」卻不講便宜到多少、也不講夠便宜之後買得起多少股；
@@ -3333,18 +3360,8 @@ function renderOrders(){
     html += orderRow(!!d.liquidityStopTriggered, '現金水位回補', liqCondTxt, liqDetail, liqTip);
   }
 
-  // 加碼觸發(第一層)/(第二層)：L1/L2百分比模式專屬參數，從「進階設定」搬過來這裡，只在L1/L2模式
-  // （非階梯模式）時才顯示，因為階梯模式完全不使用這兩個值；跟現金/股數不同，這兩個是策略參數，
-  // 用一般的data-afield機制正常存檔，不是暫時輸入
-  if(!P.bombardLadderMode){
-    html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">加碼觸發比例（L1/L2百分比模式）<span style="color:var(--text-faint); font-weight:400;">（佔目前流動現金%，各層獨立設定，設0代表關閉這一層）</span></label>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>第一層</label><input type="number" step="0.01" id="inL1PctNow" value="${(asset.l1Pct*100).toFixed(2)}"></div>
-      <div class="field"><label>第二層</label><input type="number" step="0.01" id="inL2PctNow" value="${(asset.l2Pct*100).toFixed(2)}"></div>
-    </div>`;
-  }
+  // 加碼觸發比例(第一層/第二層)：不再是使用者手動輸入、存檔的欄位，改成完全由「階梯現金緩衝比例%」
+  // 跟「第二層價位為第一層價位的百分比%」這兩個既有參數即時算出（getL1L2Pct函式），輸入欄位已移除
 
   // 目前活存現金／股數／平均成本／最近一次加碼價格／日期：從「資料管理」搬過來這裡，改成暫時輸入、
   // 不存檔，每次重新整理頁面都要重新輸入；直接寫入跟原本同一組state變數(state.cash/shares/avgCost/
@@ -3403,21 +3420,6 @@ function renderOrders(){
   bindPositionField('inAvgCostNow', state.avgCost, false);
   bindPositionField('inLastBombardPriceNow', state.lastBombardPrice, false);
   bindPositionField('inLastBombardDateNow', state.lastBombardDate, true);
-
-  // 加碼觸發比例(第一層/第二層)：這兩個是策略參數(asset.l1Pct/l2Pct)，不是暫時輸入，
-  // 要正常存檔；跟部位資料欄位不同，改變後直接寫入asset物件本身、呼叫storageSet(KEY_ASSETS)
-  const bindL12PctField = (id, field) => {
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('change', async (e)=>{
-      const v = parseFloat(e.target.value);
-      asset[field] = (e.target.value === '' || isNaN(v)) ? 0 : v/100;
-      await storageSet(KEY_ASSETS, state.assets);
-      renderAll();
-    });
-  };
-  bindL12PctField('inL1PctNow', 'l1Pct');
-  bindL12PctField('inL2PctNow', 'l2Pct');
 }
 
 // 對照「今天盤中即時最高/最低價」跟某個限價，回傳一段提示文字（不重新計算限價本身，純粹對照顯示）；
@@ -3458,11 +3460,12 @@ function getCashStatus(key){
   let bombardTriggered = false, bombardCost = null, bombardSufficient = null, bombardCostTxt = '';
   let layer2Cost = null, layer2CostTxt = '', bombardSufficientBoth = null;
   if(d.today){
+    const { l1Pct: l1PctForCost, l2Pct: l2PctForCost } = getL1L2Pct(asset);
     const basePrice = Math.min(d.today.close, (P.bombardReferenceMa === 'ma60') ? d.today.ma60 : d.today.ma20);
     const p1 = applyTick(basePrice, getEffectiveTick(asset, basePrice), 'ceil');
     const p2 = applyTick(basePrice * P.layer2Mult, getEffectiveTick(asset, basePrice * P.layer2Mult), 'ceil');
-    bombardCost = cur * asset.l1Pct;
-    layer2Cost = cur * asset.l2Pct;
+    bombardCost = cur * l1PctForCost;
+    layer2Cost = cur * l2PctForCost;
     bombardCostTxt = fmtRaw(p1, getTickDecimals(getEffectiveTick(asset, p1)));
     layer2CostTxt = fmtRaw(p2, getTickDecimals(getEffectiveTick(asset, p2)));
     // 可動用資金＝流動現金 - 應保留金額（現金池保留部分不計入可用於加碼的資金）
@@ -3714,18 +3717,15 @@ function renderReserve(){
       const suggestedThrottlePriceL2 = applyTick(exactThresholdL2, getEffectiveTick(asset, exactThresholdL2), 'floor');
       const tickDec1 = getTickDecimals(getEffectiveTick(asset, suggestedThrottlePrice));
       const tickDec2 = getTickDecimals(getEffectiveTick(asset, suggestedThrottlePriceL2));
-      const onlyOneLayerExists = !(asset.l1Pct > 0 && asset.l2Pct > 0); // 只有一層在運作，不需要特別標明「第X層」
+      // L1/L2兩層現在永遠同時存在（比例由公式即時算出，只要layer2Mult<1就永遠是正數），
+      // 不會再有「只設定一層」的情況，統一標明「第一層/第二層」
 
       if(d.throttledL1 && d.throttledL2){
         throttleTxt = `第一/二層加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}／${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
       } else if(d.throttledL1){
-        throttleTxt = onlyOneLayerExists
-          ? `加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`
-          : `第一層加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`;
+        throttleTxt = `第一層加碼節流價位＠${fmtRaw(suggestedThrottlePrice, tickDec1)}`;
       } else {
-        throttleTxt = onlyOneLayerExists
-          ? `加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`
-          : `第二層加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
+        throttleTxt = `第二層加碼節流價位＠${fmtRaw(suggestedThrottlePriceL2, tickDec2)}`;
       }
       throttleColor = 'var(--amber)';
     }
@@ -4253,7 +4253,7 @@ function renderAssetManageInner(){
     const hasEnteredCash = state.cash[a.key] != null;
     const isCashDependentField = (pkey === 'bombardRequireCash');
     const disabledAttr = (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
-      : (pkey === 'layer2Mult' && (!(a.l2Pct > 0) || bombardLadderModeVal)) ? 'disabled'
+      : (pkey === 'layer2Mult' && bombardLadderModeVal) ? 'disabled'
       : (pkey === 'costExitMult' && useMa60ConfirmForExitVal) ? 'disabled'
       : (pkey === 'exitMa60ConfirmDays' && !useMa60ConfirmForExitVal) ? 'disabled'
       : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled'
@@ -4360,7 +4360,6 @@ function renderAssetManageInner(){
       let v = e.target.value;
       if(['dcaValue','boostMult'].includes(field)) v = parseFloat(v) || 0;
       if(field === 'dataKeepDays') v = parseInt(v, 10) || 5;
-      if(['l1Pct','l2Pct'].includes(field)) v = (parseFloat(v) || 0) / 100;
       state.assets[i][field] = v;
       // 幣別改成美元時，這個標的不可能是台股上市股票，股票代號自動清空
       if(field === 'currency' && v === '美元'){
@@ -4542,13 +4541,13 @@ function renderAssetManageInner(){
       const asset = state.assets[i];
       // 已知的內建標的（台積電/ADR）恢復成各自的原始預設值；自訂新增的標的恢復成新增標的時的通用預設值
       const builtinDefault = DEFAULT_ASSETS.find(d => d.key === asset.key);
-      const fallback = { dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.06, l2Pct:0.08 };
+      const fallback = { dcaMode:'shares', dcaValue:1, boostMult:1.0 };
       const src = builtinDefault || fallback;
       asset.dcaMode = src.dcaMode;
       asset.dcaValue = src.dcaValue;
       asset.boostMult = src.boostMult;
-      asset.l1Pct = src.l1Pct;
-      asset.l2Pct = src.l2Pct;
+      // l1Pct/l2Pct不再是獨立儲存的欄位，重設params(layer2Mult/bombardLadderReservePct)後，
+      // 這兩個比例會自動根據新的參數重新算出，不需要在這裡額外設定
       // 策略參數一律恢復成程式碼裡固定的初始預設值
       asset.params = {...DEFAULT_PARAMS};
       await storageSet(KEY_ASSETS, state.assets);
@@ -5132,7 +5131,7 @@ document.getElementById('inImportFile').addEventListener('change', async (e)=>{
       if(parsed[key].length === 0) continue;
       // 匯入的標的不在目前清單裡，自動新增一個預設設定的標的
       if(!state.assets.some(a=>a.key===key)){
-        state.assets.push({ key, name:(nameMap[key] || key), currency:'', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, params:{...DEFAULT_PARAMS} });
+        state.assets.push({ key, name:(nameMap[key] || key), currency:'', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, params:{...DEFAULT_PARAMS} });
         await storageSet(KEY_ASSETS, state.assets);
       }
       ensureAssetData(key);
@@ -5456,7 +5455,7 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
   let idx = state.assets.length + 1;
   let newKey = 'asset' + idx;
   while(state.assets.some(a=>a.key===newKey)){ idx++; newKey = 'asset' + idx; }
-  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'台幣', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, l1Pct:0.06, l2Pct:0.08, stockNo:'', params:{...DEFAULT_PARAMS} });
+  state.assets.push({ key:newKey, name:'新標的'+idx, currency:'台幣', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1, boostMult:1.0, stockNo:'', params:{...DEFAULT_PARAMS} });
   await storageSet(KEY_ASSETS, state.assets);
   ensureAssetData(newKey);
   assetMgmtActiveKey = newKey;
@@ -5535,8 +5534,6 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         dcaMode: imported.dcaMode === 'amount' ? 'amount' : 'shares',
         dcaValue: numOr(imported.dcaValue, 0),
         boostMult: numOr(imported.boostMult, 1.0),
-        l1Pct: numOr(imported.l1Pct, 0.06),
-        l2Pct: numOr(imported.l2Pct, 0.08),
         stockNo: imported.stockNo || '',
         dataKeepDays: [5,20,60].includes(imported.dataKeepDays) ? imported.dataKeepDays : 5,
         params: cleanParams,
@@ -5667,10 +5664,9 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
 (async function init(){
   const savedAssets = await storageGet(KEY_ASSETS, null);
   state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}}));
-  // 相容舊版資產設定：如果是更新前存的資料，沒有l1Pct/l2Pct（可能還是舊的固定股數l1/l2）或boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN
+  // 相容舊版資產設定：如果是更新前存的資料，沒有boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN；
+  // l1Pct/l2Pct不再需要相容處理，這兩個比例現在完全由layer2Mult/bombardLadderReservePct即時算出
   state.assets.forEach(a=>{
-    if(typeof a.l1Pct !== 'number' || isNaN(a.l1Pct)) a.l1Pct = 0.06;
-    if(typeof a.l2Pct !== 'number' || isNaN(a.l2Pct)) a.l2Pct = 0.08;
     if(typeof a.boostMult !== 'number' || isNaN(a.boostMult)) a.boostMult = 1.0;
     if(a.currency === '元') a.currency = '台幣';
     // 清掉改版前的舊欄位，避免匯出檔案裡累積死資料
