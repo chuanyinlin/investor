@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 12:25</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 12:50</div>
   </div>
   </div>
 
@@ -5303,7 +5303,6 @@ async function queryRealtimeQuoteCore(){
     // 是這個API在z缺值時，仍然每5秒穩定更新、最接近真實現價的資料
     const askBest = quote.askLevels && quote.askLevels.length ? quote.askLevels[0] : null;
     const displayPrice = quote.isLive ? quote.price : (askBest ? parseFloat(askBest.price) : null);
-    const priceIsFromAsk = !quote.isLive && askBest != null;
     const changeVal = (displayPrice != null && quote.prevClose) ? (displayPrice - parseFloat(quote.prevClose)) : null;
     if(statusEl){
       const asset2 = getAsset(key);
@@ -5313,15 +5312,14 @@ async function queryRealtimeQuoteCore(){
       // 如果現在非交易時段、或查到的是「昨收」，報價本身就不是今天的，用今天日期當標題會誤導使用者
       const quoteDateStr = quote._displayDate || '（無法確認日期）';
       const priceValTxt = displayPrice != null ? fmtRaw(displayPrice, priceDec(displayPrice)) : `尚無資料（原始值：${quote.priceRaw}）`;
-      const priceSourceNote = priceIsFromAsk ? `<span style="color:var(--text-faint); font-size:11px; font-weight:400;">（z尚無最新成交，改用最低賣價賣1代替）</span>` : '';
       statusEl.innerHTML = `<div class="hist-entry" style="border-bottom:none; padding-bottom:0;">
         <div class="hist-entry-head">
           <div class="hist-entry-date">${quote.fullName || quote.name}｜${quote.stockNo}｜${quote.exchange}｜${quoteDateStr}｜更新時間：${quote.time}</div>
         </div>
         <div style="text-align:center; margin:10px 0;">
-          <div class="hist-stat-label" style="font-size:12px;">現價${priceSourceNote}</div>
-          <div class="hist-stat-value" style="font-size:32px; font-weight:700; line-height:1.3; color:${changeVal==null?'var(--text)':(changeVal>=0?'var(--teal)':'var(--red)')};">${priceValTxt}</div>
-          <div class="hist-stat-value" style="font-size:14px; color:${changeVal==null?'var(--text-faint)':(changeVal>=0?'var(--teal)':'var(--red)')};">${changeVal!=null?(changeVal>=0?'+':'')+changeVal.toFixed(2)+'（較昨收）':'較昨收無法計算'}</div>
+          <div class="hist-stat-label" style="font-size:12px;">現價</div>
+          <div class="hist-stat-value" style="font-size:32px; font-weight:700; line-height:1.3; color:${changeVal==null?'var(--text-faint)':(changeVal>0?'var(--red)':(changeVal<0?'var(--teal)':'var(--text)'))};">${priceValTxt}</div>
+          <div class="hist-stat-value" style="font-size:14px; color:${changeVal==null?'var(--text-faint)':(changeVal>0?'var(--red)':(changeVal<0?'var(--teal)':'var(--text)'))};">${changeVal!=null?(changeVal>=0?'+':'')+changeVal.toFixed(2):'無法計算'}</div>
         </div>
         <div class="hist-grid2" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">
           <div><div class="hist-stat-label">開盤價</div><div class="hist-stat-value" style="color:var(--text-faint);">${fmtOrDash2(quote.open)}</div></div>
