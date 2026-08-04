@@ -611,7 +611,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 10:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 11:00</div>
   </div>
   </div>
 
@@ -5259,11 +5259,23 @@ async function queryRealtimeQuoteCore(){
         if(statusEl) statusEl.innerHTML = `<span style="color:var(--amber)">・查無這個代號的盤中資料（可能非交易時段，或代號不正確）</span>`;
         return;
       }
-      const isLive = !!(info.z && info.z !== '-');
+      // 「有沒有即時報價」不能只看z這一個欄位——z是「最近一筆成交價」，在開盤初期交易極度清淡時，
+      // 這個欄位可能間歇性是空值，即使當下確實已經有交易（開高低、成交量都有真實資料）。
+      // 判斷「今天有沒有開始交易」，改成同時看成交量/開高低這些欄位，只要任一有值，就代表今天確實
+      // 已經有交易，不能因為z剛好查詢到空值，就誤判成「還沒開始交易」、退回顯示昨收
+      const hasZ = !!(info.z && info.z !== '-');
+      const hasVolume = !!(info.v && info.v !== '-' && parseFloat(info.v) > 0);
+      const hasTodayRange = !!(info.h && info.h !== '-' && info.l && info.l !== '-');
+      const hasTodayTrading = hasZ || hasVolume || hasTodayRange;
+      const isLive = hasZ;
+      // z可用時，用z（真正的最近成交價）；z不可用但今天確實有交易時，改用「最高價」當作參考現價
+      // （比昨收更接近當下實際情況）；完全沒有今天任何交易資料時，才真的顯示昨收
+      const priceRaw = hasZ ? info.z : (hasTodayTrading ? info.h : info.y);
       quote = {
         name: info.n || asset.stockNo,
-        price: parseFloat(isLive ? info.z : (info.y || 0)),
+        price: parseFloat(priceRaw || 0),
         isLive,
+        hasTodayTrading,
         open: info.o, high: info.h, low: info.l, prevClose: info.y,
         time: info.t || '—',
         _d: info.d || '',
@@ -5305,7 +5317,7 @@ async function queryRealtimeQuoteCore(){
         </div>
         ${maDateNote ? `<div class="footer-note" style="text-align:left; margin-bottom:6px;">${maDateNote}</div>` : ''}
         <div class="hist-grid2">
-          <div><div class="hist-stat-label">${quote.isLive?'現價':'昨收'}</div><div class="hist-stat-value">${fmtRaw(quote.price, priceDec(quote.price))}</div></div>
+          <div><div class="hist-stat-label">${quote.isLive?'現價':(quote.hasTodayTrading?'現價(參考最高價)':'昨收')}</div><div class="hist-stat-value">${fmtRaw(quote.price, priceDec(quote.price))}</div></div>
           <div><div class="hist-stat-label">MA5${maDateStr?`（${maDateStr}）`:''}</div><div class="hist-stat-value">${ma5Txt}</div></div>
         </div>
         <div class="hist-grid2">
