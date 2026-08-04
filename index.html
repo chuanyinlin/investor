@@ -244,7 +244,7 @@
     transform: rotate(0deg);
   }
   .chev.collapsed{ transform: rotate(-90deg); }
-  #btnExportHist, #btnExportReserve{
+  #btnExportHist{
     display: table; margin: 14px 0 0 auto;
   }
 
@@ -498,7 +498,6 @@
     <div class="card-title"><h3 id="reserveTitle">訊號明細</h3><button class="btn btn-primary btn-sm" id="toggleReserve" title="展開"><span class="chev collapsed">▾</span></button></div>
     <div id="reserveBody" style="display:none; margin-top:10px;">
     <div class="footer-note" id="reserveHint" style="text-align:left; margin-top:2px; font-size:12.5px;"></div>
-    <button class="btn btn-neutral btn-sm" id="btnExportReserve">下載</button>
     </div>
   </div>
 
@@ -611,7 +610,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 13:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 18:05</div>
   </div>
   </div>
 
@@ -705,6 +704,14 @@ const DEFAULT_PARAMS = {
   marginRatio: 0.60,
   marginCallRatio: 1.20,
   marginDefenseEnabled: false,   // 融資防禦預設關閉，需要使用者主動勾選才啟用；融資買進均價/股數也移到這裡一起管理
+  // 2026-08 新增：定期定額/動能邏輯/加碼邏輯/停利邏輯/現金防禦這5個分類，各自新增一個統一的「使用」
+  // 主開關，放在各自分類最上面；預設開啟，維持現行行為（因為這些機制目前本來就是恆常運作的）。
+  // 底層真正的判斷邏輯（開關關閉時，各分類要如何完全停用）等使用者後續補充，這裡先只建立參數本身
+  useDca: true,
+  useMomentum: true,
+  useBombard: true,
+  useExit: true,
+  useCashDefense: true,
   costExitMult: 1.10,
   exitSecondLayerEnabled: false,
   useMa60ConfirmForExit: false,
@@ -738,14 +745,17 @@ const DEFAULT_PARAMS = {
 const PARAM_META = [
   ['defenseRequireMa60Trend','防禦邊界要求MA60持平或向上','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界（動能觸發／現金水位回補分流／定期定額暫停共用的核心判斷）要能算安全，MA60一定要持平或向上（只看趨勢方向）。這是獨立於「加碼要求MA60持平或向上」之外的另一組開關——加碼本身有自己專屬的判斷，不受這裡影響；關閉後，防禦邊界不再檢查MA60的趨勢方向，只看還有勾選的其他條件'],
   ['defenseRequirePriceAboveMa60','防禦邊界要求股價≥MA60','bool','防禦邊界','預設開啟，維持現行規則：防禦邊界要能算安全，股價一定要站上MA60（只看股價位置）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，防禦邊界不再檢查股價是否站上MA60，只看還有勾選的其他條件——例如只勾選MA60趨勢、不勾選這項，就能讓動能觸發/現金水位回補等機制，在股價短暫跌破MA60、但長期趨勢仍健康時依然視為安全'],
+  ['useDca','啟用定期定額','bool','定期定額','預設開啟，維持現行行為。關閉後，定期定額（或定期定股）完全停用，不再出現在委託清單／訊號明細／訊號狀態；依附於定期定額金額的動能加碼，也會一併停用（因為動能加額＝定期定額金額×倍數，沒有基礎金額，加碼自然沒有意義）'],
   ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，MA60向下且股價低於MA60時，定期定額／定股不再用市價買，改成掛「前一天最低價」的限價單，當天最低價要跌破這個價位才成交；沒觸及就直接放棄這次，不延續到下一天重試。與下面「防禦邊界不安全時暫停」的優先權：MA60向下且股價&lt;MA60這種明確空頭訊號時，暫停優先（完全不買最保守）；只有防禦邊界不安全但還沒到這麼明確（例如MA60只是持平、股價還沒站穩）這種較模糊的情況，才會改試這個限價單'],
   ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額','預設關閉，需勾選才啟用。啟用後，只要防禦邊界不安全（MA60沒有持平向上，或股價沒有站上MA60），就暫停今天的定期定額／定股，不管現金水位夠不夠——比現行「現金不足才暫停」更寬鬆的暫停條件。跟上面「定期定額防禦性限價單」同時啟用時，遇到MA60向下且股價&lt;MA60這種明確空頭訊號，這個暫停機制優先生效'],
+  ['useMomentum','啟用動能邏輯','bool','動能邏輯','預設開啟，維持現行行為。關閉後，動能永遠不會觸發（不管MA5是否連續上升、MA60/現金等其他條件符不符合），不再出現在委託清單／訊號明細；訊號狀態的「動能觸發」燈維持顯示，但因為動能永遠不觸發，燈永遠不會亮'],
   ['momentumRequireMa60Trend','動能要求MA60持平或向上','bool','動能邏輯','預設開啟，維持現行規則：動能要能觸發（MA5連續三天上升），MA60也要持平或向上。關閉後，動能觸發不再檢查MA60趨勢，只看還有勾選的其他條件'],
   ['momentumRequireCash','動能要求流動現金充足','bool','動能邏輯','預設開啟，維持現行規則：動能要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，動能觸發不再檢查現金是否充足，只看還有勾選的其他條件；不管有沒有勾選哪幾項，融資維持率安全都會強制檢查'],
+  ['useBombard','啟用加碼邏輯','bool','加碼邏輯','預設開啟，維持現行行為。關閉後，加碼永遠不會觸發（不管階梯模式還是L1/L2模式、不管其他條件符不符合），不再出現在委託清單／訊號明細；訊號狀態的「股價達加碼價位」「加碼觸發」兩顆燈維持顯示，但因為加碼永遠不觸發，燈永遠不會亮'],
   ['bombardRequireMa60','加碼要求MA60持平或向上','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，MA60一定要持平或向上（只看趨勢方向，不檢查股價有沒有站上MA60，那項是下面獨立的開關）。關閉後，加碼不再檢查MA60的趨勢，只看其他還有勾選的條件'],
   ['bombardRequirePriceAboveMa60','加碼要求股價≥MA60','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，股價一定要站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）。兩項都勾選＝等同原本「MA60持平向上 且 站穩MA60」合併判斷；關閉後，加碼不再檢查股價是否站上MA60，只看其他還有勾選的條件——例如只勾選MA60趨勢、不勾選這項，就能讓加碼在股價短暫跌破MA60、但長期趨勢仍健康時依然有機會觸發'],
   ['bombardMa60ObservationEnabled','啟用加碼MA60觀察期','bool','加碼邏輯','預設關閉。只有上面「加碼要求股價≥MA60」有勾選時才會生效（沒有這項要求，觀察期就沒有東西可以救濟）。啟用後，股價跌破MA60的頭幾天先當作「觀察期」，視同還符合「股價≥MA60」這項要求；只有連續跌破超過設定天數，才真正確認轉弱、判定不符合。用意是區分「單日急殺、可能隔天就反彈」跟「真正連續破位下跌」'],
-  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼邏輯','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1，改變保留天數後這個上限會跟著調整'],
+  ['bombardMa60ObservationDays','加碼MA60觀察期天數','int','加碼邏輯','跌破MA60後，最多幾天內都還算「觀察期」；超過這個天數還沒收復MA60，才真正判定不符合「股價≥MA60」這項要求。天數上限＝「基本設定」裡這個標的的「更新標的保留天數」再減1，改變保留天數後這個上限會跟著調整'],
   ['bombardRequireMa20','加碼要求MA20持平或向上','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，MA20一定要持平或向上。關閉後，加碼不再檢查MA20的狀態，只看下面還有勾選的其他條件'],
   ['bombardRequireCash','加碼要求流動現金充足','bool','加碼邏輯','預設開啟，維持現行規則：加碼要能觸發，流動現金要充足（現金佔比不低於最低流動現金佔比%）。關閉後，加碼不再檢查現金是否充足，只看下面還有勾選的其他條件；關閉時仍會受限於「現金不足以支付這筆加碼金額」這個基本限制，不會真的花超過現有的現金'],
   ['bombardReferenceMa','加碼參考均線','maref','加碼邏輯','決定加碼要拉回到哪一條均線才觸發——選MA20（現行預設）較敏感、較常觸發；選MA60則要股價拉回到更主要的支撐才會觸發，次數會少很多，但可能等到更值得承接的位置'],
@@ -770,20 +780,22 @@ const PARAM_META = [
   ['bombardAmplitudeThresholdPct','日振幅異常門檻%','pct','加碼邏輯','日振幅超過這個百分比，且當天收黑，才算振幅異常警訊；只有上面「加碼多一層日振幅異常防禦邊界」有勾選才會生效'],
   ['bombardOpenHighCloseLowEnabled','連續N天開高走低暫停加碼（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：加碼不檢查開盤/收盤的關係。啟用後，只要連續N天都是「開高走低」（收盤價&lt;開盤價，代表當天從高點一路收黑），就暫停加碼，不管MA60、現金是否正常。只要有一天不是開高走低，連續天數就會重置為0，重新開始累計'],
   ['bombardOpenHighCloseLowDays','連續開高走低天數門檻','int','加碼邏輯','連續幾天都是開高走低型態，才觸發暫停加碼；只有上面「連續N天開高走低暫停加碼」有勾選才會生效'],
+  ['useExit','啟用停利邏輯','bool','停利邏輯','預設開啟，維持現行行為。關閉後，停利永遠不會觸發（不管MA20/成本/MA60條件/量能確認哪種模式），不再出現在委託清單／訊號明細；停利限價本身依然會誠實計算並顯示在其他地方，只是不會真的觸發；訊號狀態的「股價達停利價位」「停利觸發」兩顆燈維持顯示，但永遠不會亮'],
   ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
   ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
   ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
   ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
-  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹。天數上限＝「基本設定」裡這個標的的「更新標的資料保留天數」再減1（需要多留1天計算MA60本身有沒有比前一天高），改變保留天數後這個上限會跟著調整'],
+  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹。天數上限＝「基本設定」裡這個標的的「更新標的保留天數」再減1（需要多留1天計算MA60本身有沒有比前一天高），改變保留天數後這個上限會跟著調整'],
   ['exitVolumeConfirmEnabled','量能確認停利','bool','停利邏輯','股價達到MA20門檻時，還要「昨天有放量」（昨天成交量超過昨天之前20天均量的設定倍數）才真正觸發；不需要手動輸入任何資料（成交量本身就是股價資料的一部分），也沒有MA60條件停利那種要連續多天的延遲問題，只看昨天一天'],
   ['exitVolumeMult','放量倍數','mult','停利邏輯','上面「量能確認停利」用的放量倍數，只有那項有勾選才會生效——昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量、真正觸發停利'],
   ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金防禦','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0＝主動關閉整個現金水位監控，等同拆除最後一道防線，不建議設為0'],
+  ['useCashDefense','啟用現金防禦','bool','現金防禦','預設開啟，維持現行行為。關閉後，現金水位回補永遠不會觸發（不管現金水位是否真的低於門檻），不再出現在委託清單／訊號明細；「最低流動現金佔比%」設為0時，不再被解讀成「關閉監控」，會誠實算出「應保留金額為0」——要不要啟用整個機制，完全由這個開關決定，不再用門檻%的數值間接判斷'],
+  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金防禦','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0代表門檻真的是0（現金永遠視為充足），不再等同「關閉監控」——要不要啟用整個現金防禦機制，改由上面「啟用現金防禦」這個開關決定'],
   ['liqRebuildEnabled','啟用現金水位回補','bool','現金防禦','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
   ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金防禦','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
   ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金防禦','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
   ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金防禦','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
-  ['marginDefenseEnabled','啟用融資防禦機制','bool','融資防禦','融資防禦預設關閉。勾選後才會啟用：輸入融資買進均價與融資股數（下方欄位，勾選後才會顯示），才會計算融資維持率、監控融資追繳風險。取消勾選會清空融資買進均價與融資股數，之後如果重新勾選，需要重新輸入'],
+  ['marginDefenseEnabled','啟用融資防禦','bool','融資防禦','融資防禦預設關閉。勾選後才會啟用：輸入融資買進均價與融資股數（下方欄位，勾選後才會顯示），才會計算融資維持率、監控融資追繳風險。取消勾選會清空融資買進均價與融資股數，之後如果重新勾選，需要重新輸入'],
   ['marginRatio','融資成數%','pct','融資防禦','融資買進時，券商借你的資金占買進總金額的比例（自備款＝1減這個比例），用來計算融資維持率'],
   ['marginCallRatio','融資維持率警戒門檻%','pct','融資防禦','融資維持率跌破這個百分比視為危險，會關閉防禦邊界、暫停動能／加碼，提醒你注意融資部位風險'],
 ];
@@ -1548,9 +1560,10 @@ async function runBacktest(){
   // 停利第二層三選一之三：量能確認停利，跟MA60條件停利互斥（useMa60ConfirmForExit=true時，量能確認一律不生效）
   const ENABLE_VOLUME_CONFIRM_FOR_EXIT = P.exitSecondLayerEnabled && P.exitVolumeConfirmEnabled && !P.useMa60ConfirmForExit;
   const EXIT_VOLUME_MULT = P.exitVolumeMult || 1.2;
-  // 已經是InvestOS正式功能，不再讀已停用的測試開關，改讀真正的參數——
-  // 跟即時運算（renderReserve裡的liqMonitoringDisabled）用同一套判斷：cashTargetPct設為0或≥1就代表關閉
-  const ENABLE_LIQ_STOP = P.cashTargetPct > 0 && P.cashTargetPct < 1 && P.liqRebuildEnabled !== false;
+  // 「啟用現金防禦」這個主開關，決定整個現金水位回補機制要不要運作——純粹只看開關本身，
+  // 不再用cashTargetPct=0這個數值來間接判斷「使用者想不想關閉監控」（那是啟用開關該做的事）；
+  // cashTargetPct>=1依然保留，那是真正的數學邊界保護（100%以上無法換算等值金額），不是啟用/停用判斷
+  const ENABLE_LIQ_STOP = (P.useCashDefense !== false) && P.cashTargetPct < 1 && P.cashTargetPct >= 0 && P.liqRebuildEnabled !== false;
   const ENABLE_VOLUME_DEFENSE_FOR_BOMBARD = P.bombardVolumeDefenseEnabled;
   const ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD = P.bombardAmplitudeDefenseEnabled;
   const AMPLITUDE_THRESHOLD_PCT = (P.bombardAmplitudeThresholdPct != null ? P.bombardAmplitudeThresholdPct : 0.05) * 100;
@@ -1776,7 +1789,8 @@ async function runBacktest(){
       // min(昨天收盤價, 昨天MA20)算出合理的限價，不管昨天股價離MA20多遠，這個限價都是合理的入場點；
       // 只要MA60/現金等其他條件符合，每天都應該掛出這張限價單，讓「今天最低價」決定有沒有成交，
       // 不能因為「昨天還沒進入容忍度範圍」就完全不掛單，否則會錯過「昨天還沒拉回、今天突然暴跌」這種情況（例如07-17）
-      const bombard = bombardOk;
+      // 「啟用加碼邏輯」關閉時，加碼永遠不觸發——純粹只看開關本身，不摻雜任何計算用的數值
+      const bombard = (P.useBombard !== false) && bombardOk;
 
       const ma5upFlat = (ma5Y2 != null) ? (ma5Y >= ma5Y2) : false;
       // MA5連續3天上升（不是「股價連3日≥MA5」）：跟即時運算同一套邏輯，純粹衡量MA5這條均線本身的
@@ -1788,7 +1802,8 @@ async function runBacktest(){
       // 不再綁死在「防禦邊界」分類共用的defenseOk判斷上；融資維持率安全這裡回測引擎目前沒有納入判斷
       const momentumMa60Ok = (P.momentumRequireMa60Trend === false) ? true : ma60upFlat;
       const momentumCashOk = (P.momentumRequireCash === false) ? true : cashSufficient;
-      const momentum = ma5Rising3Days && momentumMa60Ok && momentumCashOk;
+      // 「啟用動能邏輯」關閉時，動能永遠不觸發——純粹只看開關本身，不摻雜任何計算用的數值
+      const momentum = (P.useMomentum !== false) && ma5Rising3Days && momentumMa60Ok && momentumCashOk;
       const closeT = today_.close;
 
       // 新機制：MA60向下且股價<MA60時，定期定額/定股改用「前一天最低價」掛限價單，
@@ -1810,7 +1825,8 @@ async function runBacktest(){
         const marketValueForDca = totalShares * closeT;
         const totalWealthForDca = cash + marketValueForDca;
         const cashRatioForDca = totalWealthForDca > 0 ? (cash / totalWealthForDca) : 0;
-        // cashTargetPct=0時代表使用者主動關閉現金水位監控，這個百分比失去意義，改用null（顯示端會處理成誠實的文字，不是假的0%）
+        // cashTargetPct=0時，門檻本身就是0，這個百分比算出來會是Infinity沒有意義，改用null
+        // （顯示端會處理成誠實的文字，不是假的0%）；「要不要監控」現在完全交給「啟用現金防禦」這個開關決定
         const pctOfThresholdForDca = (P.cashTargetPct > 0) ? (cashRatioForDca / P.cashTargetPct * 100) : null;
         liqDcaShouldPause = true;
         if(!dcaDefensiveMode){ // 新機制已經接管時，不計入「暫停」統計，避免跟後面「新機制實際嘗試執行」互相矛盾
@@ -1853,9 +1869,11 @@ async function runBacktest(){
 
       // 定期定額／定股：一般情況用市價單，今天成交，系統自動扣款不需要人工判斷；
       // MA60向下且股價<MA60時，改用新機制（前一天最低價掛限價單，優先於「現金不足暫停」）；
-      // 兩者都沒觸發時，MA60弱勢且現金水位不足（還沒跌破絕對底線）才暫停，不逆勢加碼部位
+      // 兩者都沒觸發時，MA60弱勢且現金水位不足（還沒跌破絕對底線）才暫停，不逆勢加碼部位；
+      // 「啟用定期定額」關閉時，整個機制視同不執行；只看開關本身，不看dcaValue這個計算用的數值
+      const dcaActuallyEnabled = P.useDca !== false;
       if(dcaDefensiveMode){
-        if(asset.dcaValue > 0 && yest.low != null){
+        if(dcaActuallyEnabled && yest.low != null){
           const limitPriceForDca = applyTick(yest.low, getEffectiveTick(asset, yest.low), 'round');
           if(today_.low != null && today_.low <= limitPriceForDca){
             if(asset.dcaMode === 'amount'){
@@ -1874,7 +1892,7 @@ async function runBacktest(){
         }
       } else if(liqDcaShouldPause){
         dcaSkip++; dcaSkipWeakDefensePause++;
-      } else if(asset.dcaValue > 0){
+      } else if(dcaActuallyEnabled){
         if(asset.dcaMode === 'amount'){
           if(cash >= asset.dcaValue){ totalShares += asset.dcaValue/closeT; totalCost += asset.dcaValue; cash -= asset.dcaValue; dcaExec++; }
           else { dcaSkip++; dcaSkipCashShort++; }
@@ -1888,7 +1906,7 @@ async function runBacktest(){
       // 動能觸發：限價單，掛昨天收盤價，今天最低價要跌到這個價位以下才成交
       if(momentum){
         const limitPrice = applyTick(closeY, getEffectiveTick(asset, closeY), 'round');
-        const boostAmt = asset.dcaValue * asset.boostMult; // 動能加額＝定期定額×倍數
+        const boostAmt = dcaActuallyEnabled ? asset.dcaValue * asset.boostMult : 0; // 動能加額＝定期定額×倍數，「啟用定期定額」關閉時視為0
         if(today_.low != null && today_.low <= limitPrice && boostAmt > 0){
           if(asset.dcaMode === 'amount'){
             if(cash >= boostAmt){ totalShares += boostAmt/limitPrice; totalCost += boostAmt; cash -= boostAmt; momExec++; }
@@ -2071,7 +2089,8 @@ async function runBacktest(){
       // 否則會錯過「股價當天噴出、直接觸及限價，但前一天收盤還沒達標」這種真實會發生的情況。
       // 「MA60條件停利」需要的「連續N天都要達標」這件事，已經由上面的exitConfirmOk（靠confirmDayOk
       // 內部的closeY>=thresholdY逐日累計）負責把關，這裡不需要再重複要求「今天」這一次的closeY也達標
-      const exitSignal = totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
+      // 「啟用停利邏輯」關閉時，停利永遠不觸發——純粹只看開關本身，不摻雜任何計算用的數值
+      const exitSignal = (P.useExit !== false) && totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
       // 每日預約停利明細：不管今天最高價有沒有真的觸及這個限價，只要訊號有觸發，就先記下這筆預約掛單
       // （限價、預計賣出股數），呼應「掛單即紀律」──每天都該有一張預約單
       if(exitSignal){
@@ -2420,6 +2439,10 @@ function sortedLog(assetKey){
 // 市值 = 目前股數 × 今日收盤價，因此需要股數與今日收盤價才能計算
 function getRequiredReserve(assetKey){
   const P = getAsset(assetKey).params;
+  // 「啟用現金防禦」關閉時，這整個機制視為不適用，回傳null（跟「還沒輸入股數」等其他不適用情況
+  // 用同一種null語意）——不能只把cashTargetPct當作0去算，那樣會誤導「流動現金」LED等下游顯示，
+  // 讓它們誤以為「門檻是0、現金理所當然充足」，而不是「這個機制根本沒開」
+  if(P.useCashDefense === false) return null;
   const rows = sortedLog(assetKey);
   if(rows.length === 0) return null;
   const today = rows[rows.length-1];
@@ -2428,8 +2451,10 @@ function getRequiredReserve(assetKey){
   const shares = state.shares[assetKey] || 0;
   const marketValue = shares * today.close;
   const pct = P.cashTargetPct;
-  if(pct <= 0) return null; // cashTargetPct=0：使用者主動關閉現金水位監控，視為「不適用」，不是「門檻是0」
-  if(pct >= 1) return null; // 參數不合理（100%以上），無法換算等值金額
+  // cashTargetPct=0不再被解讀成「使用者主動關閉監控」——那是「啟用現金防禦」這個開關該做的事，
+  // 不該用數值本身去猜測開不開；cashTargetPct=0時，誠實算出「應保留金額=0」（門檻真的是0）
+  if(pct < 0) return null; // 負數不合理，無法計算
+  if(pct >= 1) return null; // 參數不合理（100%以上），無法換算等值金額，這是真正的數學限制，不是啟用/停用判斷
   return Math.round(pct * marketValue / (1 - pct));
 }
 
@@ -2446,7 +2471,7 @@ function getMarginStatus(assetKey){
   const asset = getAsset(assetKey);
   const P = asset.params;
   if(!asset.stockNo) return null; // 無股票代號（如ADR）視為無融資功能，不適用
-  if(!P.marginDefenseEnabled) return { applicable:false }; // 未啟用融資防禦機制，視為不適用（跟沒有股票代號同一種處理方式）
+  if(!P.marginDefenseEnabled) return { applicable:false }; // 未啟用融資防禦，視為不適用（跟沒有股票代號同一種處理方式）
   const costPrice = state.marginCost[assetKey] || 0;
   if(costPrice <= 0) return { applicable:true, hasPrice:false }; // 尚未輸入融資買進均價，視為目前無融資部位
   const rows = sortedLog(assetKey);
@@ -2477,10 +2502,9 @@ function computeForAsset(assetKey){
   // 只要有任何一個真的存過數字（即使是0），就視為有意義的真實資料，
   // 這個判斷跟cashTargetPct=0（監控關閉）的null語意是不同的兩件事，不能混用
   const reallyHasPersonalData = (state.cash[assetKey] != null) || (state.shares[assetKey] != null) || (state.avgCost[assetKey] != null);
-  // 2026-08：移除「引用標的部位資料」這個總開關後，簡化成單一概念——「加碼／停利／防禦邊界」等訊號，
-  // 永遠純粹依市場條件判斷觸不觸發，不受有沒有填部位資料影響（hasPersonalData永遠視為通過）；
+  // 2026-08：移除「引用標的部位資料」這個總開關後，「加碼／停利／防禦邊界」等訊號，
+  // 永遠純粹依市場條件判斷觸不觸發，不受有沒有填部位資料影響；
   // 「委託清單要不要顯示具體股數/金額」則直接看使用者是否真的填過現金/股數/持股成本
-  out.hasPersonalData = true;
   out.showPersonalAmounts = reallyHasPersonalData;
   if(n < 1) return out;
   const today = rows[n-1];
@@ -2580,6 +2604,15 @@ function computeForAsset(assetKey){
     out.exit = (state.shares[assetKey] || 0) > 0;
   }
 
+  // 「啟用停利邏輯」這個主開關，決定要不要跑這個機制——純粹只看開關本身；用「最終覆蓋」的方式套用，
+  // 不影響上面四個分支各自的exitThreshold計算（限價本身依然誠實算出來，只是不會真的觸發），
+  // 避免要在四個分支裡各自重複加上同一個判斷
+  out.exitEnabled = P.useExit !== false;
+  if(!out.exitEnabled){
+    out.exitPriceReached = false;
+    out.exit = false;
+  }
+
   const requiredReserve = getRequiredReserve(assetKey);
   const cur = state.cash[assetKey] || 0;
   out.requiredReserve = requiredReserve;
@@ -2590,6 +2623,13 @@ function computeForAsset(assetKey){
   const curShares = state.shares[assetKey] || 0;
   out.liquidityStopTriggered = false;
   out.dcaPaused = false;
+  // 「啟用定期定額」這個主開關，跟原本「金額/股數設成0代表沒在跑」這個既有判斷，合併成一個統一欄位，
+  // 讓LED/訊號明細/委託清單/回測引擎都能引用同一個判斷依據，不用各自重複寫P.useDca && asset.dcaValue>0
+  // 「啟用定期定額」這個主開關，決定要不要跑這個機制——只看開關本身，不看dcaValue這個數值。
+  // dcaValue是「用來計算」的輸入(要買多少)，不是「用來判斷開不開」的訊號，兩者是不同性質的東西，
+  // 不該混在同一個布林值裡；就算dcaValue剛好是0，也應該誠實顯示「啟用中，但金額是0」，
+  // 不是靜默地假裝「關閉」
+  out.dcaEnabled = P.useDca !== false;
 
   // 融資防禦邊界：只在有股票代號（台股）且有輸入融資買進均價時才適用，ADR等無融資功能標的視為不適用（不影響defenseOk）
   out.marginStatus = getMarginStatus(assetKey);
@@ -2621,8 +2661,10 @@ function computeForAsset(assetKey){
   // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
   // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
   // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急；
-  // out.cashSufficient已經處理過「沒填現金時視為null（不適用）」，這裡不用再額外檢查有沒有填過現金
-  if(P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
+  // out.cashSufficient已經處理過「沒填現金時視為null（不適用）」，這裡不用再額外檢查有沒有填過現金；
+  // 「啟用現金防禦」這個主開關，決定整個現金水位回補機制要不要運作——純粹只看開關本身
+  out.cashDefenseEnabled = P.useCashDefense !== false;
+  if(out.cashDefenseEnabled && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
     const marketValueNow = curShares * today.close;
     const totalWealthNow = cur + marketValueNow;
     const triggerCash = P.cashTargetPct * totalWealthNow;
@@ -2653,10 +2695,10 @@ function computeForAsset(assetKey){
   // 現金應保留金額是否足夠，也併入防禦邊界的最終判定：現金不足時，防禦邊界視同關閉，
   // 動能觸發與加碼觸發都會被暫停執行。融資維持率跌破門檻時，同樣視為防禦邊界關閉。
   out.marginSafe = (out.marginStatus && out.marginStatus.hasPrice) ? out.marginStatus.safe : true;
-  // 現金水位監控關閉時（cashTargetPct=0，cashSufficient為null），這個因子視為自動通過，不卡防禦邊界；
-  // 監控仍在運作時，維持原本「必須明確=true」的嚴格判斷
+  // cashTargetPct=0時，應保留金額誠實算出是0，現金理所當然「充足」（cur>=0恆成立），這個因子自然通過，
+  // 不需要額外特判；監控仍在運作、且門檻>0時，維持原本「必須明確=true」的嚴格判斷
   const cashFactorOk = (out.cashSufficient === null) ? true : (out.cashSufficient === true);
-  out.defenseOk = out.priceDefenseOk && cashFactorOk && out.marginSafe && out.hasPersonalData;
+  out.defenseOk = out.priceDefenseOk && cashFactorOk && out.marginSafe;
   // 新機制：加碼要能觸發，MA20持平向上／MA60持平向上／股價≥MA60／流動現金充足，各項各自可以獨立選擇要不要當作必要條件；
   // 全部勾選＝跟現行規則完全一樣，關閉某一項＝拿掉那一關的限制。融資維持率安全、是否已輸入部位資料，
   // 這兩項不受這次的選擇影響，繼續強制檢查
@@ -2685,7 +2727,10 @@ function computeForAsset(assetKey){
   // out.bombard（委託建議，服務委託清單）跟out.bombardPriceReached（客觀事實，服務Hero卡片／
   // 訊號狀態／訊號明細）語意不同，不能共用——bombardPriceReached額外要求touch也成立，
   // 才真正代表「股價已經到位、真的觸發」這個事實
-  out.bombard = out.bombardMa20Ok && out.bombardMa60Ok && out.bombardPriceAboveMa60Ok && out.bombardCashOk && out.marginSafe && out.hasPersonalData;
+  // 「啟用加碼邏輯」這個主開關，決定要不要跑這個機制——純粹只看開關本身，不看階梯模式有沒有開、
+  // 或l1Pct/l2Pct是不是大於0（那些是「用哪種方式算」跟「算出來要買多少」，不是「開不開」）
+  out.bombardEnabled = P.useBombard !== false;
+  out.bombard = out.bombardEnabled && out.bombardMa20Ok && out.bombardMa60Ok && out.bombardPriceAboveMa60Ok && out.bombardCashOk && out.marginSafe;
   out.bombardPriceReached = out.touch && out.bombard;
 
   // 固定層距階梯模式：即時運算版本，邏輯跟回測引擎完全一致，用「今天」的資料算出「明天」該掛的完整階梯；
@@ -2775,11 +2820,13 @@ function computeForAsset(assetKey){
     // 實作偏差，避免單日價格跳動就符合「股價連3日≥MA5」，但MA5本身根本還沒真正反映出動能持續累積
     out.ma5Rising3Days = (today.ma5 != null && t1.ma5 != null && t2.ma5 != null)
       && today.ma5 >= t1.ma5 && t1.ma5 >= t2.ma5;
+    // 「啟用動能邏輯」這個主開關，決定要不要跑這個機制——純粹只看開關本身，不摻雜任何計算用的數值
+    out.momentumEnabled = P.useMomentum !== false;
     // 動能要能觸發，比照「加碼邏輯」的設計，MA60趨勢跟流動現金這兩項各自可以獨立勾選要不要當作必要條件，
     // 不再綁死在「防禦邊界」分類共用的defenseOk判斷上；融資維持率安全則不管有沒有勾選都強制檢查
     out.momentumMa60Ok = (P.momentumRequireMa60Trend === false) ? true : out.ma60upFlat;
     out.momentumCashOk = (P.momentumRequireCash === false) ? true : cashFactorOk;
-    out.momentum = out.ma5Rising3Days && out.momentumMa60Ok && out.momentumCashOk && out.marginSafe && out.hasPersonalData;
+    out.momentum = out.momentumEnabled && out.ma5Rising3Days && out.momentumMa60Ok && out.momentumCashOk && out.marginSafe;
   }
   return out;
 }
@@ -2811,10 +2858,6 @@ function renderHero(){
     hero.className = 'hero st-warn';
     headline.textContent = '🚨 現金水位回補觸發';
     sub.textContent = `建議賣股回補，流動現金不足`;
-  } else if(!d.hasPersonalData){
-    hero.className = 'hero st-idle';
-    headline.textContent = '📝 尚未輸入部位資料';
-    sub.textContent = `請先在「資料管理」輸入部位資料`;
   } else if(d.exitPriceReached){
     if(d.showPersonalAmounts && (state.shares[key]||0) <= 0){
       hero.className = 'hero st-warn';
@@ -2971,14 +3014,11 @@ function renderLeds(){
   condHtml += d.ready2 ? ledItem(true, 'MA5持平或向上', d.ma5upFlat?'':'red') : need(2, 'MA5持平或向上');
   condHtml += (d.ma5Rising3Days !== undefined) ? ledItem(true, 'MA5連3日上升', d.ma5Rising3Days?'':'red') : need(3, 'MA5連3日上升');
 
-  // 加碼機制對這個標的來說，只有在第一層或第二層至少有一層設定比例時才算「有在用」，
-  // 兩層都是0（完全沒設定）時，這顆LED應該跟「機制沒開啟」一樣不亮，不是恆常根據股價位置顯示紅/綠
-  // 「加碼」有沒有真的啟用，現在有兩種計算方式：階梯模式開啟時，l1Pct/l2Pct這兩個欄位已經停用、
-  // 不代表任何意義，只要階梯模式本身有開，就算啟用；沒開階梯模式，才回頭看L1/L2百分比模式的
-  // l1Pct/l2Pct是否至少有一層大於0
-  const bombardCondEnabled = P.bombardLadderMode || asset.l1Pct > 0 || asset.l2Pct > 0;
+  // 「加碼」有沒有真的啟用，現在純粹只看「啟用加碼邏輯」這個開關本身，不再用l1Pct/l2Pct是否大於0、
+  // 或階梯模式有沒有開來間接判斷——那些是「用哪種方式算」跟「算出來要買多少」的細節，不是「開不開」
+  const bombardCondEnabled = d.bombardEnabled;
   condHtml += ledItem(bombardCondEnabled, `股價達加碼價位`, bombardCondEnabled && !d.touch ? 'red' : '');
-  condHtml += ledItem(true, `股價達停利價位`, d.exitPriceReached?'':'red');
+  condHtml += ledItem(d.exitEnabled, `股價達停利價位`, d.exitEnabled && !d.exitPriceReached?'red':'');
 
   // 現金流：沒有引用部位資料時，這顆燈天生沒有意義（沒有真實現金數字可以判斷夠不夠），直接不亮
   const cashStatus = getCashStatus(key);
@@ -2999,7 +3039,7 @@ function renderLeds(){
   // 現金流：定期定額（基本盤，放在防禦邊界之後）；沒有輸入過個人持有部位資料時，這個燈號也改成不亮（灰），
   // 不是「恆常亮燈」，避免在完全沒有真實資料的情況下，誤顯示「正常執行」這種假訊號
   const dcaLabelLed = getAsset(key).dcaMode === 'amount' ? '定期定額' : '定期定股';
-  const dcaLedOn = d.hasPersonalData && getAsset(key).dcaValue > 0;
+  const dcaLedOn = d.dcaEnabled;
   resultHtml += ledItem(dcaLedOn, dcaLabelLed, dcaLedOn && d.dcaPaused ? 'amber' : '');
 
   // MA5（動能線）：搬到定期定額之後、加碼觸發之前，符合「動能先於加碼」的邏輯順序
@@ -3018,11 +3058,8 @@ function renderLeds(){
   } else {
     resultHtml += ledItem(d.throttleTriggered, '加碼節流觸發', d.throttleTriggered ? 'amber' : '');
   }
-  // 停利觸發：文字固定，觸發且可執行＝綠燈（好消息，達到目標）；觸發但股數為0＝琥珀燈（條件成立但無法執行）；
-  // 沒有輸入過個人持有部位資料時，不知道有沒有東西可以賣，這個燈號也灰掉（跟「確認出清、股數真的是0」不同）
-  if(!d.hasPersonalData){
-    resultHtml += ledItem(false, '停利觸發', '');
-  } else if(d.showPersonalAmounts && d.exitPriceReached && (state.shares[key]||0) <= 0){
+  // 停利觸發：文字固定，觸發且可執行＝綠燈（好消息，達到目標）；觸發但股數為0＝琥珀燈（條件成立但無法執行）
+  if(d.showPersonalAmounts && d.exitPriceReached && (state.shares[key]||0) <= 0){
     resultHtml += ledItem(true, '停利觸發', 'amber');
   } else {
     resultHtml += ledItem(d.exitPriceReached, `停利觸發`, '');
@@ -3069,7 +3106,7 @@ function renderOrders(){
     dcaDetail = `<span style="color:var(--amber); font-weight:700;">暫停</span>`;
     dcaCond = '不執行';
   } else {
-    dcaCond = d.hasPersonalData ? '正常執行，除非MA60與現金同時轉弱' : '正常執行，除非MA60與現金同時轉弱（尚無現金資料，無法確認是否會被暫停）';
+    dcaCond = '正常執行，除非MA60與現金同時轉弱';
     if(!d.showPersonalAmounts){
       // 沒有引用部位資料：定期定額/股的金額或股數本身，也是使用者自己設定的個人化交易規模，
       // 跟加碼/停利的股數一樣不顯示，只顯示價格本身；價格小數位改用tickDec（跟其他所有委託清單行一致），
@@ -3087,7 +3124,7 @@ function renderOrders(){
   const dcaTip = asset.dcaMode === 'amount'
     ? `買入金額為標的設定的固定值＝${asset.dcaValue.toLocaleString()} ${asset.currency}，不受現金水位影響，永遠用市價執行。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`
     : `買入股數為標的設定的固定值＝${asset.dcaValue} 股，不受現金水位影響；股價已知時掛前一天收盤價，否則用市價。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`;
-  if(asset.dcaValue > 0){
+  if(d.dcaEnabled){
     html += orderRow(!!d.dcaPaused, dcaLabel, dcaCond, dcaDetail, dcaTip);
   }
 
@@ -3110,9 +3147,10 @@ function renderOrders(){
       boostDetail = `買入 ${fmtRaw(boostAmt,0)} 股 ＠${fmtRaw(boostPrice, tickDec)}`;
     }
   }
-  // 動能加額＝定期定額(或定期定股)×動能倍數，兩個因子只要有一個是0，結果永遠是0，
-  // 這種情況下整行隱藏，不顯示沒有意義的「買入0」，跟定期定額/加碼L1/L2用同一套邏輯
-  if(asset.dcaValue > 0 && asset.boostMult > 0){
+  // 動能加額＝定期定額(或定期定股)×動能倍數，「啟用定期定額」或「啟用動能邏輯」關閉時，整行隱藏；
+  // 只看這兩個開關本身，不用boostMult這個計算用的數值來判斷要不要顯示（即使boostMult剛好是0，
+  // 也該誠實顯示「啟用中、加額0」，不是靜默隱藏）
+  if(d.dcaEnabled && d.momentumEnabled){
     html += orderRow(!!d.momentum, '動能', 'MA5連續三天上升 且MA60趨勢/現金等已勾選條件符合', boostDetail);
   }
 
@@ -3217,6 +3255,9 @@ function renderOrders(){
   }
   const touchMult = (1+P.tolerance).toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
   const bombardRefMaLabel = (P.bombardReferenceMa === 'ma60') ? 'MA60' : 'MA20';
+  // 「啟用加碼邏輯」關閉時，不管階梯模式還是L1/L2模式，整個加碼委託項目都不顯示——純粹只看這個
+  // 開關本身，不用l1Pct/l2Pct是否大於0、或階梯模式有沒有開來間接判斷
+  if(d.bombardEnabled){
   if(P.bombardLadderMode){
     // 固定層距階梯模式：所有層合併顯示在同一個委託項目裡，不用L1/L2百分比模式那種寫法；
     // 要不要顯示股數，改成看「這次算出來的股數裡，有沒有任何一層真的算出數字」，不是單純看showPersonalAmounts，
@@ -3232,18 +3273,16 @@ function renderOrders(){
       html += orderRow(false, '加碼(階梯)', `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, '—');
     }
   } else {
-  // l1Pct/l2Pct設成0，代表這個標的靜態地關閉了這一層加碼（跟dcaValue=0關閉定期定額同一個道理），
-  // 兩層都關閉時整行不顯示，不是每天都顯示一個沒有意義的判斷；有開啟的層，合併顯示在同一個委託項目裡，
-  // 呈現風格跟階梯模式一致（「加碼(L1/L2，共N層)」+ 每層各自一行），不再是「加碼(第一層)」「加碼(第二層)」分開兩個項目
-  const hasL1 = asset.l1Pct > 0, hasL2 = asset.l2Pct > 0;
-  if(hasL1 || hasL2){
-    const numLayersL12 = (hasL1?1:0) + (hasL2?1:0);
-    const linesL12 = [];
-    const tipsL12 = [];
-    if(hasL1){ linesL12.push(`第1層${l1Detail} ${getRealtimeTouchNote(key,p1,true)}`); if(tip1) tipsL12.push(`第1層：${tip1}`); }
-    if(hasL2){ linesL12.push(`第2層${l2Detail} ${getRealtimeTouchNote(key,p2,true)}`); if(tip2) tipsL12.push(`第2層：${tip2}`); }
-    const activeL12 = !!d.bombard && !((!hasL1 || throttledL1) && (!hasL2 || throttledL2));
-    html += orderRow(activeL12, `加碼(L1/L2，共${numLayersL12}層)`, `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, linesL12.join('<br>'), tipsL12.join('<br><br>'));
+  // 「啟用加碼邏輯」已經在外層確認是true了（走到這裡代表通過了），L1/L2模式本身就是固定兩層的架構，
+  // 不管l1Pct/l2Pct目前設定是多少（包含剛好是0），都誠實顯示兩層，不再用「這一層比例是不是>0」
+  // 來決定要不要顯示那一行、或整個委託項目要不要出現——跟定期定額/動能同一套「不用數值判斷開關」的原則
+  const numLayersL12 = 2;
+  const linesL12 = [`第1層${l1Detail} ${getRealtimeTouchNote(key,p1,true)}`, `第2層${l2Detail} ${getRealtimeTouchNote(key,p2,true)}`];
+  const tipsL12 = [];
+  if(tip1) tipsL12.push(`第1層：${tip1}`);
+  if(tip2) tipsL12.push(`第2層：${tip2}`);
+  const activeL12 = !!d.bombard && !(throttledL1 && throttledL2);
+  html += orderRow(activeL12, `加碼(L1/L2，共${numLayersL12}層)`, `股價小於${bombardRefMaLabel}×${touchMult} 且持平或向上 且防禦邊界安全`, linesL12.join('<br>'), tipsL12.join('<br><br>'));
   }
   }
 
@@ -3270,13 +3309,16 @@ function renderOrders(){
     exitTip += `<br><br>已啟用「成本倍數停利」：持股成本停利價＝平均成本×成本倍數${P.costExitMult}（沒輸入過平均成本則不計算這條）。取MA20停利價與持股成本停利價兩者較高者為準。`;
   }
   exitTip += `<br><br>觸發時賣出股數＝目前股數×停利分批比例${(P.exitPartialFrac*100).toFixed(0)}%，四捨五入。`;
-  html += orderRow(!!d.exit && d.hasPersonalData, '停利', exitCondTxt, exitDetail, exitTip);
+  // 「啟用停利邏輯」關閉時，整行隱藏——跟定期定額/動能/加碼同一套「整行隱藏，不是顯示但永遠不亮」的模式
+  if(d.exitEnabled){
+    html += orderRow(!!d.exit, '停利', exitCondTxt, exitDetail, exitTip);
+  }
 
   // 現金水位回補：只顯示執行動作，原因說明統一放在訊號明細卡片；
-  // 整行只在「監控本身有開（cashTargetPct有效）」且「回補機制有開（liqRebuildEnabled沒被關閉）」
+  // 整行只在「啟用現金防禦」開關開著、「回補機制有開（liqRebuildEnabled沒被關閉）」
   // 且「有引用部位資料」時才顯示——這個機制天生就是在問「你自己的現金佔比夠不夠」，
-  // 沒有部位資料，這個問題本身沒有意義，整行不顯示
-  if(d.showPersonalAmounts && (P.cashTargetPct > 0 && P.cashTargetPct < 1) && P.liqRebuildEnabled !== false){
+  // 沒有部位資料，這個問題本身沒有意義，整行不顯示；不再用cashTargetPct的數值來判斷開不開
+  if(d.showPersonalAmounts && d.cashDefenseEnabled && P.liqRebuildEnabled !== false){
     let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
     let liqDetail = '';
     if(d.liquidityStopTriggered && d.today){
@@ -3444,7 +3486,7 @@ function getCashStatus(key){
   // 這個旗標只用來標記「今天加碼是不是真的有觸發」，只影響「流動現金」燈號要不要考慮加碼金額，不影響上面固定顯示的金額試算
   bombardTriggered = !!(d.bombard && d.today);
 
-  return { requiredReserve, requiredTxt, cur, unit, sufficient, bombardTriggered, bombardCost, bombardCostTxt, bombardSufficient, layer2Cost, layer2CostTxt, bombardSufficientBoth, hasPersonalData: d.hasPersonalData };
+  return { requiredReserve, requiredTxt, cur, unit, sufficient, bombardTriggered, bombardCost, bombardCostTxt, bombardSufficient, layer2Cost, layer2CostTxt, bombardSufficientBoth };
 }
 
 function getMa60UpLedState(d){
@@ -3464,7 +3506,6 @@ function getPriceMa60LedState(d){
 function getDefenseLedState(d){
   if(!d.ready2) return { label:'防禦邊界', color:'var(--text-faint)', on:false };
   if(!d.hasMa60) return { label:'防禦邊界', color:'var(--text-faint)', on:false };
-  if(!d.hasPersonalData) return { label:'防禦邊界', color:'var(--text-faint)', on:false };
   if(d.defenseOk) return { label:'防禦邊界', color:'var(--teal)', on:true };
   return { label:'防禦邊界', color:'var(--red)', on:true };
 }
@@ -3483,9 +3524,7 @@ function getMarginLedState(d){
 }
 
 function getCashLedState(cashStatus){
-  if(!cashStatus.hasPersonalData){
-    return { label:'流動現金', color:'var(--text-faint)' };
-  } else if(cashStatus.sufficient == null){
+  if(cashStatus.sufficient == null){
     return { label:'流動現金', color:'var(--text-faint)' };
   } else if(cashStatus.sufficient === false){
     return { label:'流動現金', color:'var(--red)' };
@@ -3505,14 +3544,11 @@ function renderReserve(){
   // 2026-08：不管「引用標的部位資料」這個開關實際是開是關，訊號明細卡片一律強制當作「關閉」處理——
   // 這是為了之後要完整移除這個欄位做準備，先讓訊號明細卡片提前套用「沒有部位資料」時的簡化行為
   const d = computeForAsset(key);
-  const exportReserveBtn = document.getElementById('btnExportReserve');
   if(!d.ready1){
     document.getElementById('reserveHint').innerHTML =
       `<span style="color:var(--text-faint);">尚無資料，請先在資料管理「更新」，或「上傳」歷史紀錄，或於「進階」手動輸入，開始追蹤。</span>`;
-    if(exportReserveBtn) exportReserveBtn.style.display = 'none';
     return;
   }
-  if(exportReserveBtn) exportReserveBtn.style.display = '';
 
   // 引導性提示：資料筆數不足、尚未輸入MA60，集中顯示在最上方，跟下方固定監控欄位分開
   let noticeHtml = '';
@@ -3559,9 +3595,9 @@ function renderReserve(){
     // 直接給一句乾淨、精確的訊息
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：尚未輸入股數，無法判斷</span>`;
   } else if(st.sufficient == null){
-    const monitoringDisabled = !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1);
-    const reasonTxt = monitoringDisabled ? '此標的未設定現金水位監控（最低流動現金佔比%=0）' : '尚無資料，無法判斷';
-    bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜${reasonTxt}</span>`;
+    // cashTargetPct=0時，應保留金額已經誠實算出是0，不會再走到這個分支；這裡現在只會在
+    // 「股數已填但還沒有今天的收盤價資料」這種真正缺資料的情況下才會出現
+    bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜尚無資料，無法判斷</span>`;
   } else if(st.sufficient === false){
     bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金：${affordBase}</span>`;
   } else if(st.bombardTriggered && (st.bombardSufficient === false || st.bombardSufficientBoth === false)){
@@ -3587,9 +3623,6 @@ function renderReserve(){
   if(!d.ready2 || !d.hasMa60){
     defenseLedTxt = '未確認（資料不足或尚未輸入MA60）';
     defenseLedColor = 'var(--text-faint)';
-  } else if(!d.hasPersonalData){
-    defenseLedTxt = '（尚未輸入部位資料）';
-    defenseLedColor = 'var(--text-faint)';
   } else if(d.defenseOk){
     defenseLedTxt = '安全';
     defenseLedColor = 'var(--teal)';
@@ -3610,12 +3643,10 @@ function renderReserve(){
   // ---- 3. 定期定額（對應結果欄第2個燈號） ----
   const dcaLabelReserve = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   let dcaStateHtml;
-  if(asset.dcaValue <= 0){
-    // 金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟「今天判斷結果」無關，
-    // 是一個靜態設定，整行都不顯示，優先於hasPersonalData等其他判斷，跟融資防禦處理方式一致
+  if(!d.dcaEnabled){
+    // 「啟用定期定額」關閉，或金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟
+    // 「今天判斷結果」無關，是一個靜態設定，整行都不顯示，跟融資防禦處理方式一致
     dcaStateHtml = '';
-  } else if(!d.hasPersonalData){
-    dcaStateHtml = `<span style="color:var(--text-faint); font-weight:700;">→ ${dcaLabelReserve}：（尚未輸入部位資料）</span>`;
   } else if(d.dcaPaused){
     const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價&lt;MA60';
     dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：暫停｜${dcaPausedReason}｜流動現金不足</span>`;
@@ -3626,35 +3657,27 @@ function renderReserve(){
   // ---- 動能觸發（對應結果欄第2個燈號）：跟加碼觸發同樣風格，只顯示觸發狀態跟限價，
   // 具體股數/金額細節留給「委託清單」負責，這裡只是判斷邏輯的摘要 ----
   let momentumTriggerTxt, momentumColor;
-  if(asset.dcaValue <= 0){
-    // 定期定額本身金額/股數是0，代表這個標的完全關閉了定期定額，動能加碼（定期定額的倍數）也跟著沒有意義，整行不顯示
+  if(!d.momentumEnabled || !d.dcaEnabled){
+    // 「啟用動能邏輯」關閉，或「啟用定期定額」關閉（動能加碼＝定期定額金額×倍數，沒有基礎金額，
+    // 加碼也跟著沒有意義），整行不顯示
     momentumTriggerTxt = null;
   } else if(d.momentum === undefined){
     momentumTriggerTxt = null;
   } else {
     const momentumPriceTxt = (d.today != null) ? fmtRaw(d.today.close, getTickDecimals(getEffectiveTick(asset, d.today.close))) : '—';
-    if(d.momentum){
-      momentumTriggerTxt = `觸發｜動能限價＠${momentumPriceTxt}`;
-      momentumColor = 'var(--teal)';
-    } else {
-      momentumTriggerTxt = `未觸發｜動能限價＠${momentumPriceTxt}`;
-      momentumColor = 'var(--text-faint)';
-    }
+    momentumTriggerTxt = `動能價位＠${momentumPriceTxt}`;
+    momentumColor = d.momentum ? 'var(--teal)' : 'var(--text-faint)';
   }
   const momentumLine = (momentumTriggerTxt === null) ? '' : `<span style="color:${momentumColor}; font-weight:700;">→ 動能觸發：${momentumTriggerTxt}</span>`;
 
   // ---- 4. 加碼觸發（對應結果欄第3個燈號） ----
   let bombardTriggerTxt, bombardColor;
-  if(!asset.params.bombardLadderMode && asset.l1Pct <= 0 && asset.l2Pct <= 0){
-    // 兩層加碼比例都設成0，代表這個標的完全關閉了加碼機制，整行不顯示——跟「委託清單」裡
-    // l1Pct/l2Pct=0時分別隱藏對應行是同一個道理，這裡兩層都關閉時直接整行不顯示，不是每天都顯示一個沒有意義的判斷；
-    // 階梯模式完全不依賴l1Pct/l2Pct這兩個值，即使它們剛好都是0（例如切換模式後殘留的舊值），也不代表階梯關閉了
+  if(!d.bombardEnabled){
+    // 「啟用加碼邏輯」關閉，整行不顯示——純粹只看這個開關本身，不用l1Pct/l2Pct是否大於0、
+    // 或階梯模式有沒有開來間接判斷
     bombardTriggerTxt = null;
   } else if(!d.ready2){
-    bombardTriggerTxt = '未觸發｜資料不足，無法判斷';
-    bombardColor = 'var(--text-faint)';
-  } else if(!d.hasPersonalData){
-    bombardTriggerTxt = '（尚未輸入部位資料）';
+    bombardTriggerTxt = '資料不足，無法判斷';
     bombardColor = 'var(--text-faint)';
   } else if(d.bombardPriceReached){
     // 只顯示第一個/頂層加碼價位這個摘要事實；完整的分層明細（不管是L1/L2兩層，還是階梯模式的N層），
@@ -3665,12 +3688,12 @@ function renderReserve(){
   } else if(d.touch && d.bombardMa20Ok && d.bombardMa60Ok && d.bombardPriceAboveMa60Ok && d.cashSufficient === false){
     // 股價、以及所有有勾選要求的MA相關條件都已經符合，只差現金不夠這一項——這其實是「訊號已觸發，但因為現金不足無法執行」，
     // 跟「停利觸發但股數為0」是同一種模式，不該歸類在「未觸發」，因為股價確實已經到了該加碼的價位
-    bombardTriggerTxt = `觸發｜加碼價位＠${st.bombardCostTxt}｜流動現金不足`;
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}｜流動現金不足`;
     bombardColor = 'var(--amber)';
   } else if(d.touch && d.bombardMa20Ok && d.bombardMa60Ok && d.bombardPriceAboveMa60Ok && d.marginSafe === false){
     // 股價、以及所有有勾選要求的MA相關條件、現金都已經符合，只差融資維持率這一項——融資維持率是帳戶本身的健康度限制，
     // 不是市場趨勢判斷，市場條件確實都說「該加碼」，只是帳戶槓桿過高不允許，跟現金不足是同一種「執行能力限制」
-    bombardTriggerTxt = `觸發｜加碼價位＠${st.bombardCostTxt}｜融資維持率過低`;
+    bombardTriggerTxt = `加碼價位＠${st.bombardCostTxt}｜融資維持率過低`;
     bombardColor = 'var(--amber)';
   } else {
     // 只顯示最重要、優先層級最高的單一原因；優先順序依照bombardPriceReached公式本身的判斷順序
@@ -3684,21 +3707,19 @@ function renderReserve(){
     else if(!d.bombardMa60Ok) reason = 'MA60未持平或向上';
     else if(!d.bombardPriceAboveMa60Ok) reason = '股價&lt;MA60';
     else reason = '尚未輸入部位資料';
-    bombardTriggerTxt = `未觸發｜${reason}`;
+    bombardTriggerTxt = reason;
     bombardColor = 'var(--text-faint)';
   }
   const bombardLine = (bombardTriggerTxt === null) ? '' : `<span style="color:${bombardColor}; font-weight:700;">→ 加碼觸發：${bombardTriggerTxt}</span>`;
 
   // ---- 4.5 加碼節流觸發（對應結果欄新增的燈號）----
-  // 加碼機制本身沒在用（兩層比例都是0）時，跟節流開關沒開啟一樣，整行不顯示——
-  // 節流是加碼機制的附加調節，加碼機制都沒開，這裡顯示任何狀態都沒有意義
+  // 節流是加碼機制的附加調節，只服務L1/L2百分比模式（階梯模式完全不使用節流）；純粹只看
+  // 「啟用加碼邏輯」「啟用加碼節流」這兩個開關本身，不再用l1Pct/l2Pct是否大於0來判斷要不要顯示——
+  // 即使兩層剛好都是0，只要開關開著，也該誠實顯示「啟用中」，不是靜默隱藏
   let throttleLine = '';
-  if((asset.l1Pct > 0 || asset.l2Pct > 0) && asset.params.bombardThrottleEnabled && d.ready2){
+  if(d.bombardEnabled && !asset.params.bombardLadderMode && asset.params.bombardThrottleEnabled && d.ready2){
     let throttleTxt, throttleColor;
-    if(!d.hasPersonalData){
-      throttleTxt = '（尚未輸入部位資料）';
-      throttleColor = 'var(--text-faint)';
-    } else if(!d.throttleTriggered){
+    if(!d.throttleTriggered){
       throttleTxt = '未觸發';
       throttleColor = 'var(--text-faint)';
     } else {
@@ -3735,12 +3756,13 @@ function renderReserve(){
   const exitPriceTxt = exitThresholdTicked != null ? fmtRaw(exitThresholdTicked, getTickDecimals(getEffectiveTick(asset, exitThresholdTicked))) : '—';
   const sharesNow = state.shares[key] || 0;
   let exitTriggerTxt, exitColor, costLine;
-  if(!d.hasPersonalData){
-    costLine = `<span style="color:var(--text-faint); font-weight:700;">→ 停利觸發：（尚未輸入部位資料）</span>`;
+  if(!d.exitEnabled){
+    // 「啟用停利邏輯」關閉，整行隱藏——跟定期定額/動能/加碼同一套模式
+    costLine = '';
   } else {
     if(d.exitPriceReached && sharesNow <= 0){
       const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
-      exitTriggerTxt = `觸發｜${sharesReasonTxt}`;
+      exitTriggerTxt = sharesReasonTxt;
       exitColor = 'var(--amber)';
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：${exitTriggerTxt}｜停利價位＠${exitPriceTxt}</span>`;
     } else if(d.exitPriceReached){
@@ -3749,40 +3771,39 @@ function renderReserve(){
       costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：分批停利${fmtRaw(exitShares,0)}股＠${exitPriceTxt}</span>`;
     } else {
       exitColor = 'var(--text-faint)';
-      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：未觸發｜停利價位＠${exitPriceTxt}</span>`;
+      costLine = `<span style="color:${exitColor}; font-weight:700;">→ 停利觸發：停利價位＠${exitPriceTxt}</span>`;
     }
   }
 
   // ---- 6. 現金水位回補觸發（對應結果欄第6個燈號） ----
   let liquidityStopHtml;
-  const liqMonitoringDisabled = !d.showPersonalAmounts || !(asset.params.cashTargetPct > 0 && asset.params.cashTargetPct < 1) || asset.params.liqRebuildEnabled === false;
+  // 「啟用現金防禦」關閉，或沒有引用部位資料，或回補機制本身沒開，整行都不顯示；
+  // 不再用cashTargetPct的數值來判斷監控開不開
+  const liqMonitoringDisabled = !d.showPersonalAmounts || !d.cashDefenseEnabled || asset.params.liqRebuildEnabled === false;
   if(liqMonitoringDisabled){
-    // 沒有設定現金水位監控時，整行都不顯示，這個檢查要放在最前面、優先於hasPersonalData——
-    // 監控沒設定這件事，跟有沒有輸入部位資料無關
+    // 沒有設定現金水位監控時，整行都不顯示——監控沒設定這件事，跟有沒有輸入部位資料無關
     liquidityStopHtml = '';
   } else if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
     const reasonTxt = d.liquidityStopByFloor ? '逆勢' : '順勢';
     liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：市價賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
-  } else if(!d.hasPersonalData){
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：（尚未輸入部位資料）</span>`;
   } else if((state.shares[key]||0) <= 0){
     const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜${sharesReasonTxt}</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：${sharesReasonTxt}</span>`;
   } else if(d.cashSufficient === false){
     if(d.dcaPaused){
       // MA60弱勢、還沒跌破絕對底線，系統選擇暫緩不逆勢賣股——這不是「股數不足」，而是策略主動判斷
       // 「現在不該賣」，這件事已經在「定期定額/定期定股」那一行完整說明了，這裡不重複解釋原因；
       // 原因細節比照定期定股的精確判斷方式，不固定寫死同一句話
       const liqPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價&lt;MA60';
-      liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜${liqPausedReason}｜暫緩賣股</span>`;
+      liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：${liqPausedReason}｜暫緩賣股</span>`;
     } else {
       // 這才是真正的「想賣卻賣不成」——系統判斷該賣股救急（MA60安全順勢賣，或已跌破絕對底線），
       // 但持股太少，算出來要賣的股數四捨五入後是0，跟「停利觸發但股數為0」是同一種模式
-      liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：觸發｜目前股數不足</span>`;
+      liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：目前股數不足</span>`;
     }
   } else {
-    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：未觸發｜流動現金充足</span>`;
+    liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：流動現金充足</span>`;
   }
 
   const marginSectionHtml = asset.params.marginDefenseEnabled
@@ -4079,7 +4100,7 @@ function renderAssetManageInner(){
     </div>
     <div class="grid2">
       <div class="field"><label>證交所／美股代號（台股填數字代號如2330，美股填英文代號如TSM）</label><input type="text" data-aidx="${idx}" data-afield="stockNo" value="${a.stockNo||''}" placeholder="例：2330 或 TSM"></div>
-      <div class="field"><label>更新標的資料保留天數<span style="color:var(--text-faint); font-weight:400;">（從證交所/Twelve Data抓取最新收盤資料時，保留最近幾天）</span></label>
+      <div class="field"><label>更新標的保留天數<span style="color:var(--text-faint); font-weight:400;">（從證交所/Twelve Data取最新收盤資訊）</span></label>
         <select data-aidx="${idx}" data-afield="dataKeepDays">
           <option value="5" ${(a.dataKeepDays||5)===5?'selected':''}>5天</option>
           <option value="20" ${(a.dataKeepDays||5)===20?'selected':''}>20天</option>
@@ -4090,6 +4111,7 @@ function renderAssetManageInner(){
   `;
   let lastCat = null;
   const marginDefenseEnabledVal = !!(a.params || DEFAULT_PARAMS).marginDefenseEnabled;
+  const useDcaVal = (a.params || DEFAULT_PARAMS).useDca !== false;
   const useMa60ConfirmForExitVal = !!(a.params || DEFAULT_PARAMS).useMa60ConfirmForExit;
   const exitVolumeConfirmEnabledVal = !!(a.params || DEFAULT_PARAMS).exitVolumeConfirmEnabled;
   const bombardRequirePriceAboveMa60Val = (a.params || DEFAULT_PARAMS).bombardRequirePriceAboveMa60 !== false;
@@ -4233,7 +4255,7 @@ function renderAssetManageInner(){
     if(pkey === 'exitVolumeMult'){
       return; // 已經併入上面「量能確認停利」那一行一起輸出，這裡不重複渲染
     }
-    // 融資成數／融資維持率門檻，只有「啟用融資防禦機制」被勾選時才能編輯；
+    // 融資成數／融資維持率門檻，只有「啟用融資防禦」被勾選時才能編輯；
     // 用disabled控制，不是顯示/隱藏，這樣勾選/取消勾選checkbox時，不需要重新渲染整段HTML，畫面不會跳動
     const isMarginSubField = (pkey === 'marginRatio' || pkey === 'marginCallRatio');
     const isMa60ObservationField = (pkey === 'bombardMa60ObservationEnabled' || pkey === 'bombardMa60ObservationDays');
@@ -4255,7 +4277,11 @@ function renderAssetManageInner(){
       : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled'
       : isLadderAutoCalcField ? 'disabled'
       : (isThrottleField && bombardLadderModeVal) ? 'disabled'
-      : (isCashDependentField && !hasEnteredCash) ? 'disabled' : '';
+      : (isCashDependentField && !hasEnteredCash) ? 'disabled'
+      // 「啟用定期定額」關閉時，「啟用動能邏輯」不只跟著取消勾選，也要disabled，讓使用者沒辦法在
+      // 定期定額關閉的情況下重新勾選——動能加額＝定期定額金額×倍數，沒有定期定額這個基礎，
+      // 動能邏輯這個開關本身勾了也沒有意義
+      : (pkey === 'useMomentum' && !useDcaVal) ? 'disabled' : '';
     let rowHtml;
     if(type === 'bool'){
       // checkbox放在label左邊、同一行；說明文字放在下一行
@@ -4297,7 +4323,7 @@ function renderAssetManageInner(){
     '加碼邏輯': '加碼要不要有機會觸發，先看股價達加碼價位這個基本門檻，接著看MA20、MA60、股價≥MA60、流動現金這四項，各自可以獨立勾選要不要當作必要條件（下面四個「加碼要求...」開關），全部勾選就等同過去的完整判斷；不管有沒有勾選哪幾項，融資維持率安全、已輸入部位資料，這兩項都會強制檢查。所有「有勾選要求」的條件都成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
     '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是兩種模式共用的基本門檻。第二關二選一：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者；「MA60條件停利」則不看平均成本，改成額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立才觸發。不管哪種模式，這個判斷都完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
     '現金防禦': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位回補、防禦邊界的現金因子全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
-    '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦機制也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
+    '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
   };
   state.paramCatCollapsed = state.paramCatCollapsed || {};
   const advHtml = catOrder.map(cat=>{
@@ -4435,7 +4461,7 @@ function renderAssetManageInner(){
       if(ptype === 'bool'){
         const v = e.target.checked;
         state.assets[i].params[pfield] = v;
-        // 取消勾選「啟用融資防禦機制」時，融資買進均價／融資股數不保留，直接清空
+        // 取消勾選「啟用融資防禦」時，融資買進均價／融資股數不保留，直接清空
         if(pfield === 'marginDefenseEnabled'){
           const key = state.assets[i].key;
           const ratioInput = wrap.querySelector('input[data-pfield="marginRatio"]');
@@ -4462,6 +4488,17 @@ function renderAssetManageInner(){
           const obsDaysInput = wrap.querySelector('input[data-pfield="bombardMa60ObservationDays"]');
           if(obsEnabledInput) obsEnabledInput.disabled = !v;
           if(obsDaysInput) obsDaysInput.disabled = !v;
+        }
+        // 「啟用定期定額」關閉時，「啟用動能邏輯」跟著一起取消勾選、且disabled——動能加額＝定期定額金額×倍數，
+        // 沒有定期定額這個基礎，動能邏輯這個開關本身勾了也沒有意義，disabled讓使用者沒辦法重新勾選；
+        // 重新勾選「啟用定期定額」會恢復可以編輯，但不會自動幫「啟用動能邏輯」勾回去，需要使用者自己決定
+        if(pfield === 'useDca'){
+          const momentumInput = wrap.querySelector('input[data-pfield="useMomentum"]');
+          if(momentumInput) momentumInput.disabled = !v;
+          if(!v){
+            state.assets[i].params.useMomentum = false;
+            if(momentumInput) momentumInput.checked = false;
+          }
         }
         await storageSet(KEY_ASSETS, state.assets);
         renderAll();
@@ -4995,35 +5032,6 @@ document.getElementById('btnBtClearImport').addEventListener('click', ()=>{
   document.getElementById('btImportStatus').innerHTML = `<span style="color:var(--text-faint);">已清除本地資料，下次回測會重新連線抓取。</span>`;
 });
 
-document.getElementById('btnExportReserve').addEventListener('click', ()=>{
-  const asset = getAsset(state.activeTab);
-  // 把訊號明細卡片實際渲染出來的HTML內容，轉成乾淨的純文字：
-  // 先把<br>／<div>換成真正的換行符號，再用textContent去掉其餘標籤（如<span>的顏色樣式）
-  const sourceEl = document.getElementById('reserveHint');
-  const temp = document.createElement('div');
-  temp.innerHTML = sourceEl.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<div[^>]*>/gi, '\n').replace(/<\/div>/gi, '');
-  const plainText = temp.textContent.replace(/\n{2,}/g, '\n').trim();
-
-  const now = new Date();
-  const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  // 檔名用資料裡最後一天的日期，跟「歷史紀錄」下載的邏輯一致，不是下載當下的真實日期；
-  // 內容裡的「下載時間」則維持用真實時間，因為那是在記錄「你什麼時候下載這份快照」，跟檔名的用途不同
-  const rowsForFilename = sortedLog(state.activeTab);
-  const lastRow = rowsForFilename[rowsForFilename.length - 1];
-  const dateOnly = lastRow ? lastRow.date : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const content = `${asset.name}　訊號明細\n下載時間：${timestamp}\n\n${plainText}\n`;
-
-  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${asset.name}_訊號明細_${dateOnly}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
-
 document.getElementById('btnExportHist').addEventListener('click', ()=>{
   const section = (asset)=>{
     const rows = sortedLog(asset.key);
@@ -5470,7 +5478,7 @@ document.getElementById('btnExportAssets').addEventListener('click', ()=>{
   // 換手機/清除資料後會期待這些也一併還原，這裡一併打包進去；
   // 現金／股數／平均成本／最近一次加碼價格／日期，這幾個欄位「未輸入」的正確表示方式是null，不是0
   // （不像融資買進均價／融資股數，那兩個是用0代表未輸入），這裡直接保留原始值，不能用||0，
-  // 否則會把「從未輸入」誤匯出成「已輸入且是0」，匯入後會讓hasPersonalData等判斷失真
+  // 否則會把「從未輸入」誤匯出成「已輸入且是0」，匯入後會讓showPersonalAmounts等判斷失真
   const assetsWithExtra = state.assets.map(a => ({
     ...a,
     marginCost: state.marginCost[a.key] || 0,
@@ -5573,7 +5581,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       // 避免合併情境下用到匯入檔案裡舊的key、對不上實際資料
       const numOr2 = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
       // 現金／股數／平均成本／最近一次加碼價格／日期：跟融資那三個不一樣，「未輸入」要還原成null，不能給0這種fallback，
-      // 否則會讓「從未輸入」被誤判成「已輸入且是0」，連帶影響hasPersonalData等判斷
+      // 否則會讓「從未輸入」被誤判成「已輸入且是0」，連帶影響showPersonalAmounts等判斷
       const numOrNull = (v) => (typeof v === 'number' && !isNaN(v)) ? v : null;
       const strOrNull = (v) => (typeof v === 'string' && v !== '') ? v : null;
       const importedMarginCost = numOr2(imported.marginCost, 0);
