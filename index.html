@@ -610,7 +610,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 18:05</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-04 19:40</div>
   </div>
   </div>
 
@@ -2346,7 +2346,6 @@ let state = {
   assets: DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}})),
   log: {},
   cash: {},
-  ladderPreviewCash: {}, // 委託清單裡，階梯模式的「今天可用現金」暫時試算輸入，不會存檔，跟正式的部位資料(cash)完全分開
   realtimeQuote: {}, // 盤中即時查詢結果(每個標的各自一份)，只用來「對照顯示」限價有沒有已經被今天的高低價觸及，
   // 不會拿去重新計算任何限價本身——完全不存檔，重新整理頁面就消失，純粹這次瀏覽期間的參考資訊
   shares: {},
@@ -2764,12 +2763,9 @@ function computeForAsset(assetKey){
       const w = Math.pow(geoRatioLive, layer);
       weightsLive.push(w); totalWeightLive += w;
     }
-    // 現金來源：優先用「委託清單」裡使用者暫時輸入的試算現金（不會存檔，純粹這次計算用），
-    // 沒有輸入的話才退回真正的部位資料state.cash（給有開啟「引用標的部位資料」的使用者用）；
-    // 這樣設計是因為「引用標的部位資料=關」時，部位管理整個區塊被隱藏，state.cash永遠是空的，
-    // 階梯需要一個現金數字才能算出股數，不然只能顯示限價，沒辦法算出「該買多少」
-    const previewCash = state.ladderPreviewCash && state.ladderPreviewCash[assetKey];
-    const cashNowLive = (previewCash != null && previewCash > 0) ? previewCash : (state.cash[assetKey] || 0);
+    // 現金來源：直接用「目前活存現金」這個部位資料——「今天可用現金（階梯試算用）」這個獨立欄位已經
+    // 合併進「目前活存現金」，不再需要分開輸入兩次同一個數字；階梯試算跟一般計算，統一共用同一個現金來源
+    const cashNowLive = state.cash[assetKey] || 0;
     const reservePctLive = P.bombardLadderReservePct != null ? P.bombardLadderReservePct : 0.10;
     const ladderBudgetLive = cashNowLive * (1 - reservePctLive);
     const levels = [];
@@ -3358,32 +3354,30 @@ function renderOrders(){
   const avgCostNowVal = (state.avgCost[key] != null) ? state.avgCost[key] : '';
   const lastBombardPriceVal = (state.lastBombardPrice[key] != null) ? state.lastBombardPrice[key] : '';
   const lastBombardDateVal = state.lastBombardDate[key] || '';
-  html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-    <label style="color:var(--text);">目前活存現金／股數／平均成本<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔，每次重新整理頁面都要重新輸入；計算現金水位與停利基準）</span></label>
-  </div>
-  <div class="grid3">
-    <div class="field"><label>活存現金</label><input type="number" step="1" id="inCashNow" placeholder="0" value="${cashNowVal}"></div>
-    <div class="field"><label>股數</label><input type="number" step="1" id="inSharesNow" placeholder="0" value="${sharesNowVal}"></div>
-    <div class="field"><label>平均成本</label><input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00" value="${avgCostNowVal}"></div>
-  </div>
-  <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
-    <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔；計算加碼節流）</span></label>
-  </div>
-  <div class="grid2">
-    <div class="field"><label>最近一次加碼價格</label><input type="number" step="0.01" id="inLastBombardPriceNow" placeholder="0.00" value="${lastBombardPriceVal}"></div>
-    <div class="field date-field"><label>最近一次加碼日期</label><input type="text" id="inLastBombardDateNow" readonly placeholder="YYYY-MM-DD" value="${lastBombardDateVal}"></div>
-  </div>`;
-
-  // 階梯模式的「今天可用現金」試算輸入：放在委託清單最下面，只在階梯模式開啟時顯示；
-  // 這是暫時輸入，不會存進正式的部位資料，純粹讓「引用標的部位資料=關」的使用者，
-  // 不用重新打開整套部位管理系統，也能讓階梯試算出「每一層該買多少股」
-  if(P.bombardLadderMode){
-    const previewVal = (state.ladderPreviewCash[key] != null) ? state.ladderPreviewCash[key] : '';
-    html += `<div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
-      <label style="color:var(--text);">今天可用現金（階梯試算用）<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔；填了才會算出每一層該買多少股，否則只顯示限價）</span></label>
-      <input type="number" step="1" id="inLadderPreviewCash" placeholder="輸入現金金額" value="${previewVal}">
+  // 「個人部位試算」：把三組暫時輸入欄位（現金/股數/平均成本、最近加碼價格/日期、階梯試算現金）
+  // 統一收進一個可展開/收合的區塊，跟這些欄位本身「輸入用途」的性質一致，預設收合以減少視覺干擾；
+  // 沿用「進階設定」分類收合已經在用的CSS class(.param-cat-mini/.param-cat-group)跟收合機制，不用另外寫新樣式
+  const posTrialCollapsed = state.posTrialCollapsed !== false; // 預設收合(undefined視為true)
+  html += `<div class="param-cat-mini" data-postrial="1">
+      <span class="chev ${posTrialCollapsed?'collapsed':''}">▾</span>個人部位試算
+    </div>
+    <div class="param-cat-group ${posTrialCollapsed?'collapsed':''}" data-postrialgroup="1">
+    <div class="field" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">目前活存現金／股數／平均成本<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔，每次重新整理頁面都要重新輸入；計算現金水位與停利基準，階梯模式的每層股數試算也共用這裡的活存現金）</span></label>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>活存現金</label><input type="number" step="1" id="inCashNow" placeholder="0" value="${cashNowVal}"></div>
+      <div class="field"><label>股數</label><input type="number" step="1" id="inSharesNow" placeholder="0" value="${sharesNowVal}"></div>
+      <div class="field"><label>平均成本</label><input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00" value="${avgCostNowVal}"></div>
+    </div>
+    <div class="field" style="padding-top:12px; border-top:1px solid var(--hair);">
+      <label style="color:var(--text);">最近一次加碼價格／日期<span style="color:var(--text-faint); font-weight:400;">（暫時輸入，不會存檔；計算加碼節流）</span></label>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>最近一次加碼價格</label><input type="number" step="0.01" id="inLastBombardPriceNow" placeholder="0.00" value="${lastBombardPriceVal}"></div>
+      <div class="field date-field"><label>最近一次加碼日期</label><input type="text" id="inLastBombardDateNow" readonly placeholder="YYYY-MM-DD" value="${lastBombardDateVal}"></div>
     </div>`;
-  }
+  html += `</div>`;
 
   list.innerHTML = html;
 
@@ -3424,17 +3418,6 @@ function renderOrders(){
   };
   bindL12PctField('inL1PctNow', 'l1Pct');
   bindL12PctField('inL2PctNow', 'l2Pct');
-
-  // 因為這個輸入框是每次renderOrders動態產生的（innerHTML整個替換），舊的監聽器不會殘留，
-  // 每次都要重新綁定一次；輸入變更時，只更新這個暫時值、重新渲染委託清單，不觸發整個renderAll
-  const previewInput = document.getElementById('inLadderPreviewCash');
-  if(previewInput){
-    previewInput.addEventListener('change', (e)=>{
-      const v = parseFloat(e.target.value);
-      state.ladderPreviewCash[key] = (e.target.value === '' || isNaN(v)) ? null : v;
-      renderOrders();
-    });
-  }
 }
 
 // 對照「今天盤中即時最高/最低價」跟某個限價，回傳一段提示文字（不重新計算限價本身，純粹對照顯示）；
@@ -3458,7 +3441,11 @@ function getCashStatus(key){
   const shares = state.shares[key] || 0;
   const marketValue = (d.today && d.today.close != null) ? shares * d.today.close : null;
   let requiredTxt = '';
-  if(requiredReserve != null && marketValue != null){
+  if(P.useCashDefense === false){
+    // requiredReserve會是null，但原因是「啟用現金防禦」這個開關本身關閉，不是真的缺收盤價或股數，
+    // 不能沿用下面那句「尚無收盤價或股數資料」，那樣會誤導使用者以為是資料不足，不是功能被關閉
+    requiredTxt = `—（現金防禦未啟用）`;
+  } else if(requiredReserve != null && marketValue != null){
     requiredTxt = `${requiredReserve.toLocaleString()} ${asset.currency}`;
   } else {
     requiredTxt = `—（尚無收盤價或股數資料）`;
@@ -3563,30 +3550,25 @@ function renderReserve(){
   const st = getCashStatus(key);
 
   // ---- 1. 流動現金（對應條件欄第8個燈號） ----
-  const avgCostVal = state.avgCost[key] || 0;
   const hasMarginPrice = !!(d.marginStatus && d.marginStatus.hasPrice);
   const priceDecFor = (v) => getTickDecimals(getEffectiveTick(asset, v));
   const marginRawTxt = hasMarginPrice
     ? `融資買進均價：${fmt(d.marginStatus.costPrice, priceDecFor(d.marginStatus.costPrice))}｜融資股數：${(d.marginStatus.shares||0).toLocaleString()} 股`
     : `融資買進均價：（未輸入）｜融資股數：—`;
-  const lastBombardPriceVal = state.lastBombardPrice[key];
-  const lastBombardDateVal = state.lastBombardDate[key];
-  const lastBombardPriceTxt = (lastBombardPriceVal != null && lastBombardPriceVal > 0) ? fmt(lastBombardPriceVal, priceDecFor(lastBombardPriceVal)) : '（未輸入）';
-  const lastBombardDateTxt = lastBombardDateVal || '（未輸入）';
-  const cashTxt = state.cash[key] != null ? `${st.cur.toLocaleString()} ${st.unit}` : '（未輸入）';
-  const sharesTxt = state.shares[key] != null ? `${state.shares[key].toLocaleString()} 股` : '（未輸入）';
-  // 這兩行要不要顯示，直接看使用者「有沒有真的填過現金/股數/平均成本/最近一次加碼價格/日期」——
-  // 這幾個欄位放在「委託清單」最下面，使用者確實填了的資料，就老實顯示出來
+  // 「目前活存現金／股數／平均成本」「最近一次加碼價格／日期」這兩行純粹複誦剛才在「委託清單→
+  // 個人部位試算」輸入的內容，沒有額外計算價值，已經移除；這裡只保留reallyHasAnyPersonalData
+  // 這個判斷本身，用來決定下面「流動現金」這個真正的計算結果要不要顯示
   const reallyHasAnyPersonalData = state.cash[key] != null || state.shares[key] != null || state.avgCost[key] != null
     || state.lastBombardPrice[key] != null || state.lastBombardDate[key] != null;
-  const cashSectionTop = !reallyHasAnyPersonalData ? '' :
-    `<span style="color:var(--text-faint);">目前活存現金：${cashTxt}｜股數：${sharesTxt}｜平均成本：${avgCostVal>0 ? fmt(avgCostVal, priceDecFor(avgCostVal)) : '（未輸入）'}</span><br>` +
-    `<span style="color:var(--text-faint);">最近一次加碼價格${lastBombardPriceTxt}／日期：${lastBombardDateTxt}</span><br>`;
   // 流動現金：唯一一行，恆常顯示現金應保留金額，後面依訊號狀態燈號的4種狀態補充對應文字；
   // 同樣改成看使用者是否真的填過現金，不再用d.showPersonalAmounts判斷
   let bombardAffordTxt;
   const affordBase = `現金應保留${st.requiredTxt}`;
   if(!reallyHasAnyPersonalData){
+    bombardAffordTxt = '';
+  } else if(asset.params.useCashDefense === false){
+    // 「啟用現金防禦」關閉時，整行隱藏——跟定期定額/動能/加碼/停利同一套模式（開關關閉＝整行不顯示，
+    // 不是顯示一句「已停用」的訊息），保持整個「訊號明細」卡片一致的呈現邏輯
     bombardAffordTxt = '';
   } else if(state.cash[key] == null){
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：（尚未輸入部位資料）</span>`;
@@ -3595,8 +3577,8 @@ function renderReserve(){
     // 直接給一句乾淨、精確的訊息
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：尚未輸入股數，無法判斷</span>`;
   } else if(st.sufficient == null){
-    // cashTargetPct=0時，應保留金額已經誠實算出是0，不會再走到這個分支；這裡現在只會在
-    // 「股數已填但還沒有今天的收盤價資料」這種真正缺資料的情況下才會出現
+    // 「啟用現金防禦」已經在上面優先攔截了，這裡現在只會在「股數已填但還沒有今天的收盤價資料」
+    // 這種真正缺資料的情況下才會出現
     bombardAffordTxt = `<span style="color:var(--text-faint); font-weight:700;">→ 流動現金：${affordBase}｜尚無資料，無法判斷</span>`;
   } else if(st.sufficient === false){
     bombardAffordTxt = `<span style="color:var(--red); font-weight:700;">→ 流動現金：${affordBase}</span>`;
@@ -3635,7 +3617,7 @@ function renderReserve(){
     else if(!d.priceAboveMa60) defenseReason = '股價&lt;MA60';
     else if(d.cashSufficient === false) defenseReason = '流動現金不足';
     else defenseReason = '融資維持率過低';
-    defenseLedTxt = `不安全｜${defenseReason}`;
+    defenseLedTxt = defenseReason;
     defenseLedColor = 'var(--red)';
   }
   const defenseLedLine = `<span style="color:${defenseLedColor}; font-weight:700;">→ 防禦邊界：${defenseLedTxt}</span>`;
@@ -3786,7 +3768,7 @@ function renderReserve(){
   } else if(d.liquidityStopTriggered){
     const tickDec = getTickDecimals(getEffectiveTick(getAsset(key), d.liquidityStopPrice));
     const reasonTxt = d.liquidityStopByFloor ? '逆勢' : '順勢';
-    liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：市價賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
+    liquidityStopHtml = `<span style="color:var(--amber); font-weight:700;">→ 現金水位回補觸發：賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDec)}｜${reasonTxt}</span>`;
   } else if((state.shares[key]||0) <= 0){
     const sharesReasonTxt = state.shares[key] == null ? '目前股數：（未輸入）' : '目前股數為0';
     liquidityStopHtml = `<span style="color:var(--text-faint); font-weight:700;">→ 現金水位回補觸發：${sharesReasonTxt}</span>`;
@@ -3819,7 +3801,7 @@ function renderReserve(){
   document.getElementById('reserveHint').innerHTML =
     noticeHtml +
     `<span style="color:var(--text-faint);">${d.showPersonalAmounts ? '根據輸入資料及證交所/Twelve Data資料交叉分析：' : '根據證交所/Twelve Data資料交叉分析：'}</span><br>` +
-    cashSectionTop + (bombardAffordTxt ? bombardAffordTxt + `<br>` : '') +
+    (bombardAffordTxt ? bombardAffordTxt + `<br>` : '') +
     judgmentLines.join('<br>') +
     marginSectionHtml;
 }
@@ -5451,6 +5433,17 @@ document.getElementById('assetManageList').addEventListener('click', (e)=>{
   const chev = header.querySelector('.chev');
   if(chev) chev.classList.toggle('collapsed', state.paramCatCollapsed[cat]);
   if(group) group.classList.toggle('collapsed', state.paramCatCollapsed[cat]);
+});
+// 委託清單裡「個人部位試算」這個子區塊的展開/收合：跟上面「進階設定」分類收合同一套機制，
+// 綁在orderList容器上（不會被innerHTML整個換掉），每次renderOrders重新產生內容都依然有效
+document.getElementById('orderList').addEventListener('click', (e)=>{
+  const header = e.target.closest('[data-postrial]');
+  if(!header) return;
+  state.posTrialCollapsed = !(state.posTrialCollapsed !== false);
+  const chev = header.querySelector('.chev');
+  const group = document.querySelector('[data-postrialgroup]');
+  if(chev) chev.classList.toggle('collapsed', state.posTrialCollapsed);
+  if(group) group.classList.toggle('collapsed', state.posTrialCollapsed);
 });
 document.getElementById('btnSaveAsset').addEventListener('click', async ()=>{
   await storageSet(KEY_ASSETS, state.assets);
