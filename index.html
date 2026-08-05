@@ -596,7 +596,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-05 21:15</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 06:30</div>
   </div>
   </div>
 
@@ -983,8 +983,8 @@ async function fetchLast5DaysCore(){
     // 只保留設定的天數，跟手動新增走同一套規則
     state.log[key] = sortedLog(key).slice(-keepDays);
     await storageSet(KEY_LOG(key), state.log[key]);
-    const dateList = last5.map(r => r.date).join('、');
-    return { ok:true, msg:`已寫入歷史紀錄：${dateList}` };
+    const dateRangeTxt = last5.length > 1 ? `${last5[0].date} ~ ${last5[last5.length-1].date}` : (last5[0] ? last5[0].date : '');
+    return { ok:true, msg:`已更新收盤資訊：${dateRangeTxt}` };
   } catch(err){
     console.error('fetch last 3 days failed', err);
     return { ok:false, msg:`本次未更新到最新資料（${err.message}），現有判定仍基於先前的歷史紀錄` };
@@ -4354,6 +4354,16 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
   statusEl.innerHTML = `<span style="color:${color}">${icon} ${fetchResult.msg}</span>`;
   btn.textContent = originalText;
   btn.disabled = false;
+  // 這一長串日期清單顯示3秒後自動消失，避免一直佔用畫面空間；用版本標記(dataset.msgVersion)
+  // 確保連續快速點擊時，「舊」的3秒計時器不會誤清掉「新」剛顯示出來的訊息——每次顯示都換一個新版本號，
+  // 到期時只有版本號還相符（代表期間沒有被更新過），才真的清空畫面
+  const myVersion = Date.now();
+  statusEl.dataset.msgVersion = myVersion;
+  setTimeout(()=>{
+    if(statusEl.dataset.msgVersion === String(myVersion)){
+      statusEl.innerHTML = '';
+    }
+  }, 3000);
 });
 
 // 查詢盤中即時價格：純參考用途，透過既有的CORS_PROXY轉發到證交所「基本市況報導網站」背後的API；
@@ -4461,11 +4471,16 @@ async function queryRealtimeQuoteCore(){
       };
     }
 
-    // 現價：z可用時直接用z；z不可用時，改用「賣1」（五檔賣價裡最低的那一檔，也是最接近現價的賣單）
+    // 現價：美股(Twelve Data)的close欄位本身就是可靠的收盤/現價資料，不需要台股那種「五檔賣1」
+    // 備援機制（美股API根本不提供五檔買賣資料，askLevels永遠是空陣列，硬套用台股的判斷方式，
+    // 會導致「非交易時段時，即使close有正確數值，也會被誤判成無法顯示」）；
+    // 台股：z可用時直接用z；z不可用時，改用「賣1」（五檔賣價裡最低的那一檔，也是最接近現價的賣單）
     // 當作備援——這比之前用「今天最高價」合理很多，因為賣1本身就是「買賣一檔價差」的其中一邊，
     // 是這個API在z缺值時，仍然每5秒穩定更新、最接近真實現價的資料
     const askBest = quote.askLevels && quote.askLevels.length ? quote.askLevels[0] : null;
-    const displayPrice = quote.isLive ? quote.price : (askBest ? parseFloat(askBest.price) : null);
+    const displayPrice = isUsTicker(asset.stockNo)
+      ? quote.price
+      : (quote.isLive ? quote.price : (askBest ? parseFloat(askBest.price) : null));
     const changeVal = (displayPrice != null && quote.prevClose) ? (displayPrice - parseFloat(quote.prevClose)) : null;
     if(statusEl){
       const asset2 = getAsset(key);
