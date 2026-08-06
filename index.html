@@ -595,7 +595,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 17:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 19:35</div>
   </div>
   </div>
 
@@ -2133,6 +2133,29 @@ function getSuggestedLadderFloorPct(assetKey, days = 3){
   if(count === 0) return null;
   const avgPct = sum / count;
   return Math.round(Math.max(1, Math.min(10, avgPct)));
+}
+
+// 用「最近N天的平均單日振幅%」(最高-最低)/收盤，當作「每一層價差至少要多大才有意義」的參考單位——
+// 如果股票本身日常波動就大，代表股價一天內自然就會穿越不小的範圍，不需要人為分太多層；
+// 反之，波動小的股票，即使底層深度不深，每一層的價差相對於「正常波動」來說依然有意義，可以分多一點層；
+// 層數＝底層深度% ÷ (平均振幅% ÷ 2)，除以2代表「每層價差抓半天正常波動」這個折衷密度，
+// 夾在2-10層之間，避免太少（分批失去意義）或太多（層數超過階梯本身的物理深度，變成無意義的重複）
+function getSuggestedLadderNumLayers(assetKey, floorPct, days = 3){
+  const rows = sortedLog(assetKey);
+  const n = rows.length;
+  if(n < days) return null; // 樣本不足，不給建議值，維持使用者原本設定或預設值
+  let sum = 0, count = 0;
+  for(let i = n - days; i < n; i++){
+    const r = rows[i];
+    if(r.high == null || r.low == null || r.close == null || r.close <= 0) continue;
+    sum += (r.high - r.low) / r.close * 100;
+    count++;
+  }
+  if(count === 0 || floorPct == null) return null;
+  const avgAmplitudePct = sum / count;
+  if(avgAmplitudePct <= 0) return null;
+  const layers = floorPct / (avgAmplitudePct / 2);
+  return Math.max(2, Math.min(10, Math.round(layers)));
 }
 
 function getRequiredReserve(assetKey){
@@ -4467,8 +4490,15 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
     if(suggested != null){
       if(!asset.params) asset.params = {...DEFAULT_PARAMS};
       asset.params.bombardLadderFloorPct = suggested;
-      await storageSet(KEY_ASSETS, state.assets);
       floorPctNote = `｜階梯最底層價位%已自動更新為${suggested}%（最近3天平均波動）`;
+      // 底層深度算出來後，緊接著用它跟「最近3天平均單日振幅」，重新計算「階梯總層數」建議值——
+      // 避免底層很淺時，層數卻固定不變，導致每一層價差小到沒有實際意義
+      const suggestedLayers = getSuggestedLadderNumLayers(key, suggested, 3);
+      if(suggestedLayers != null){
+        asset.params.bombardLadderNumLayers = suggestedLayers;
+        floorPctNote += `｜階梯總層數已自動更新為${suggestedLayers}層（依底層深度與近期振幅）`;
+      }
+      await storageSet(KEY_ASSETS, state.assets);
     }
   }
 
