@@ -595,7 +595,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 19:35</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 20:15</div>
   </div>
   </div>
 
@@ -2138,9 +2138,12 @@ function getSuggestedLadderFloorPct(assetKey, days = 3){
 // 用「最近N天的平均單日振幅%」(最高-最低)/收盤，當作「每一層價差至少要多大才有意義」的參考單位——
 // 如果股票本身日常波動就大，代表股價一天內自然就會穿越不小的範圍，不需要人為分太多層；
 // 反之，波動小的股票，即使底層深度不深，每一層的價差相對於「正常波動」來說依然有意義，可以分多一點層；
-// 層數＝底層深度% ÷ (平均振幅% ÷ 2)，除以2代表「每層價差抓半天正常波動」這個折衷密度，
-// 夾在2-10層之間，避免太少（分批失去意義）或太多（層數超過階梯本身的物理深度，變成無意義的重複）
-function getSuggestedLadderNumLayers(assetKey, floorPct, days = 3){
+// 層數＝底層深度% ÷ 平均振幅%，代表「每層價差至少要涵蓋完整一天的正常振幅」才算真的有意義的區隔，
+// 夾在2-10層之間，避免太少（分批失去意義）或太多（層數超過階梯本身的物理深度，變成無意義的重複）；
+// 這個公式本身沒有考慮「跳動單位」這個實際限制——低振幅時，公式可能建議出遠超過股價跳動單位
+// 所能容納的層數，導致「設定值」跟「實際顯示層數」(因為相鄰層價差太小被自動合併)出現落差，
+// 所以這裡只算出「候選值」，真正的建議值，要靠呼叫端拿候選值去跑一次真實計算、驗證合併後的實際層數
+function getSuggestedLadderNumLayersCandidate(assetKey, floorPct, days = 3){
   const rows = sortedLog(assetKey);
   const n = rows.length;
   if(n < days) return null; // 樣本不足，不給建議值，維持使用者原本設定或預設值
@@ -2154,7 +2157,7 @@ function getSuggestedLadderNumLayers(assetKey, floorPct, days = 3){
   if(count === 0 || floorPct == null) return null;
   const avgAmplitudePct = sum / count;
   if(avgAmplitudePct <= 0) return null;
-  const layers = floorPct / (avgAmplitudePct / 2);
+  const layers = floorPct / avgAmplitudePct;
   return Math.max(2, Math.min(10, Math.round(layers)));
 }
 
@@ -4491,12 +4494,17 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
       if(!asset.params) asset.params = {...DEFAULT_PARAMS};
       asset.params.bombardLadderFloorPct = suggested;
       floorPctNote = `｜階梯最底層價位%已自動更新為${suggested}%（最近3天平均波動）`;
-      // 底層深度算出來後，緊接著用它跟「最近3天平均單日振幅」，重新計算「階梯總層數」建議值——
-      // 避免底層很淺時，層數卻固定不變，導致每一層價差小到沒有實際意義
-      const suggestedLayers = getSuggestedLadderNumLayers(key, suggested, 3);
-      if(suggestedLayers != null){
-        asset.params.bombardLadderNumLayers = suggestedLayers;
-        floorPctNote += `｜階梯總層數已自動更新為${suggestedLayers}層（依底層深度與近期振幅）`;
+      // 底層深度算出來後，緊接著用它跟「最近3天平均單日振幅」，先算出一個候選層數；
+      // 這個候選公式本身沒考慮跳動單位這個實際限制，所以要先暫時套用候選值、跑一次真實的階梯計算，
+      // 拿「合併重複價位後」真正算出來的層數當最終建議值，確保設定值永遠等於實際會顯示的層數，
+      // 不會出現「設定8層、卻只顯示5層」這種落差
+      const candidateLayers = getSuggestedLadderNumLayersCandidate(key, suggested, 3);
+      if(candidateLayers != null){
+        asset.params.bombardLadderNumLayers = candidateLayers;
+        const verifyResult = computeForAsset(key);
+        const actualLayers = (verifyResult.ladderLevels && verifyResult.ladderLevels.numLayers > 0) ? verifyResult.ladderLevels.numLayers : candidateLayers;
+        asset.params.bombardLadderNumLayers = actualLayers;
+        floorPctNote += `｜階梯總層數已自動更新為${actualLayers}層（依底層深度與近期振幅，已排除跳動單位過密的層）`;
       }
       await storageSet(KEY_ASSETS, state.assets);
     }
