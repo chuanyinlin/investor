@@ -595,7 +595,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 20:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-07 06:40</div>
   </div>
   </div>
 
@@ -2668,17 +2668,21 @@ function renderHistory(){
   const fmtOrDash = (v, dec) => (v != null && !isNaN(v)) ? fmtRaw(v, dec) : '—';
   list.innerHTML = rows.map((r)=>{
     const priceDec = (v) => getTickDecimals(getEffectiveTick(asset, v));
-    const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60, priceDec(r.ma60)) : '—';
+    // MA5/MA20/MA60是連續的平均值，本質上跟「跳動單位」這種只跟實際下單價位有關的概念無關，
+    // 不該套用priceDec動態四捨五入——否則股價較高的標的，均線容易被四捨五入成同一個整數，
+    // 掩蓋掉底層真實仍有差異這件事（例如判斷MA20持平或向上用的正是這個精確值），造成「畫面看起來一樣，
+    // 但燈號卻不一樣」的困惑；固定用2位小數，保持原始精確度
+    const ma60Txt = (r.ma60 != null) ? fmtRaw(r.ma60, 2) : '—';
     return `<div class="hist-entry">
       <div class="hist-entry-head">
         <div class="hist-entry-date">${r.date}</div>
       </div>
       <div class="hist-grid2">
         <div><div class="hist-stat-label">收盤價</div><div class="hist-stat-value">${fmtRaw(r.close, priceDec(r.close))}</div></div>
-        <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${fmtRaw(r.ma5, priceDec(r.ma5))}</div></div>
+        <div><div class="hist-stat-label">MA5</div><div class="hist-stat-value">${fmtRaw(r.ma5, 2)}</div></div>
       </div>
       <div class="hist-grid2">
-        <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20, priceDec(r.ma20))}</div></div>
+        <div><div class="hist-stat-label">MA20</div><div class="hist-stat-value">${fmtRaw(r.ma20, 2)}</div></div>
         <div><div class="hist-stat-label">MA60</div><div class="hist-stat-value">${ma60Txt}</div></div>
       </div>
       <div class="hist-grid2" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--hair);">
