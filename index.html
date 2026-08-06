@@ -432,7 +432,7 @@
     <div id="histBody" style="display:none; margin-top:10px;">
     <div id="histList" style="max-height:307px; overflow-y:auto;"></div>
     <!-- 更新標的資料／上傳歷史紀錄：從原本「資料管理」卡片搬過來，日常操作，收盤後第一件事，先更新最新股價/均線 -->
-    <div class="footer-note" id="updateHintText" style="text-align:left; margin-bottom:6px;"></div>
+    <div class="footer-note" style="text-align:left; margin-bottom:6px;"><span id="updateHintText"></span><span id="updateDailyStatus"></span></div>
     <input type="file" id="inImportFile" accept=".txt,text/plain" style="display:none;">
     <div style="display:flex; gap:10px;">
       <button class="btn btn-neutral btn-sm" id="btnUpdateDaily" style="flex:1; width:auto;">更新</button>
@@ -440,7 +440,6 @@
       <button type="button" class="btn btn-neutral btn-sm" id="btnImportFile" style="flex:1; width:auto;">上傳</button>
       <button class="btn btn-neutral btn-sm" id="btnExportHist" style="flex:1; width:auto; display:block; margin:0;">下載</button>
     </div>
-    <div class="footer-note" id="updateDailyStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" id="clearAssetDataStatus" style="text-align:left; margin-top:6px;"></div>
     <div class="footer-note" id="importStatus" style="text-align:left; margin-top:6px;"></div>
     </div>
@@ -596,7 +595,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 06:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-06 11:30</div>
   </div>
   </div>
 
@@ -667,7 +666,8 @@ const DEFAULT_PARAMS = {
   // 2026-08：「階梯底線歷史振幅上限」這個功能已移除——用台積電16年資料回測驗證過，這個限制反而讓
   // 報酬跟風險都變差（放棄了深跌時稀少但報酬率極高的承接機會），底線現在只靠「跌停板價格」保底，更簡單、也更合理
   exitMult: 1.12,
-  cashTargetPct: 0.10,
+  // 2026-08：「最低流動現金佔比%」(原cashTargetPct)不再是持久保存的設定，改成跟活存現金一樣的
+  // 暫時輸入(state.ladderReservePct)，同時服務「現金水位回補」跟「階梯預算」這兩個機制
   liqRebuildEnabled: true,
   liqRebuildMult: 1.75,
   liqFloorMult: 0.95,
@@ -683,6 +683,8 @@ const DEFAULT_PARAMS = {
   useExit: true,
   useCashDefense: true,
   costExitMult: 1.10,
+  costExitEnabled: false,  // 2026-08新增：成本倍數停利，改成獨立開關，跟MA60條件停利/量能確認停利
+  // 三者可以任意疊加（AND邏輯，全部勾選的條件都要同時成立），不再是radio互斥二選一/三選一
   exitSecondLayerEnabled: false,
   useMa60ConfirmForExit: false,
   exitMa60ConfirmDays: 3,
@@ -705,7 +707,8 @@ const DEFAULT_PARAMS = {
   momentumRequireCash: true,  // 2026-08 新增：動能要能觸發，是否要求流動現金充足；預設開啟，維持現行規則
   liqStopIgnoreTrend: false,  // 2026-07 從回測「測試特定機制」轉正：現金水位回補不管MA60趨勢安不安全，一律當天市價強制賣股救急，不分流成「暫緩改暫停定期定額」；預設關閉（維持現行規則的趨勢分流）
   exitPartialFrac: 0.70,
-  exitVolumeConfirmEnabled: false,  // 2026-07 新機制：停利第二層三選一之一——量能確認停利，股價達MA20門檻時，還要「昨天有放量」才觸發；預設關閉
+  exitVolumeConfirmEnabled: false,  // 2026-07 新機制：量能確認停利，股價達MA20門檻時，還要「昨天有放量」才觸發；
+  // 2026-08起改成可跟成本倍數停利/MA60條件停利任意疊加，不再互斥；預設關閉
   exitVolumeMult: 1.2,  // 量能確認的放量倍數：昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量
 };
 
@@ -735,21 +738,21 @@ const PARAM_META = [
   ['bombardAmplitudeThresholdPct','日振幅異常門檻%','pct','加碼邏輯','日振幅超過這個百分比，且當天收黑，才算振幅異常警訊；只有上面「加碼多一層日振幅異常防禦邊界」有勾選才會生效'],
   ['bombardOpenHighCloseLowEnabled','連續N天開高走低暫停加碼（目前僅支援回測模擬）','bool','加碼邏輯','預設關閉，維持現行規則：加碼不檢查開盤/收盤的關係。啟用後，只要連續N天都是「開高走低」（收盤價&lt;開盤價，代表當天從高點一路收黑），就暫停加碼，不管MA60、現金是否正常。只要有一天不是開高走低，連續天數就會重置為0，重新開始累計'],
   ['bombardOpenHighCloseLowDays','連續開高走低天數門檻','int','加碼邏輯','連續幾天都是開高走低型態，才觸發暫停加碼；只有上面「連續N天開高走低暫停加碼」有勾選才會生效'],
-  ['useExit','啟用停利邏輯','bool','停利邏輯','預設開啟，維持現行行為。關閉後，停利永遠不會觸發（不管MA20/成本/MA60條件/量能確認哪種模式），不再出現在委託清單／訊號明細；停利限價本身依然會誠實計算並顯示在其他地方，只是不會真的觸發；訊號狀態的「股價達停利價位」「停利觸發」兩顆燈維持顯示，但永遠不會亮'],
-  ['exitMult','停利價位倍數','mult','停利邏輯','股價要先觸及MA20×這個倍數的價位，才會觸發停利'],
-  ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','選擇後，才需要再多符合「成本倍數停利」或「MA60條件停利」其中一種，才會觸發停利；不選則只看上面的MA20倍數，達標就觸發'],
-  ['costExitMult','成本倍數停利','mult','停利邏輯','股價還要觸及平均持股成本×這個倍數，才觸發停利'],
-  ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','股價還要連續N天都符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
-  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','「MA60條件停利」要連續幾天都符合才真正觸發，天數越長越嚴謹。天數上限＝「基本設定」裡這個標的的「更新標的保留天數」再減1（需要多留1天計算MA60本身有沒有比前一天高），改變保留天數後這個上限會跟著調整'],
-  ['exitVolumeConfirmEnabled','量能確認停利','bool','停利邏輯','股價達到MA20門檻時，還要「昨天有放量」（昨天成交量超過昨天之前20天均量的設定倍數）才真正觸發；不需要手動輸入任何資料（成交量本身就是股價資料的一部分），也沒有MA60條件停利那種要連續多天的延遲問題，只看昨天一天'],
-  ['exitVolumeMult','放量倍數','mult','停利邏輯','上面「量能確認停利」用的放量倍數，只有那項有勾選才會生效——昨天成交量要超過「昨天之前20天均量」的這個倍數，才算有放量、真正觸發停利'],
-  ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','停利觸發時，一次賣出目前股數的比例'],
-  ['useCashDefense','啟用現金防禦','bool','現金防禦','預設開啟，維持現行行為。關閉後，現金水位回補永遠不會觸發（不管現金水位是否真的低於門檻），不再出現在委託清單／訊號明細；「最低流動現金佔比%」設為0時，不再被解讀成「關閉監控」，會誠實算出「應保留金額為0」——要不要啟用整個機制，完全由這個開關決定，不再用門檻%的數值間接判斷'],
-  ['cashTargetPct','最低流動現金佔比%（流動現金／總部位）','pct','現金防禦','流動現金占總部位（現金+股票市值）的最低比例，低於這個比例會觸發現金水位回補等一連串機制。設為0代表門檻真的是0（現金永遠視為充足），不再等同「關閉監控」——要不要啟用整個現金防禦機制，改由上面「啟用現金防禦」這個開關決定'],
-  ['liqRebuildEnabled','啟用現金水位回補','bool','現金防禦','關閉後，「流動現金」LED依然正常監控現金水位（只要上面的最低流動現金佔比%沒設為0），但不會有任何賣股回補或暫停定期定額的建議——適合只想觀察現金水位、不想讓系統主動介入的情況'],
-  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金防禦','現金水位回補觸發時，不是只補回剛好貼著最低比例，而是補到「最低比例×這個倍數」，多留一點緩衝空間，避免定期定額一買現金又立刻被打回門檻、頻繁反覆觸發'],
-  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金防禦','現金不足且MA60顯示弱勢時，優先暫緩定期定額、不逆勢賣股；但現金比例低於「最低比例×這個倍數」這條絕對底線時，不管趨勢多差都強制賣股救急，避免現金水位無限期探底'],
-  ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金防禦','預設關閉，維持現行規則：現金不足時，MA60安全才強制賣股救回，MA60弱勢則優先暫緩、改成暫停定期定額。啟用後，不管MA60趨勢安不安全，現金一旦不足就一律當天市價強制賣股救急，不再分流成「暫緩改暫停」'],
+  ['useExit','啟用停利邏輯','bool','停利邏輯','預設是開啟。關閉後，停利永遠不會觸發，不再出現在委託清單／訊號明細'],
+  ['exitMult','停利價位倍數','mult','停利邏輯','預設值是1.12。股價要觸及MA20×這個倍數，才會觸發停利'],
+  ['exitSecondLayerEnabled','啟用第二層閥門','bool','停利邏輯','預設是關閉。啟用後，下面「成本倍數停利」「MA60條件停利」「量能確認停利」這3項可以任意勾選、疊加，全部勾選的條件都要同時成立才觸發'],
+  ['costExitEnabled','成本倍數停利','bool','停利邏輯','預設是關閉'],
+  ['costExitMult','成本倍數停利倍數','mult','停利邏輯','預設值是1.10。股價還要觸及平均持股成本×這個倍數，才觸發停利'],
+  ['useMa60ConfirmForExit','MA60條件停利','bool','停利邏輯','預設是關閉。股價還要連續N天符合「MA60持平或向上」且「站穩MA60」，才觸發停利'],
+  ['exitMa60ConfirmDays','MA60條件停利確認天數','int','停利邏輯','預設值是3天。「MA60條件停利」要連續符合幾天才真正觸發'],
+  ['exitVolumeConfirmEnabled','量能確認停利','bool','停利邏輯','預設是關閉。股價達門檻時，還要「昨天有放量」才真正觸發'],
+  ['exitVolumeMult','放量倍數','mult','停利邏輯','預設值是1.2倍。昨天成交量要超過「過去20天均量」的這個倍數，才算放量'],
+  ['exitPartialFrac','停利觸發分批比例%','pct','停利邏輯','預設值是70%。停利觸發時，一次賣出目前股數的比例'],
+  ['useCashDefense','啟用現金防禦','bool','現金防禦','預設是開啟。關閉後，整套現金防禦機制完全停用，不再判斷現金夠不夠'],
+  ['liqRebuildEnabled','啟用現金水位回補','bool','現金防禦','預設是開啟。關閉後，現金不足只會顯示提醒，不會建議賣股或暫停定期定額'],
+  ['liqRebuildMult','現金水位回補倍數（相對最低流動現金）','mult','現金防禦','預設值是1.75。觸發回補時，補到「最低比例×這個倍數」'],
+  ['liqFloorMult','現金水位回補絕對底線倍數（相對最低流動現金）','mult','現金防禦','預設值是0.95。現金低於「最低比例×這個倍數」時，不管MA60趨勢，建議賣股救急'],
+  ['liqStopIgnoreTrend','現金水位回補不受防禦邊界(MA60)趨勢分流（目前僅支援回測模擬）','bool','現金防禦','預設是關閉。啟用後，現金不足就一律強制賣股，不再依MA60趨勢分流成「暫緩定期定額」或「賣股」'],
   ['marginDefenseEnabled','啟用融資防禦','bool','融資防禦','融資防禦預設關閉。勾選後才會啟用：輸入融資買進均價與融資股數（下方欄位，勾選後才會顯示），才會計算融資維持率、監控融資追繳風險。取消勾選會清空融資買進均價與融資股數，之後如果重新勾選，需要重新輸入'],
   ['marginRatio','融資成數%','pct','融資防禦','融資買進時，券商借你的資金占買進總金額的比例（自備款＝1減這個比例），用來計算融資維持率'],
   ['marginCallRatio','融資維持率警戒門檻%','pct','融資防禦','融資維持率跌破這個百分比視為危險，會關閉防禦邊界、暫停動能／加碼，提醒你注意融資部位風險'],
@@ -1370,20 +1373,21 @@ async function runBacktest(){
   const MA60_OBSERVATION_DAYS = Math.max(1, P.bombardMa60ObservationDays || 2);
 
   const ENABLE_MA5_RECOVERY_FOR_DEFENSE = P.ma5RecoveryForDefenseEnabled;
-  // 這3個已經是InvestOS正式功能（MA60條件停利，二選一），不再讀已停用的測試開關，改讀真正的參數，
-  // 確保回測結果跟即時運算的實際設定一致，不會出現「進階設定已開啟、但回測沒套用」的落差；
-  // 同時要先過「啟用第二層閥門」這個總開關，沒開的話，不管useMa60ConfirmForExit本身是什麼值，都當作沒開
+  // 這3個已經是InvestOS正式功能（MA60條件停利／量能確認停利／成本倍數停利，可任意疊加），
+  // 不再讀已停用的測試開關，改讀真正的參數，確保回測結果跟即時運算的實際設定一致，
+  // 不會出現「進階設定已開啟、但回測沒套用」的落差；
+  // 同時要先過「啟用第二層閥門」這個總開關，沒開的話，不管各自的開關本身是什麼值，都當作沒開
   const ENABLE_MA60UP_FOR_EXIT = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
   const ENABLE_PRICE_ABOVE_MA60_FOR_EXIT = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
   const ENABLE_EXIT_CONFIRM_DAYS = P.exitSecondLayerEnabled && P.useMa60ConfirmForExit;
   const EXIT_CONFIRM_DAYS = P.exitMa60ConfirmDays || 3;
-  // 停利第二層三選一之三：量能確認停利，跟MA60條件停利互斥（useMa60ConfirmForExit=true時，量能確認一律不生效）
-  const ENABLE_VOLUME_CONFIRM_FOR_EXIT = P.exitSecondLayerEnabled && P.exitVolumeConfirmEnabled && !P.useMa60ConfirmForExit;
+  // 2026-08：量能確認停利，改成獨立判斷，不再跟MA60條件停利互斥，兩者可以同時勾選、疊加
+  const ENABLE_VOLUME_CONFIRM_FOR_EXIT = P.exitSecondLayerEnabled && P.exitVolumeConfirmEnabled;
   const EXIT_VOLUME_MULT = P.exitVolumeMult || 1.2;
   // 「啟用現金防禦」這個主開關，決定整個現金水位回補機制要不要運作——純粹只看開關本身，
   // 不再用cashTargetPct=0這個數值來間接判斷「使用者想不想關閉監控」（那是啟用開關該做的事）；
   // cashTargetPct>=1依然保留，那是真正的數學邊界保護（100%以上無法換算等值金額），不是啟用/停用判斷
-  const ENABLE_LIQ_STOP = (P.useCashDefense !== false) && P.cashTargetPct < 1 && P.cashTargetPct >= 0 && P.liqRebuildEnabled !== false;
+  const ENABLE_LIQ_STOP = (P.useCashDefense !== false) && BT_RESERVE_PCT < 1 && BT_RESERVE_PCT >= 0 && P.liqRebuildEnabled !== false;
   const ENABLE_VOLUME_DEFENSE_FOR_BOMBARD = P.bombardVolumeDefenseEnabled;
   const ENABLE_AMPLITUDE_DEFENSE_FOR_BOMBARD = P.bombardAmplitudeDefenseEnabled;
   const AMPLITUDE_THRESHOLD_PCT = (P.bombardAmplitudeThresholdPct != null ? P.bombardAmplitudeThresholdPct : 0.05) * 100;
@@ -1541,7 +1545,7 @@ async function runBacktest(){
 
       // 現金佔比%防禦邊界：市值用昨天收盤價計算
       const marketValue = totalShares * closeY;
-      const requiredReserve = (P.cashTargetPct > 0 && P.cashTargetPct < 1) ? (P.cashTargetPct * marketValue / (1 - P.cashTargetPct)) : 0;
+      const requiredReserve = (BT_RESERVE_PCT > 0 && BT_RESERVE_PCT < 1) ? (BT_RESERVE_PCT * marketValue / (1 - BT_RESERVE_PCT)) : 0;
       const cashSufficient = cash >= requiredReserve;
       // 新機制：加碼要能觸發，MA20持平向上／MA60防禦邊界安全／流動現金充足，三項各自可以獨立選擇要不要當作必要條件；
       // 三項都勾選＝跟現行規則完全一樣，關閉某一項＝拿掉那一關的限制，讓使用者自己決定要用哪幾條防線
@@ -1600,7 +1604,7 @@ async function runBacktest(){
         const cashRatioForDca = totalWealthForDca > 0 ? (cash / totalWealthForDca) : 0;
         // cashTargetPct=0時，門檻本身就是0，這個百分比算出來會是Infinity沒有意義，改用null
         // （顯示端會處理成誠實的文字，不是假的0%）；「要不要監控」現在完全交給「啟用現金防禦」這個開關決定
-        const pctOfThresholdForDca = (P.cashTargetPct > 0) ? (cashRatioForDca / P.cashTargetPct * 100) : null;
+        const pctOfThresholdForDca = (BT_RESERVE_PCT > 0) ? (cashRatioForDca / BT_RESERVE_PCT * 100) : null;
         liqDcaShouldPause = true;
         if(!dcaDefensiveMode){ // 新機制已經接管時，不計入「暫停」統計，避免跟後面「新機制實際嘗試執行」互相矛盾
           dcaPausedCount++;
@@ -1610,16 +1614,16 @@ async function runBacktest(){
       if(ENABLE_LIQ_STOP && totalShares > 0){
         const marketValueNow = totalShares * closeT;
         const totalWealthNow = cash + marketValueNow;
-        const triggerCash = P.cashTargetPct * totalWealthNow;
+        const triggerCash = BT_RESERVE_PCT * totalWealthNow;
         if(cash < triggerCash){
-          const floorCash = LIQ_FLOOR_MULT * P.cashTargetPct * totalWealthNow; // 絕對底線：門檻×測試用倍數，不管趨勢都要救
+          const floorCash = LIQ_FLOOR_MULT * BT_RESERVE_PCT * totalWealthNow; // 絕對底線：門檻×測試用倍數，不管趨勢都要救
           const shouldForceSell = P.liqStopIgnoreTrend || priceDefenseOk || (cash < floorCash);
           // 診斷用：當下現金比例，是「最低流動現金佔比%」門檻的百分之多少（用來檢視是否集中在某個窄區間）
           const cashRatioNow = totalWealthNow > 0 ? (cash / totalWealthNow) : 0;
-          const pctOfThreshold = P.cashTargetPct > 0 ? (cashRatioNow / P.cashTargetPct * 100) : 0;
+          const pctOfThreshold = BT_RESERVE_PCT > 0 ? (cashRatioNow / BT_RESERVE_PCT * 100) : 0;
           if(shouldForceSell){
             const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
-            const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
+            const targetCash = Math.min(BT_RESERVE_PCT * rebuildMult, 1) * totalWealthNow;
             let sharesToSell = (targetCash - cash) / closeT;
             sharesToSell = Math.min(sharesToSell, totalShares);
             if(sharesToSell > 0){
@@ -1709,7 +1713,12 @@ async function runBacktest(){
         // 層數直接由使用者指定，不再用「層距%」跟總跌幅範圍間接推算
         const numLayers = (priceRange > 0) ? Math.max(1, P.bombardLadderNumLayers || 6) : 1;
 
-        const ladderBudget = cashAtDayStart * (1 - BT_RESERVE_PCT); // 這次模擬專屬的緩衝比例，來自回測卡片自己的輸入欄位，不是正式的部位試算設定
+        // 階梯預算改成跟現金水位回補同一套公式：應保留現金＝BT_RESERVE_PCT×股票市值/(1-BT_RESERVE_PCT)，
+        // 階梯預算＝現金－應保留現金（不夠就是0），不再各自獨立用「現金×(1-緩衝比例)」這種只看純現金、
+        // 不考慮股票市值的算法，避免兩個機制自相矛盾；股票市值用昨收算，符合「次一交易日預約委託」的設計原則
+        const marketValueForLadder = totalShares * closeY;
+        const requiredReserveForLadder = (BT_RESERVE_PCT > 0 && BT_RESERVE_PCT < 1) ? (BT_RESERVE_PCT * marketValueForLadder / (1 - BT_RESERVE_PCT)) : 0;
+        const ladderBudget = Math.max(0, cashAtDayStart - requiredReserveForLadder);
         // 動態計算最深/最淺層金額倍數：優先用「加碼參考均線」本身統計跌破深度分布，樣本不足時改用MA20，
         // 兩者都不足才回傳中性值1——不再需要使用者手動設定任何備援參數
         const primaryPeriodForRatio = (P.bombardReferenceMa === 'ma60') ? 60 : 20;
@@ -1759,11 +1768,10 @@ async function runBacktest(){
       // 停利觸發：限價賣單，掛用昨天資料算出的停利價位，今天最高價要觸及才成交，分批停利
       const avgCost = totalShares > 0 ? (totalCost / totalShares) : null;
       const ma20ExitPrice = ma20Y * P.exitMult;
-      const useMa60GateInstead = ENABLE_MA60UP_FOR_EXIT || ENABLE_PRICE_ABOVE_MA60_FOR_EXIT;
-      // 測試「不再需要平均成本」：勾選任一個MA60條件或量能確認時，停用平均成本這條防護，
-      // 改用對應機制把關，三選一互斥，才能公平比較各自的效果好不好
-      const costExitPrice = (P.exitSecondLayerEnabled && !useMa60GateInstead && !ENABLE_VOLUME_CONFIRM_FOR_EXIT && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
-      const thresholdY = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
+      // 1. 成本倍數停利：獨立開關(costExitEnabled)，只調整「門檻價位」本身，不影響MA60/量能這兩個
+      // 獨立確認的判斷邏輯——三者可以任意疊加，不再互斥
+      const costExitPrice = (P.exitSecondLayerEnabled && P.costExitEnabled && avgCost != null && avgCost > 0) ? avgCost * P.costExitMult : null;
+      const thresholdY = (costExitPrice != null && costExitPrice > ma20ExitPrice) ? costExitPrice : ma20ExitPrice;
       const ma60GateOk = (!ENABLE_MA60UP_FOR_EXIT || ma60upFlat) && (!ENABLE_PRICE_ABOVE_MA60_FOR_EXIT || priceAboveMa60);
       // 量能確認：昨天成交量要超過「昨天之前20天均量」的設定倍數，才算有放量、真正觸發；
       // 只看「昨天」這一天，不像MA60條件停利需要連續多天確認，沒有延遲問題
@@ -1778,16 +1786,17 @@ async function runBacktest(){
       } else if(ENABLE_VOLUME_CONFIRM_FOR_EXIT){
         volumeConfirmOk = false; // 資料不足20天時，保守視為未確認
       }
-      // 連續確認天數：股價超過停利門檻、且MA60條件成立，這兩件事要同一天都成立才算「確認的一天」，
-      // 累計連續天數，沒開這個功能時streak不用管、直接照原本的單日判斷
-      const confirmDayOk = closeY >= thresholdY && ma60GateOk;
+      // 連續確認天數：用純MA20門檻判斷逐日符合，不含成本倍數這一層——保持跟即時運算的設計一致
+      // （成本倍數停利只調整「今天最終要不要成交」的門檻，不混入「MA60條件停利」這個獨立機制
+      // 自己的逐日確認邏輯，兩者是各自獨立的判斷維度，不該互相污染）
+      const confirmDayOk = closeY >= ma20ExitPrice && ma60GateOk;
       if(confirmDayOk){ exitConfirmStreak++; } else { exitConfirmStreak = 0; }
       const exitConfirmOk = !ENABLE_EXIT_CONFIRM_DAYS || exitConfirmStreak >= EXIT_CONFIRM_DAYS;
       // 掛單即紀律：不管昨天收盤價有沒有先達到門檻，每天都應該用「昨天算出的限價」試著掛單，
       // 讓「今天最高價」去決定有沒有成交——不能額外要求「昨天收盤價也要先達標」才准許掛單，
       // 否則會錯過「股價當天噴出、直接觸及限價，但前一天收盤還沒達標」這種真實會發生的情況。
       // 「MA60條件停利」需要的「連續N天都要達標」這件事，已經由上面的exitConfirmOk（靠confirmDayOk
-      // 內部的closeY>=thresholdY逐日累計）負責把關，這裡不需要再重複要求「今天」這一次的closeY也達標
+      // 內部的closeY>=ma20ExitPrice逐日累計）負責把關，這裡不需要再重複要求「今天」這一次的收盤價也達標
       // 「啟用停利邏輯」關閉時，停利永遠不觸發——純粹只看開關本身，不摻雜任何計算用的數值
       const exitSignal = (P.useExit !== false) && totalShares > 0 && ma60GateOk && exitConfirmOk && volumeConfirmOk;
       // 每日預約停利明細：不管今天最高價有沒有真的觸及這個限價，只要訊號有觸發，就先記下這筆預約掛單
@@ -1817,11 +1826,11 @@ async function runBacktest(){
       // 動態佔比版本：不用固定金額（起始本金×門檻%），改用「當天實際現金佔比」跟門檻%比較——
       // 固定金額不會隨著總資產成長而放大，策略獲利越多，固定金額佔總資產的比例會被稀釋得越來越低，
       // 可能低估後期真正的現金水位風險；這個版本不受總資產規模影響，隨時都精確反映當下的真實佔比
-      if(P.cashTargetPct > 0 && P.cashTargetPct < 1){
+      if(BT_RESERVE_PCT > 0 && BT_RESERVE_PCT < 1){
         const marketValueToday = totalShares * closeT;
         const totalWealthToday = cash + marketValueToday;
         const cashRatioToday = totalWealthToday > 0 ? (cash / totalWealthToday) : 1;
-        if(cashRatioToday < P.cashTargetPct){
+        if(cashRatioToday < BT_RESERVE_PCT){
           lowCashRatioEvents.push({ date: today_.date, ratio: cashRatioToday, cash, totalWealth: totalWealthToday });
         }
       }
@@ -2099,10 +2108,17 @@ function sortedLog(assetKey){
 // 現金應保留金額 = 最低現金佔比% 換算出的等值金額，
 // 公式推導：cash / (cash + 市值) >= targetPct  =>  cash >= targetPct * 市值 / (1 - targetPct)
 // 市值 = 目前股數 × 今日收盤價，因此需要股數與今日收盤價才能計算
+// 2026-08：「最低流動現金佔比%」統一輔助函式——同時服務「現金水位回補」跟「階梯預算」這兩個機制，
+// 從個人部位試算的暫時輸入讀取，沒填時預設10%，避免在多個地方各自重複同一段讀取+邊界處理邏輯
+function getReservePct(assetKey){
+  const pctRaw = state.ladderReservePct[assetKey];
+  return (pctRaw != null) ? Math.max(0, Math.min(99, pctRaw)) / 100 : 0.10;
+}
+
 function getRequiredReserve(assetKey){
   const P = getAsset(assetKey).params;
   // 「啟用現金防禦」關閉時，這整個機制視為不適用，回傳null（跟「還沒輸入股數」等其他不適用情況
-  // 用同一種null語意）——不能只把cashTargetPct當作0去算，那樣會誤導「流動現金」LED等下游顯示，
+  // 用同一種null語意）——不能只把這個比例當作0去算，那樣會誤導「流動現金」LED等下游顯示，
   // 讓它們誤以為「門檻是0、現金理所當然充足」，而不是「這個機制根本沒開」
   if(P.useCashDefense === false) return null;
   const rows = sortedLog(assetKey);
@@ -2112,10 +2128,10 @@ function getRequiredReserve(assetKey){
   if(state.shares[assetKey] == null) return null; // 股數從未輸入（不是真的填0），無法算出有意義的應保留金額，不能假裝股數是0
   const shares = state.shares[assetKey] || 0;
   const marketValue = shares * today.close;
-  const pct = P.cashTargetPct;
-  // cashTargetPct=0不再被解讀成「使用者主動關閉監控」——那是「啟用現金防禦」這個開關該做的事，
-  // 不該用數值本身去猜測開不開；cashTargetPct=0時，誠實算出「應保留金額=0」（門檻真的是0）
-  if(pct < 0) return null; // 負數不合理，無法計算
+  // 2026-08：「最低流動現金佔比%」改成跟活存現金一樣的暫時輸入(state.ladderReservePct)，
+  // 不再是持久保存的cashTargetPct設定——這個比例同時服務「現金水位回補」跟「階梯預算」這兩個機制，
+  // 統一用「流動現金佔總部位(現金+股票市值)的最低比例」這一套公式，不再各自獨立計算，避免互相矛盾
+  const pct = getReservePct(assetKey);
   if(pct >= 1) return null; // 參數不合理（100%以上），無法換算等值金額，這是真正的數學限制，不是啟用/停用判斷
   return Math.round(pct * marketValue / (1 - pct));
 }
@@ -2182,7 +2198,7 @@ function computeForAsset(assetKey, ignorePersonalData){
   const priceAboveMa20Exit = today.close >= ma20ExitPrice;
 
   if(!P.exitSecondLayerEnabled){
-    // 沒有啟用第二層閥門，純粹只看MA20門檻，不疊加成本或MA60的任何額外確認；
+    // 沒有啟用第二層閥門，純粹只看MA20門檻，不疊加任何額外確認；
     // 掛單即紀律：只要有股票就永遠視為「有一張根據今天資料算出的停利限價單掛著」，
     // 不因為「今天收盤價還沒達標」而顯示未觸發——今天收盤價高低只決定限價本身多少，不決定要不要掛單。
     // exitPriceReached則是「訊號明細/訊號狀態」要用的客觀事實（股價是否真的已經到這個價位），
@@ -2191,73 +2207,84 @@ function computeForAsset(assetKey, ignorePersonalData){
     out.exitThresholdSource = 'ma20';
     out.exitPriceReached = priceAboveMa20Exit;
     out.exit = (state.shares[assetKey] || 0) > 0;
-  } else if(P.useMa60ConfirmForExit){
-    // 第二層（MA60條件停利）：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計；
-    // 天數上限＝這個標的設定的保留天數−1（多留1天用來比較「今天vs昨天」），確保永遠有足夠資料可以回溯確認
-    const keepDaysForConfirm = getAsset(assetKey).dataKeepDays || 5;
-    const confirmDays = Math.min(Math.max(1, P.exitMa60ConfirmDays || 3), keepDaysForConfirm - 1);
-    out.exitMa60ConfirmDaysUsed = confirmDays;
-    out.exitThreshold = ma20ExitPrice;
-    out.exitThresholdSource = 'ma20';
-    if(n < confirmDays + 1){
-      // 即時判定最多只保留5天資料，天數上限鎖定在4天，避免設定超過工具能力範圍卻沒有任何提示；
-      // 資料不足時，保守視為「尚未確認」，不觸發，並標記原因讓訊號明細可以誠實顯示
-      out.exitMa60ConfirmInsufficientData = true;
-      out.exitPriceReached = false;
-      out.exit = false;
-    } else {
-      let confirmOk = true;
-      for(let i = n-confirmDays; i <= n-1; i++){
-        const dayRow = rows[i];
-        const prevRow = rows[i-1];
-        const dayPriceAboveMa20Exit = dayRow.close >= (dayRow.ma20 * P.exitMult); // 每一天都要重新檢查第一層
-        const dayPriceAboveMa60 = (dayRow.ma60 != null) ? (dayRow.close >= dayRow.ma60) : false;
-        const dayMa60upFlat = (dayRow.ma60 != null && prevRow.ma60 != null) ? (dayRow.ma60 >= prevRow.ma60) : false;
-        if(!(dayPriceAboveMa20Exit && dayPriceAboveMa60 && dayMa60upFlat)){ confirmOk = false; break; }
-      }
-      out.exitMa60ConfirmOk = confirmOk;
-      // 這個機制本身「連續N天都要符合」就是唯一的判斷依據，不是「用今天最高價檢查有沒有觸及某個限價」這種模式，
-      // 所以exitPriceReached（客觀事實）跟exit（是否該掛單）在這裡是同一件事，不受「掛單即紀律」影響
-      out.exitPriceReached = confirmOk;
-      out.exit = confirmOk;
-    }
-  } else if(P.exitVolumeConfirmEnabled){
-    // 第二層（量能確認停利）：股價達到MA20門檻，還要「昨天有放量」才觸發；
-    // 只看「昨天」這一天，不像MA60條件停利需要連續多天，沒有延遲問題；
-    // 需要「昨天之前20天」的成交量資料，資料不足20天時保守視為未確認
-    out.exitThreshold = ma20ExitPrice;
-    out.exitThresholdSource = 'ma20';
-    if(n < 22){
-      out.exitVolumeConfirmInsufficientData = true;
-      out.exitPriceReached = false;
-      out.exit = false;
-    } else {
-      let volSum = 0, volCount = 0;
-      for(let i = n-21; i < n-1; i++){
-        if(rows[i].volume != null){ volSum += rows[i].volume; volCount++; }
-      }
-      const volAvg20 = volCount > 0 ? (volSum / volCount) : null;
-      const yestRow = rows[n-2];
-      const volumeConfirmed = (volAvg20 != null && volAvg20 > 0 && yestRow.volume != null) ? (yestRow.volume > volAvg20 * (P.exitVolumeMult || 1.2)) : false;
-      out.exitVolumeConfirmOk = volumeConfirmed;
-      // 客觀事實（給訊號明細）：股價要真的達標、且量能也真的確認，兩者都要
-      out.exitPriceReached = priceAboveMa20Exit && volumeConfirmed;
-      // 掛單即紀律：不再要求「今天收盤價」也要達標，只要有股票、且量能確認條件符合，
-      // 就視為有一張根據今天資料算出的停利限價單掛著
-      out.exit = (state.shares[assetKey] || 0) > 0 && volumeConfirmed;
-    }
   } else {
-    // 第二層（成本倍數停利）：平均成本×成本乘數，只有在這個門檻比MA20門檻更高時，才會多要求這一關；
-    // 沒有輸入過平均成本時，這一層視為自動通過，退回純粹只看第一層(MA20)
-    const costExitPrice = avgCost > 0 ? avgCost * P.costExitMult : null;
-    out.exitThreshold = (costExitPrice != null) ? Math.max(ma20ExitPrice, costExitPrice) : ma20ExitPrice;
-    out.exitThresholdSource = (costExitPrice != null && costExitPrice > ma20ExitPrice) ? 'cost' : 'ma20';
-    // 客觀事實（給訊號明細）：簡化成永遠只看MA20門檻，不受平均成本影響——平均成本對停利門檻的
-    // 實際效果，改成只顯示在「個人部位試算」下方的摘要裡，訊號明細/訊號狀態維持完全獨立於個人資料
-    out.exitPriceReached = priceAboveMa20Exit;
-    // 掛單即紀律：限價本身已經取MA20門檻與成本門檻兩者較高者，不用再額外要求「今天收盤價」要達標，
-    // 只要有股票，就視為有一張以這個限價掛著的停利單
-    out.exit = (state.shares[assetKey] || 0) > 0;
+    // 2026-08：成本倍數停利／MA60條件停利／量能確認停利，改成可以任意疊加（AND邏輯），
+    // 不再是三選一互斥——每一項各自獨立判斷，全部勾選的條件都要同時成立才觸發
+    // 1. 成本倍數停利：只調整「門檻價位」本身，不是獨立的「確認關卡」；
+    //    因為依賴平均成本（個人資料），只影響out.exit/exitThreshold，不影響exitPriceReached
+    //    （訊號明細/訊號狀態要維持完全獨立於個人資料這個原則）
+    let exitThreshold = ma20ExitPrice;
+    let exitThresholdSource = 'ma20';
+    if(P.costExitEnabled){
+      const costExitPrice = avgCost > 0 ? avgCost * P.costExitMult : null;
+      if(costExitPrice != null && costExitPrice > ma20ExitPrice){
+        exitThreshold = costExitPrice;
+        exitThresholdSource = 'cost';
+      }
+    }
+    out.exitThreshold = exitThreshold;
+    out.exitThresholdSource = exitThresholdSource;
+    const priceAboveFinalThreshold = today.close >= exitThreshold;
+
+    // 2. MA60條件停利：連續N天，「MA20門檻」與「MA60條件」要同時成立，缺一天就重新累計；
+    //    不依賴個人資料，純市場判斷，同時影響exitPriceReached跟out.exit
+    let ma60LayerOk = true; // 沒勾選這項時，視為自動通過，不影響AND的結果
+    let ma60InsufficientData = false;
+    if(P.useMa60ConfirmForExit){
+      const keepDaysForConfirm = getAsset(assetKey).dataKeepDays || 5;
+      const confirmDays = Math.min(Math.max(1, P.exitMa60ConfirmDays || 3), keepDaysForConfirm - 1);
+      out.exitMa60ConfirmDaysUsed = confirmDays;
+      if(n < confirmDays + 1){
+        // 即時判定最多只保留5天資料，天數上限鎖定在4天，避免設定超過工具能力範圍卻沒有任何提示；
+        // 資料不足時，保守視為「尚未確認」，不觸發，並標記原因讓訊號明細可以誠實顯示
+        out.exitMa60ConfirmInsufficientData = true;
+        ma60InsufficientData = true;
+      } else {
+        let confirmOk = true;
+        for(let i = n-confirmDays; i <= n-1; i++){
+          const dayRow = rows[i];
+          const prevRow = rows[i-1];
+          const dayPriceAboveMa20Exit = dayRow.close >= (dayRow.ma20 * P.exitMult); // 每一天都要重新檢查第一層
+          const dayPriceAboveMa60 = (dayRow.ma60 != null) ? (dayRow.close >= dayRow.ma60) : false;
+          const dayMa60upFlat = (dayRow.ma60 != null && prevRow.ma60 != null) ? (dayRow.ma60 >= prevRow.ma60) : false;
+          if(!(dayPriceAboveMa20Exit && dayPriceAboveMa60 && dayMa60upFlat)){ confirmOk = false; break; }
+        }
+        out.exitMa60ConfirmOk = confirmOk;
+        ma60LayerOk = confirmOk;
+      }
+    }
+
+    // 3. 量能確認停利：股價達到MA20門檻，還要「昨天有放量」才觸發；
+    //    只看「昨天」這一天，不像MA60條件停利需要連續多天，沒有延遲問題；
+    //    不依賴個人資料，純市場判斷，同時影響exitPriceReached跟out.exit
+    let volumeLayerOk = true; // 沒勾選這項時，視為自動通過，不影響AND的結果
+    let volumeInsufficientData = false;
+    if(P.exitVolumeConfirmEnabled){
+      if(n < 22){
+        // 需要「昨天之前20天」的成交量資料，資料不足20天時保守視為未確認
+        out.exitVolumeConfirmInsufficientData = true;
+        volumeInsufficientData = true;
+      } else {
+        let volSum = 0, volCount = 0;
+        for(let i = n-21; i < n-1; i++){
+          if(rows[i].volume != null){ volSum += rows[i].volume; volCount++; }
+        }
+        const volAvg20 = volCount > 0 ? (volSum / volCount) : null;
+        const yestRow = rows[n-2];
+        const volumeConfirmed = (volAvg20 != null && volAvg20 > 0 && yestRow.volume != null) ? (yestRow.volume > volAvg20 * (P.exitVolumeMult || 1.2)) : false;
+        out.exitVolumeConfirmOk = volumeConfirmed;
+        volumeLayerOk = volumeConfirmed;
+      }
+    }
+
+    const anyInsufficientData = ma60InsufficientData || volumeInsufficientData;
+    // exitPriceReached（訊號明細/訊號狀態用，維持完全獨立於個人資料）：純MA20門檻，
+    // AND 有勾選的MA60條件，AND 有勾選的量能確認——不含成本倍數停利這一層（依賴平均成本）
+    out.exitPriceReached = anyInsufficientData ? false : (priceAboveMa20Exit && ma60LayerOk && volumeLayerOk);
+    // out.exit（委託清單用，真實下單判斷）：完整反映所有疊加條件，包含成本倍數停利對門檻的調整；
+    // 掛單即紀律：門檻已經算出來了（exitThreshold已含cost），不用再額外要求「今天收盤價」也要達標，
+    // 只要有股票、且MA60/量能這些額外確認都通過，就視為有一張以這個限價掛著的停利單
+    out.exit = (state.shares[assetKey] || 0) > 0 && !anyInsufficientData && ma60LayerOk && volumeLayerOk;
   }
 
   // 「啟用停利邏輯」這個主開關，決定要不要跑這個機制——純粹只看開關本身；用「最終覆蓋」的方式套用，
@@ -2282,6 +2309,32 @@ function computeForAsset(assetKey, ignorePersonalData){
   const curShares = state.shares[assetKey] || 0;
   out.liquidityStopTriggered = false;
   out.dcaPaused = false;
+  // 「啟用現金防禦」這個主開關，決定整個現金水位回補機制要不要運作——純粹只看開關本身，
+  // 不依賴任何市場資料，可以提前到這裡計算，讓下面的「絕對底線」提前判斷能用到它
+  out.cashDefenseEnabled = P.useCashDefense !== false;
+  // 「絕對底線」提前判斷：策略書「不管趨勢多差，都不再暫緩，直接強制賣股救急」，這條規則本身
+  // 只跟現金/股票市值/門檻%有關，完全不需要MA60趨勢資料，所以即使只有1天資料，也能先行判斷；
+  // 只有「現金不足但還沒跌破絕對底線」這個中間地帶，才需要MA60趨勢（下面n>=2之後）去決定要不要賣
+  if(out.cashDefenseEnabled && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
+    const marketValuePre = curShares * today.close;
+    const totalWealthPre = cur + marketValuePre;
+    const reservePctPre = getReservePct(assetKey);
+    const floorMultPre = (P.liqFloorMult != null && P.liqFloorMult >= 0 && P.liqFloorMult <= 1) ? P.liqFloorMult : 0.95;
+    const floorCashPre = floorMultPre * reservePctPre * totalWealthPre;
+    if(cur < floorCashPre){
+      const rebuildMultPre = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
+      const targetCashPre = Math.min(reservePctPre * rebuildMultPre, 1) * totalWealthPre;
+      let sharesToSellPre = (targetCashPre - cur) / today.close;
+      sharesToSellPre = Math.min(sharesToSellPre, curShares);
+      const sharesToSellPreRounded = Math.round(sharesToSellPre);
+      if(sharesToSellPreRounded > 0){
+        out.liquidityStopTriggered = true;
+        out.liquidityStopShares = sharesToSellPreRounded;
+        out.liquidityStopPrice = today.close;
+        out.liquidityStopByFloor = true; // 這裡走的就是絕對底線這條路徑，一定是true
+      }
+    }
+  }
   // 「啟用定期定額」這個主開關，跟原本「金額/股數設成0代表沒在跑」這個既有判斷，合併成一個統一欄位，
   // 讓LED/訊號明細/委託清單/回測引擎都能引用同一個判斷依據，不用各自重複寫P.useDca && asset.dcaValue>0
   // 「啟用定期定額」這個主開關，決定要不要跑這個機制——只看開關本身，不看dcaValue這個數值。
@@ -2319,20 +2372,20 @@ function computeForAsset(assetKey, ignorePersonalData){
 
   // 現金水位回補：依MA60防禦邊界（priceDefenseOk）決定用哪種方式處理現金不足——
   // MA60顯示安全（多頭/強勢）：建議賣股兌現，補回到「門檻×補回倍數」，順勢賣在相對高點；
-  // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股，只有現金比例已經跌破「絕對底線（門檻×絕對底線倍數）」才不管趨勢建議強制賣股救急；
+  // MA60顯示不安全（空頭/弱勢）：優先建議暫緩定期定額、不逆勢賣股；
   // out.cashSufficient已經處理過「沒填現金時視為null（不適用）」，這裡不用再額外檢查有沒有填過現金；
-  // 「啟用現金防禦」這個主開關，決定整個現金水位回補機制要不要運作——純粹只看開關本身
-  out.cashDefenseEnabled = P.useCashDefense !== false;
-  if(out.cashDefenseEnabled && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false){
+  // 「絕對底線」的判斷已經在上面(n<2之前)提前處理過了，這裡用!out.liquidityStopTriggered避免重複判斷
+  if(out.cashDefenseEnabled && P.liqRebuildEnabled !== false && today.close != null && curShares > 0 && out.cashSufficient === false && !out.liquidityStopTriggered){
     const marketValueNow = curShares * today.close;
     const totalWealthNow = cur + marketValueNow;
-    const triggerCash = P.cashTargetPct * totalWealthNow;
+    const reservePctNow = getReservePct(assetKey);
+    const triggerCash = reservePctNow * totalWealthNow;
     const floorMult = (P.liqFloorMult != null && P.liqFloorMult >= 0 && P.liqFloorMult <= 1) ? P.liqFloorMult : 0.95;
-    const floorCash = floorMult * P.cashTargetPct * totalWealthNow;
+    const floorCash = floorMult * reservePctNow * totalWealthNow;
     const shouldSuggestSell = out.priceDefenseOk || (cur < floorCash);
     if(shouldSuggestSell){
       const rebuildMult = (P.liqRebuildMult && P.liqRebuildMult >= 1) ? P.liqRebuildMult : 1;
-      const targetCash = Math.min(P.cashTargetPct * rebuildMult, 1) * totalWealthNow;
+      const targetCash = Math.min(reservePctNow * rebuildMult, 1) * totalWealthNow;
       let sharesToSell = (targetCash - cur) / today.close;
       sharesToSell = Math.min(sharesToSell, curShares);
       // 用「四捨五入後的股數」判斷要不要真的觸發，不是用未四捨五入的原始小數——
@@ -2437,11 +2490,12 @@ function computeForAsset(assetKey, ignorePersonalData){
     }
     // 現金來源：直接用「目前活存現金」這個部位資料——「今天可用現金（階梯試算用）」這個獨立欄位已經
     // 合併進「目前活存現金」，不再需要分開輸入兩次同一個數字；階梯試算跟一般計算，統一共用同一個現金來源；
-    // 緩衝比例%現在也改成跟活存現金同樣的暫時輸入，是同一個公式的搭檔，沒填時預設10%
+    // 2026-08：階梯預算改成直接複用getRequiredReserve算出來的「應保留現金」（跟「現金水位回補」同一套公式），
+    // 不再各自獨立用「現金×(1-緩衝比例)」這種只看純現金、不考慮股票市值的算法——避免動用到階梯建議的
+    // 預算後，反而立刻低於現金水位回補的安全門檻，兩個機制自相矛盾
     const cashNowLive = state.cash[assetKey] || 0;
-    const reservePctRawLive = state.ladderReservePct[assetKey];
-    const reservePctLive = (reservePctRawLive != null) ? Math.max(0, Math.min(99, reservePctRawLive)) / 100 : 0.10;
-    const ladderBudgetLive = cashNowLive * (1 - reservePctLive);
+    const requiredReserveLive = getRequiredReserve(assetKey);
+    const ladderBudgetLive = requiredReserveLive != null ? Math.max(0, cashNowLive - requiredReserveLive) : cashNowLive;
     const levels = [];
     let carryOverBudgetLive = 0; // 上一層因為無條件捨去股數而剩下的零頭，累加給下一層用，不讓預算憑空消失
     let cumPriceLive = topPriceLive;
@@ -2814,18 +2868,19 @@ function renderOrders(){
   // 且「有引用部位資料」時才顯示——這個機制天生就是在問「你自己的現金佔比夠不夠」，
   // 沒有部位資料，這個問題本身沒有意義，整行不顯示；不再用cashTargetPct的數值來判斷開不開
   if(d.showPersonalAmounts && d.cashDefenseEnabled && P.liqRebuildEnabled !== false){
-    let liqCondTxt = `流動現金佔比低於總資產的${P.cashTargetPct*100}%時執行`;
+    const reservePctForLiq = getReservePct(key);
+    let liqCondTxt = `流動現金佔比低於總資產的${(reservePctForLiq*100).toFixed(0)}%時執行`;
     let liqDetail = '';
     if(d.liquidityStopTriggered && d.today){
       liqDetail = `賣出 ${fmtRaw(d.liquidityStopShares,0)} 股 ＠${fmtRaw(d.liquidityStopPrice, tickDec)}（今日市價）`;
     }
-    let liqTip = `觸發門檻：流動現金佔比＜最低流動現金佔比${P.cashTargetPct*100}%`;
+    let liqTip = `觸發門檻：流動現金佔比＜最低流動現金佔比${(reservePctForLiq*100).toFixed(0)}%`;
     if(d.today && state.shares[key] != null){
       const marketValueNow = (state.shares[key]||0) * d.today.close;
       const cashNowForTip = state.cash[key] || 0;
       const totalWealthNow = cashNowForTip + marketValueNow;
-      const targetCashForTip = Math.min(P.cashTargetPct * P.liqRebuildMult, 1) * totalWealthNow;
-      liqTip += `<br><br>回補目標：min(最低比例${P.cashTargetPct*100}%×回補倍數${P.liqRebuildMult}, 100%)×總財富${fmtRaw(totalWealthNow,0)}＝${fmtRaw(targetCashForTip,0)}`;
+      const targetCashForTip = Math.min(reservePctForLiq * P.liqRebuildMult, 1) * totalWealthNow;
+      liqTip += `<br><br>回補目標：min(最低比例${(reservePctForLiq*100).toFixed(0)}%×回補倍數${P.liqRebuildMult}, 100%)×總財富${fmtRaw(totalWealthNow,0)}＝${fmtRaw(targetCashForTip,0)}`;
       liqTip += `<br>賣出股數＝(回補目標－目前現金${fmtRaw(cashNowForTip,0)})÷今日收盤價，四捨五入`;
     }
     liqTip += `<br><br>MA60安全（順勢）就直接賣；MA60弱勢但還沒跌破絕對底線（最低比例×${P.liqFloorMult}）先暫緩，改暫停定期定額；跌破絕對底線則不管趨勢強制賣。`;
@@ -2839,7 +2894,7 @@ function renderOrders(){
   const sharesNowVal = (state.shares[key] != null) ? state.shares[key] : '';
   const avgCostNowVal = (state.avgCost[key] != null) ? state.avgCost[key] : '';
   const ladderReservePctVal = (state.ladderReservePct[key] != null) ? state.ladderReservePct[key] : '';
-  // 「個人部位試算」：把暫時輸入欄位（現金/股數/平均成本、階梯緩衝比例%）
+  // 「個人部位試算」：把暫時輸入欄位（現金/股數/平均成本、最低流動現金佔比%）
   // 統一收進一個可展開/收合的區塊，跟這些欄位本身「輸入用途」的性質一致，預設收合以減少視覺干擾；
   // 沿用「進階設定」分類收合已經在用的CSS class(.param-cat-mini/.param-cat-group)跟收合機制，不用另外寫新樣式
   const posTrialCollapsed = state.posTrialCollapsed !== false; // 預設收合(undefined視為true)
@@ -2851,7 +2906,7 @@ function renderOrders(){
       <div class="field"><label>活存現金</label><input type="number" step="1" id="inCashNow" placeholder="0" value="${cashNowVal}"></div>
       <div class="field"><label>股數</label><input type="number" step="1" id="inSharesNow" placeholder="0" value="${sharesNowVal}"></div>
       <div class="field"><label>平均成本</label><input type="number" step="0.01" id="inAvgCostNow" placeholder="0.00" value="${avgCostNowVal}"></div>
-      <div class="field"><label>階梯緩衝比例%</label><input type="number" step="1" min="0" max="99" id="inLadderReservePctNow" placeholder="10" value="${ladderReservePctVal}"></div>
+      <div class="field"><label>最低流動現金佔比%</label><input type="number" step="1" min="0" max="99" id="inLadderReservePctNow" placeholder="10" value="${ladderReservePctVal}"></div>
     </div>`;
   // 個人部位試算摘要：訊號狀態/訊號明細已經完全獨立於個人資料，這裡改成「就近顯示」——填完上面
   // 4個欄位，馬上就能在這裡看到實際影響，不用往上滑到LED面板或訊號明細去找
@@ -2869,20 +2924,41 @@ function renderOrders(){
       const cashColor = cashOk ? 'var(--teal)' : 'var(--red)';
       summaryLines.push(`<span style="color:${cashColor};">流動現金：應保留${reqReserve.toLocaleString()} ${asset.currency}，目前${cashOk?'充足':'不足'}</span>`);
     }
-    // 現金水位回補
-    const liqDisabled = !d.cashDefenseEnabled || asset.params.liqRebuildEnabled === false;
+    // 現金水位回補：判斷開關要不要顯示這一行，直接看使用者的真實設定(asset.params.useCashDefense)，
+    // 不能用d.cashDefenseEnabled——那是computeForAsset算出來的衍生欄位，資料筆數不足時函式會提早
+    // return、根本沒算到這裡，導致這個欄位是undefined，如果誤用!d.cashDefenseEnabled去判斷，
+    // 會把「真的關閉」跟「資料不足、還沒算」誤判成同一種情況，讓這一行憑空消失
+    const liqDisabled = asset.params.useCashDefense === false || asset.params.liqRebuildEnabled === false;
     if(!liqDisabled){
+      // 「現金夠不夠」（cashSufficient）跟「該採取什麼動作」（賣股還是暫緩）是兩個不同層次的判斷，
+      // 分別需要不同的最低資料量，不能混在同一個「資料不足」訊息裡：
+      // - 現金夠不夠：只需要今天的收盤價+股數+現金，1天資料就能算出來
+      // - 該賣股還是暫緩：需要判斷MA60趨勢(ma60upFlat)，這需要今天+昨天，至少2天資料
       if(state.shares[key] == null){
         summaryLines.push(`<span style="color:var(--text-faint);">現金水位回補：（尚未輸入股數）</span>`);
+      } else if(d.cashSufficient == null){
+        summaryLines.push(`<span style="color:var(--text-faint);">現金水位回補：尚無足夠資料判斷</span>`);
+      } else if(d.cashSufficient === true){
+        summaryLines.push(`<span style="color:var(--text-faint);">現金水位回補：今天不會觸發</span>`);
       } else if(d.liquidityStopTriggered){
+        // 這裡要排在!d.ready2之前檢查——「跌破絕對底線」這個判斷本身只需要1天資料就能確定，
+        // 不需要等MA60趨勢；如果只因為沒有2天資料，就把這個已經確定的結果攔下來，反而是錯的
         const tickDecSum = getTickDecimals(getEffectiveTick(asset, d.liquidityStopPrice));
-        summaryLines.push(`<span style="color:var(--amber);">現金水位回補：今天會觸發，賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDecSum)}</span>`);
+        summaryLines.push(`<span style="color:var(--amber);">現金水位回補：應賣出${fmtRaw(d.liquidityStopShares,0)}股＠${fmtRaw(d.liquidityStopPrice, tickDecSum)}</span>`);
+      } else if(!d.ready2){
+        // 現金確實不足（這件事1天資料就能確定），也已經確定沒有跌破絕對底線（上面已經檢查過），
+        // 但還不知道該不該順勢賣股（這需要MA60趨勢，2天資料）
+        summaryLines.push(`<span style="color:var(--text-faint);">現金水位回補：現金不足，但MA60趨勢資料還不夠，暫時無法判斷該賣股還是暫緩</span>`);
+      } else if(d.dcaPaused){
+        // 現金不足，且MA60顯示弱勢、還沒跌破絕對底線——策略選擇不逆勢賣股，改成優先暫緩定期定額，
+        // 不能只顯示「今天不會觸發」，那樣會讓人誤以為系統什麼都沒做，其實已經做了另一個決定
+        summaryLines.push(`<span style="color:var(--amber);">現金水位回補：現金不足但MA60顯示弱勢，暫不逆勢賣股，改為建議暫緩定期定額</span>`);
       } else {
         summaryLines.push(`<span style="color:var(--text-faint);">現金水位回補：今天不會觸發</span>`);
       }
     }
     // 平均成本對停利門檻的效果
-    if(state.avgCost[key] != null && d.exitEnabled && asset.params.exitSecondLayerEnabled && !asset.params.useMa60ConfirmForExit && !asset.params.exitVolumeConfirmEnabled){
+    if(state.avgCost[key] != null && d.exitEnabled && asset.params.exitSecondLayerEnabled && asset.params.costExitEnabled){
       const tickDecExit = d.exitThreshold != null ? getTickDecimals(getEffectiveTick(asset, d.exitThreshold)) : 2;
       if(d.exitThresholdSource === 'cost'){
         summaryLines.push(`<span style="color:var(--teal);">平均成本效果：目前停利門檻＠${fmtRaw(d.exitThreshold, tickDecExit)}，由平均成本墊高（高於純MA20門檻）</span>`);
@@ -3310,7 +3386,7 @@ function renderAll(){
     const supportsFetch = assetSupportsAutoFetch(asset);
     if(updateHint){
       updateHint.textContent = supportsFetch
-        ? `（從證交所/Twelve Data抓取最新收盤資料，只保留最近${asset.dataKeepDays||5}天）`
+        ? `（更新的收盤資訊只保留最近${asset.dataKeepDays||5}天）`
         : '（「更新」無法自動抓取收盤價與均線，請至「進階」手動輸入）';
     }
     const updateBtn = document.getElementById('btnUpdateDaily');
@@ -3481,27 +3557,32 @@ function renderAssetManageInner(){
         <input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}">
       </div>`);
     }
-    // 成本倍數停利／MA60條件停利：改用radio二選一呈現，不用預設的checkbox/number渲染方式，
-    // 讓使用者一眼就看出這是互斥選項，不用去理解「勾選A會自動改變B」這種隱藏邏輯
-    if(pkey === 'costExitMult'){
+    // 成本倍數停利／MA60條件停利／量能確認停利：改用checkbox呈現，三者可以任意勾選、疊加，
+    // 全部勾選的條件都要同時成立才觸發（AND邏輯），不再是radio互斥二選一/三選一
+    if(pkey === 'costExitEnabled'){
+      const costExitEnabledVal = !!(a.params || DEFAULT_PARAMS).costExitEnabled;
+      const costMultVal = (a.params || DEFAULT_PARAMS).costExitMult != null ? (a.params || DEFAULT_PARAMS).costExitMult : 1.10;
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="cost" ${(!useMa60ConfirmForExitVal && !exitVolumeConfirmEnabledVal)?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
+          <input type="checkbox" data-aidx="${idx}" data-pfield="costExitEnabled" data-ptype="bool" ${costExitEnabledVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${val}" ${(useMa60ConfirmForExitVal || exitVolumeConfirmEnabledVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:70px;">
+          <input type="number" step="any" data-aidx="${idx}" data-pfield="costExitMult" data-ptype="mult" value="${costMultVal}" ${(!costExitEnabledVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:70px;">
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
       </div>`);
       return;
+    }
+    if(pkey === 'costExitMult'){
+      return; // 已經併入上面「成本倍數停利」那一行一起輸出，這裡不重複渲染
     }
     if(pkey === 'useMa60ConfirmForExit'){
       const confirmDaysVal = (a.params || DEFAULT_PARAMS).exitMa60ConfirmDays || 3;
       const confirmDaysMax = (a.dataKeepDays || 5) - 1;
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="ma60" ${useMa60ConfirmForExitVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
+          <input type="checkbox" data-aidx="${idx}" data-pfield="useMa60ConfirmForExit" data-ptype="bool" ${useMa60ConfirmForExitVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="1" min="1" max="${confirmDaysMax}" data-aidx="${idx}" data-pfield="exitMa60ConfirmDays" data-ptype="int" value="${confirmDaysVal}" ${!useMa60ConfirmForExitVal?'disabled':''} style="width:50px;">
+          <input type="number" step="1" min="1" max="${confirmDaysMax}" data-aidx="${idx}" data-pfield="exitMa60ConfirmDays" data-ptype="int" value="${confirmDaysVal}" ${(!useMa60ConfirmForExitVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:50px;">
           <span style="font-size:12px; color:var(--text-dim);">天</span>
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
@@ -3515,9 +3596,9 @@ function renderAssetManageInner(){
       const volMultVal = (a.params || DEFAULT_PARAMS).exitVolumeMult || 1.2;
       catGroups[cat].push(`<div class="param-row-mini">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-          <input type="radio" name="exitMechanism_${idx}" data-aidx="${idx}" data-exitradio="volume" ${exitVolumeConfirmEnabledVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
+          <input type="checkbox" data-aidx="${idx}" data-pfield="exitVolumeConfirmEnabled" data-ptype="bool" ${exitVolumeConfirmEnabledVal?'checked':''} ${!exitSecondLayerEnabledVal?'disabled':''} style="width:auto;">
           <span class="plabel" style="margin:0; flex:1;">${label}</span>
-          <input type="number" step="0.1" min="1" data-aidx="${idx}" data-pfield="exitVolumeMult" data-ptype="mult" value="${volMultVal}" ${!exitVolumeConfirmEnabledVal?'disabled':''} style="width:60px;">
+          <input type="number" step="0.1" min="1" data-aidx="${idx}" data-pfield="exitVolumeMult" data-ptype="mult" value="${volMultVal}" ${(!exitVolumeConfirmEnabledVal || !exitSecondLayerEnabledVal)?'disabled':''} style="width:60px;">
           <span style="font-size:12px; color:var(--text-dim);">倍</span>
         </label>
         <div class="pdesc" style="margin-top:4px;">${desc || ''}</div>
@@ -3536,8 +3617,6 @@ function renderAssetManageInner(){
     const hasEnteredCash = state.cash[a.key] != null;
     const isCashDependentField = (pkey === 'bombardRequireCash');
     const disabledAttr = (isMarginSubField && !marginDefenseEnabledVal) ? 'disabled'
-      : (pkey === 'costExitMult' && useMa60ConfirmForExitVal) ? 'disabled'
-      : (pkey === 'exitMa60ConfirmDays' && !useMa60ConfirmForExitVal) ? 'disabled'
       : (isMa60ObservationField && !bombardRequirePriceAboveMa60Val) ? 'disabled'
       : (isCashDependentField && !hasEnteredCash) ? 'disabled'
       // 「啟用定期定額」關閉時，「啟用動能邏輯」不只跟著取消勾選，也要disabled，讓使用者沒辦法在
@@ -3580,7 +3659,7 @@ function renderAssetManageInner(){
 
   const catTipMap = {
     '加碼邏輯': '加碼要不要有機會觸發，先看股價達加碼價位這個基本門檻，接著看MA20、MA60、股價≥MA60、流動現金這四項，各自可以獨立勾選要不要當作必要條件（下面四個「加碼要求...」開關），全部勾選就等同過去的完整判斷；不管有沒有勾選哪幾項，融資維持率安全、已輸入部位資料，這兩項都會強制檢查。所有「有勾選要求」的條件都成立，才會往下計算第一層、第二層各自的限價與股數，這部分不受節流影響。如果有另外啟用加碼節流，才會再檢查這一層的限價，是否比上一次真的成交的價位再便宜到一定幅度；第一層、第二層各自獨立判斷，其中一層被擋下不會連累另一層。沒通過節流的那一層，會顯示這一輪拉回要跌到多少才會放行。節流門檻比對用的「最近一次加碼價格」，是你自己在「資料管理」回報的，只要股價脫離加碼區間，系統會自動清空這筆記憶，不用手動維護。',
-    '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是兩種模式共用的基本門檻。第二關二選一：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者；「MA60條件停利」則不看平均成本，改成額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立才觸發。不管哪種模式，這個判斷都完全不受防禦邊界影響（跟加碼觸發不一樣）。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
+    '停利邏輯': '先算出MA20停利價（今天MA20×停利價位倍數），這是基本門檻。啟用第二層閥門後，「成本倍數停利」「MA60條件停利」「量能確認停利」這3項可以任意勾選、疊加，全部勾選的條件都要同時成立才觸發：「成本倍數停利」再算一條持股成本停利價（平均持股成本×成本倍數，只有你輸入過持股成本才會算），跟MA20停利價取兩者較高者，當作最終門檻；「MA60條件停利」額外要求「MA60持平或向上」且「股價站穩MA60」連續N天都成立；「量能確認停利」額外要求昨天成交量放大。訊號明細/訊號狀態只反映MA20門檻與MA60/量能這兩項不依賴個人資料的確認，成本倍數停利對門檻的影響改成只顯示在「個人部位試算」摘要裡。觸發後，還要看有沒有真的輸入過部位資料、股數是不是大於0，才是真正可以執行的觸發；沒輸入過資料，或股數是0，都只是條件成立但無法執行。真正觸發時，只會賣掉目前股數的「停利觸發分批比例%」，不是一次全部出清，剩下的部位繼續留倉，等股價再次觸及停利價位時再分批處理一次。',
     '現金防禦': '第一層：應保留金額＝最低流動現金佔比%×股票市值÷(1−這個比例)，除以(1−比例)是為了補償「現金補進去之後，總部位分母也會變大」的稀釋效應，確保補到這個金額後，比例真的精確等於設定值；設為0代表主動關閉整個現金水位監控（現金水位回補、防禦邊界的現金因子全部停用），不是門檻變0這麼單純。第二層：現金不夠時，MA60安全就建議賣股救回、順勢賣在相對高點；MA60弱勢但還沒跌破絕對底線，優先建議暫停定期定額、不逆勢賣股；MA60弱勢且已經跌破絕對底線（最低比例×絕對底線倍數），不管趨勢多差還是強制建議賣股救急，避免現金水位無限期探底。第三層：真的要賣的話，賣到「最低比例×補回倍數」，不是賣到剛好貼著門檻，多留一點緩衝空間，避免定期定額隔天一買現金又立刻被打回門檻、反覆觸發。',
     '融資防禦': '第一層：先判斷適不適用——沒有股票代號的標的（例如ADR）不適用，因為融資本來就是台股才有的機制；沒有勾選啟用融資防禦也不適用；有勾選但沒輸入融資買進均價，視為目前無融資部位，等你真的輸入才開始判斷。第二層：算維持率——融資金額（每股基準）＝融資買進均價×融資成數%，維持率＝今天收盤價÷融資金額，融資追繳價＝融資金額×融資維持率警戒門檻%。第三層：安不安全——今天收盤價大於融資追繳價就是安全。第四層：這個結果不是獨立運作的，融資維持率不安全時，防禦邊界會視同關閉，加碼觸發跟動能觸發都會被暫停，這代表融資防禦會直接牽動加碼條件那邊的判斷，兩者是連動的。',
   };
@@ -3648,29 +3727,6 @@ function renderAssetManageInner(){
       renderAssetManage();
     });
   });
-  // 成本倍數停利／MA60條件停利／量能確認停利：radio三選一，選中哪一個就決定
-  // useMa60ConfirmForExit跟exitVolumeConfirmEnabled這兩個布林值（互斥，只有一個能是true）；
-  // 選MA60/量能確認時同時自動把成本倍數歸零（等同關閉平均成本機制）；
-  // 選成本倍數停利時只解除disabled，不自動幫使用者猜一個「應該要改回多少」的乘數
-  wrap.querySelectorAll('input[data-exitradio]').forEach(el=>{
-    el.addEventListener('change', async (e)=>{
-      const i = parseInt(e.target.dataset.aidx, 10);
-      if(!state.assets[i].params) state.assets[i].params = {...DEFAULT_PARAMS};
-      const choice = e.target.dataset.exitradio; // 'cost' | 'ma60' | 'volume'
-      state.assets[i].params.useMa60ConfirmForExit = (choice === 'ma60');
-      state.assets[i].params.exitVolumeConfirmEnabled = (choice === 'volume');
-      // 選MA60/量能確認時，成本倍數這個參數在運算邏輯裡完全不會被讀取，disable只是告訴使用者
-      // 「目前不是用這個機制」，但保留原本輸入的數值不動，之後切回「成本倍數停利」時不會遺失設定
-      const costMultInput = wrap.querySelector('input[data-pfield="costExitMult"]');
-      const confirmDaysInput = wrap.querySelector('input[data-pfield="exitMa60ConfirmDays"]');
-      const volumeMultInput = wrap.querySelector('input[data-pfield="exitVolumeMult"]');
-      if(costMultInput) costMultInput.disabled = (choice !== 'cost');
-      if(confirmDaysInput) confirmDaysInput.disabled = (choice !== 'ma60');
-      if(volumeMultInput) volumeMultInput.disabled = (choice !== 'volume');
-      await storageSet(KEY_ASSETS, state.assets);
-      renderAll();
-    });
-  });
   // 加碼參考均線：MA20/MA60二選一
   wrap.querySelectorAll('input[data-refmaradio]').forEach(el=>{
     el.addEventListener('change', async (e)=>{
@@ -3728,6 +3784,38 @@ function renderAssetManageInner(){
             state.assets[i].params.useMomentum = false;
             if(momentumInput) momentumInput.checked = false;
           }
+        }
+        // 「啟用第二層閥門」開關本身，決定下面「成本倍數停利／MA60條件停利／量能確認停利」這3個
+        // checkbox能不能點——renderAll()不會重新渲染「進階設定」這個彈出視窗，所以這裡要手動更新，
+        // 不然勾選後，checkbox的disabled屬性會停留在渲染當下的舊狀態，永遠點不動
+        if(pfield === 'exitSecondLayerEnabled'){
+          const costCheckbox = wrap.querySelector('input[data-pfield="costExitEnabled"]');
+          const ma60Checkbox = wrap.querySelector('input[data-pfield="useMa60ConfirmForExit"]');
+          const volumeCheckbox = wrap.querySelector('input[data-pfield="exitVolumeConfirmEnabled"]');
+          const costMultInput = wrap.querySelector('input[data-pfield="costExitMult"]');
+          const confirmDaysInput = wrap.querySelector('input[data-pfield="exitMa60ConfirmDays"]');
+          const volumeMultInput = wrap.querySelector('input[data-pfield="exitVolumeMult"]');
+          if(costCheckbox) costCheckbox.disabled = !v;
+          if(ma60Checkbox) ma60Checkbox.disabled = !v;
+          if(volumeCheckbox) volumeCheckbox.disabled = !v;
+          // 每個數字輸入框的disabled狀態，要同時看「主開關」跟「自己那個checkbox」兩個條件
+          if(costMultInput) costMultInput.disabled = !v || !state.assets[i].params.costExitEnabled;
+          if(confirmDaysInput) confirmDaysInput.disabled = !v || !state.assets[i].params.useMa60ConfirmForExit;
+          if(volumeMultInput) volumeMultInput.disabled = !v || !state.assets[i].params.exitVolumeConfirmEnabled;
+        }
+        // 這3個checkbox（成本倍數停利／MA60條件停利／量能確認停利）各自獨立，勾選/取消時，
+        // 只需要連動更新自己旁邊那個數字輸入框的disabled狀態，不影響彼此——不再是radio互斥關係
+        if(pfield === 'costExitEnabled'){
+          const costMultInput = wrap.querySelector('input[data-pfield="costExitMult"]');
+          if(costMultInput) costMultInput.disabled = !v;
+        }
+        if(pfield === 'useMa60ConfirmForExit'){
+          const confirmDaysInput = wrap.querySelector('input[data-pfield="exitMa60ConfirmDays"]');
+          if(confirmDaysInput) confirmDaysInput.disabled = !v;
+        }
+        if(pfield === 'exitVolumeConfirmEnabled'){
+          const volumeMultInput = wrap.querySelector('input[data-pfield="exitVolumeMult"]');
+          if(volumeMultInput) volumeMultInput.disabled = !v;
         }
         await storageSet(KEY_ASSETS, state.assets);
         renderAll();
