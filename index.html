@@ -595,7 +595,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-07 06:40</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-07 16:35</div>
   </div>
   </div>
 
@@ -656,11 +656,9 @@ const DEFAULT_PARAMS = {
   tolerance: 0.010,
   bombardReferenceMa: 'ma20',  // 2026-07 新增：加碼參考均線，'ma20'(現行預設)或'ma60'，決定touch判斷跟限價計算要用哪一條均線當基準
   bombardLadderFloorPct: 5,  // 2026-08新增：階梯最底層價位，直接指定「離昨收要拉多深」的百分比(1-10)，
-  // 底層＝昨收×(1-這個值/100)，取代原本MA60+振幅倍數+成交量調整這套間接推算的方式——確定性的規則，
-  // 不需要任何統計估計；上限10%剛好對齊跌停板，天生不可能超過物理邊界，不需要額外的跌停板保護判斷
-  bombardLadderNumLayers: 6,  // 2026-08新增：階梯直接由使用者指定要分幾層，不再用「層距%」間接推算——
-  // 底層邏輯根據這個層數，用geoRatio幾何級數分配價位跟股數；6層是一個折衷的預設值，介於稍早
-  // 討論過的「5-8層」合理範圍內
+  // 底層＝頂層價×(1-這個值/100)，使用者直接輸入，不做任何自動計算或建議
+  bombardLadderNumLayers: 5,  // 2026-08新增：階梯直接由使用者指定要分幾層，不再用「層距%」間接推算——
+  // 底層邏輯根據這個層數，用geoRatio幾何級數分配價位跟股數，範圍1-5
   // 2026-08：「階梯現金緩衝比例%」改成跟活存現金一樣的暫時輸入(state.ladderReservePct)，不再是持久保存的
   // 設定參數——因為兩者是同一個公式(ladderBudget=現金×(1-緩衝比例))裡的搭檔，活存現金本來就不存檔
   // 2026-08：「階梯底線歷史振幅上限」這個功能已移除——用台積電16年資料回測驗證過，這個限制反而讓
@@ -730,8 +728,8 @@ const PARAM_META = [
   ['bombardRequireCash','加碼要求流動現金充足','bool','加碼邏輯','預設是關閉。開啟後，加碼要多檢查流動現金是否充足'],
   ['bombardReferenceMa','加碼參考均線','maref','加碼邏輯','預設值是MA20。決定加碼要拉回到哪一條均線才觸發，選MA60則要拉回更深才觸發'],
   ['tolerance','股價達加碼價位的區間容忍度%','pct','加碼邏輯','預設值是1%。股價要多接近參考均線，才算達到加碼價位'],
-  ['bombardLadderFloorPct','階梯最底層價位%（離昨收多深）','int','加碼邏輯','預設值是5%，範圍1-10。每次更新收盤資訊會自動依最近波動重新計算'],
-  ['bombardLadderNumLayers','階梯總層數','int','加碼邏輯','預設值是6層。直接指定階梯要分成幾層，越多分批越精細'],
+  ['bombardLadderNumLayers','階梯總層數','int','加碼邏輯','預設值是5，範圍1-5'],
+  ['bombardLadderFloorPct','階梯最底層價位%（離昨收多深）','int','加碼邏輯','預設值是5%，範圍1-10'],
   ['ma5RecoveryForDefenseEnabled','MA5未轉弱時允許跌破MA60照樣加碼/動能（目前僅支援回測模擬）','bool','加碼邏輯','預設是關閉。啟用後，MA5仍健康時，股價短暫跌破MA60不影響防禦邊界'],
   ['bombardVolumeDefenseEnabled','加碼多一層量能異常防禦邊界（目前僅支援回測模擬）','bool','加碼邏輯','預設是關閉。啟用後，爆量下跌時暫停加碼'],
   ['bombardAmplitudeDefenseEnabled','加碼多一層日振幅異常防禦邊界（目前僅支援回測模擬）','bool','加碼邏輯','預設是關閉。啟用後，振幅異常且下跌時暫停加碼'],
@@ -1700,18 +1698,17 @@ async function runBacktest(){
       // 差不多價格的問題，不需要額外節流）
       if(bombard){
         // 固定層距階梯模式：最上層用「加碼參考均線」當基準，最下層用「昨收×(1-使用者指定的底層%)」這個
-        // 確定性規則直接算出，不再需要MA60/振幅/成交量這套間接推算；層數由使用者直接指定；
+        // 確定性規則直接算出；層數由使用者直接指定；
         // 用「當天可用現金的90%」依幾何級數分配到每一層，保留10%當緩衝；公比不是人為指定的固定數字，
         // 而是用「最深層跟最淺層的金額倍數」(動態計算的extremeRatio) 反推：r = K^(1/(N-1))，
         // 這樣不管當天算出來的層數是多少，最深/最淺的金額倍數都維持一致，只是中間分配的密度不同
-        const topPrice = Math.min(closeY, bombardRefMaY);
+        const numLayers = Math.max(1, Math.min(5, P.bombardLadderNumLayers != null ? P.bombardLadderNumLayers : 5));
         const floorPct = Math.max(1, Math.min(10, P.bombardLadderFloorPct != null ? P.bombardLadderFloorPct : 5));
-        const floorPriceRaw = closeY * (1 - floorPct / 100);
+        const topPrice = Math.min(closeY, bombardRefMaY);
+        const floorPriceRaw = topPrice * (1 - floorPct / 100);
         let floorPrice = applyTick(floorPriceRaw, getEffectiveTick(asset, floorPriceRaw), 'ceil');
         if(floorPrice > topPrice) floorPrice = topPrice; // 底線不該高於頂層，異常情況下夾住避免階梯方向顛倒
         const priceRange = topPrice - floorPrice;
-        // 層數直接由使用者指定，不再用「層距%」跟總跌幅範圍間接推算
-        const numLayers = (priceRange > 0) ? Math.max(1, P.bombardLadderNumLayers || 6) : 1;
 
         // 階梯預算改成跟現金水位回補同一套公式：應保留現金＝BT_RESERVE_PCT×股票市值/(1-BT_RESERVE_PCT)，
         // 階梯預算＝現金－應保留現金（不夠就是0），不再各自獨立用「現金×(1-緩衝比例)」這種只看純現金、
@@ -2115,52 +2112,6 @@ function getReservePct(assetKey){
   return (pctRaw != null) ? Math.max(0, Math.min(99, pctRaw)) / 100 : 0.10;
 }
 
-// 用「最近N天，每天相對前一天收盤價的絕對值漲跌幅%」取平均，當作「階梯最底層價位%」的建議值——
-// 用絕對值是因為，不管是大漲還是大跌，都代表「最近波動變大」，底層深度理應跟著加深，不能讓
-// 「上漲」被誤解成「不用往下拉深」；用N天平均（不是只看最新一天），是為了避免單一天的異常波動
-// （例如一次性的財報意外）過度放大或縮小接下來好一陣子的階梯深度，比只看一天更穩定
-function getSuggestedLadderFloorPct(assetKey, days = 3){
-  const rows = sortedLog(assetKey);
-  const n = rows.length;
-  if(n < days + 1) return null; // 樣本不足，不給建議值，維持使用者原本設定或預設值
-  let sum = 0, count = 0;
-  for(let i = n - days; i < n; i++){
-    const today = rows[i], yest = rows[i-1];
-    if(today.close == null || yest.close == null || yest.close <= 0) continue;
-    sum += Math.abs((today.close - yest.close) / yest.close) * 100;
-    count++;
-  }
-  if(count === 0) return null;
-  const avgPct = sum / count;
-  return Math.round(Math.max(1, Math.min(10, avgPct)));
-}
-
-// 用「最近N天的平均單日振幅%」(最高-最低)/收盤，當作「每一層價差至少要多大才有意義」的參考單位——
-// 如果股票本身日常波動就大，代表股價一天內自然就會穿越不小的範圍，不需要人為分太多層；
-// 反之，波動小的股票，即使底層深度不深，每一層的價差相對於「正常波動」來說依然有意義，可以分多一點層；
-// 層數＝底層深度% ÷ 平均振幅%，代表「每層價差至少要涵蓋完整一天的正常振幅」才算真的有意義的區隔，
-// 夾在2-10層之間，避免太少（分批失去意義）或太多（層數超過階梯本身的物理深度，變成無意義的重複）；
-// 這個公式本身沒有考慮「跳動單位」這個實際限制——低振幅時，公式可能建議出遠超過股價跳動單位
-// 所能容納的層數，導致「設定值」跟「實際顯示層數」(因為相鄰層價差太小被自動合併)出現落差，
-// 所以這裡只算出「候選值」，真正的建議值，要靠呼叫端拿候選值去跑一次真實計算、驗證合併後的實際層數
-function getSuggestedLadderNumLayersCandidate(assetKey, floorPct, days = 3){
-  const rows = sortedLog(assetKey);
-  const n = rows.length;
-  if(n < days) return null; // 樣本不足，不給建議值，維持使用者原本設定或預設值
-  let sum = 0, count = 0;
-  for(let i = n - days; i < n; i++){
-    const r = rows[i];
-    if(r.high == null || r.low == null || r.close == null || r.close <= 0) continue;
-    sum += (r.high - r.low) / r.close * 100;
-    count++;
-  }
-  if(count === 0 || floorPct == null) return null;
-  const avgAmplitudePct = sum / count;
-  if(avgAmplitudePct <= 0) return null;
-  const layers = floorPct / avgAmplitudePct;
-  return Math.max(2, Math.min(10, Math.round(layers)));
-}
-
 function getRequiredReserve(assetKey){
   const P = getAsset(assetKey).params;
   // 「啟用現金防禦」關閉時，這整個機制視為不適用，回傳null（跟「還沒輸入股數」等其他不適用情況
@@ -2492,20 +2443,18 @@ function computeForAsset(assetKey, ignorePersonalData){
   out.bombardPriceReached = out.touch && out.bombard;
 
   // 固定層距階梯模式：即時運算版本，邏輯跟回測引擎完全一致，用「今天」的資料算出「明天」該掛的完整階梯；
-  // 底層價位不再用MA60+振幅倍數+成交量調整這套間接推算的方式，改成使用者直接指定「離昨收要拉多深」
-  // 的百分比(1-10%)——確定性的規則，不再需要任何統計推算或估計；這個範圍上限剛好對齊跌停板(10%)，
-  // 代表使用者能設定的最深值，天生就不可能超過物理邊界，不再需要額外的跌停板保護判斷
+  // 底層價位跟總層數，都是使用者直接指定的策略參數，不做任何自動計算或建議——確定性的規則，
+  // 不需要任何統計估計；底層價位以「頂層價」為基準往下拉深，不是收盤價，兩者在參考均線
+  // 明顯偏離收盤價時會有落差，用頂層價當基準，才能讓「底層深度%」精確對應到「頂層到底層」的實際距離
   out.ladderLevels = null;
   if(out.bombard && today.close != null && bombardRefMaToday != null){
-    const topPriceLive = Math.min(today.close, bombardRefMaToday);
+    const numLayersLive = Math.max(1, Math.min(5, P.bombardLadderNumLayers != null ? P.bombardLadderNumLayers : 5));
     const floorPctLive = Math.max(1, Math.min(10, P.bombardLadderFloorPct != null ? P.bombardLadderFloorPct : 5));
-    const floorPriceRawLive = today.close * (1 - floorPctLive / 100);
+    const topPriceLive = Math.min(today.close, bombardRefMaToday);
+    const floorPriceRawLive = topPriceLive * (1 - floorPctLive / 100);
     let floorPriceLive = applyTick(floorPriceRawLive, getEffectiveTick(asset, floorPriceRawLive), 'ceil');
     if(floorPriceLive > topPriceLive) floorPriceLive = topPriceLive;
     const priceRangeLive = topPriceLive - floorPriceLive;
-    // 層數直接由使用者指定，不再用「層距%」跟總跌幅範圍間接推算——priceRange=0(頂層=底層)時，
-    // 只有1層有意義，其餘情況照使用者設定的層數走
-    const numLayersLive = (priceRangeLive > 0) ? Math.max(1, P.bombardLadderNumLayers || 6) : 1;
 
     // extremeRatio動態計算：優先用「加碼參考均線」本身統計跌破深度分布，樣本不足時改用MA20，
     // 兩者都不足才回傳中性值1——不再需要使用者手動設定任何備援參數
@@ -2878,7 +2827,7 @@ function renderOrders(){
       const levelsTxt = hasAnyShares
         ? d.ladderLevels.levels.map(l => l.shares > 0 ? `第${l.layer}層買入 ${fmtRaw(l.shares,0)} 股 ＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}` : `第${l.layer}層金額太小＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}`).join('<br>')
         : d.ladderLevels.levels.map(l => `第${l.layer}層買入 ＠${fmtRaw(l.price,tickDec)} ${getRealtimeTouchNote(key,l.price,true)}`).join('<br>');
-      const ladderTip = `底線＝昨收×(1-${P.bombardLadderFloorPct != null ? P.bombardLadderFloorPct : 5}%)；最深/最淺層金額倍數${d.ladderLevels.extremeRatio.toFixed(2)}倍（優先用加碼參考均線動態計算，樣本不足時改用MA20，兩者都不足則為中性值1）${hasAnyShares ? '' : '；尚未輸入現金，只顯示限價，請在下方「今天可用現金」試算欄位輸入金額'}`;
+      const ladderTip = `底線＝頂層價×(1-${P.bombardLadderFloorPct != null ? P.bombardLadderFloorPct : 5}%)；最深/最淺層金額倍數${d.ladderLevels.extremeRatio.toFixed(2)}倍（優先用加碼參考均線動態計算，樣本不足時改用MA20，兩者都不足則為中性值1）${hasAnyShares ? '' : '；尚未輸入現金，只顯示限價，請在下方「今天可用現金」試算欄位輸入金額'}`;
       html += orderRow(!!d.bombard, `加碼`, `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, levelsTxt, ladderTip);
     } else {
       html += orderRow(false, '加碼', `股價小於${bombardRefMaLabel}，依當天拉回深度分層承接`, '—');
@@ -4487,37 +4436,10 @@ document.getElementById('btnUpdateDaily').addEventListener('click', async ()=>{
 
   const fetchResult = await fetchLast5DaysCore();
 
-  // 每次成功更新收盤資訊後，自動用「最近3天絕對值漲跌幅平均」重新計算「階梯最底層價位%」，
-  // 讓底層深度自動反映最近的市場波動狀況，不用手動維護這個數字
-  let floorPctNote = '';
-  if(fetchResult.ok){
-    const key = state.activeTab;
-    const asset = getAsset(key);
-    const suggested = getSuggestedLadderFloorPct(key, 3);
-    if(suggested != null){
-      if(!asset.params) asset.params = {...DEFAULT_PARAMS};
-      asset.params.bombardLadderFloorPct = suggested;
-      floorPctNote = `｜階梯最底層價位%已自動更新為${suggested}%（最近3天平均波動）`;
-      // 底層深度算出來後，緊接著用它跟「最近3天平均單日振幅」，先算出一個候選層數；
-      // 這個候選公式本身沒考慮跳動單位這個實際限制，所以要先暫時套用候選值、跑一次真實的階梯計算，
-      // 拿「合併重複價位後」真正算出來的層數當最終建議值，確保設定值永遠等於實際會顯示的層數，
-      // 不會出現「設定8層、卻只顯示5層」這種落差
-      const candidateLayers = getSuggestedLadderNumLayersCandidate(key, suggested, 3);
-      if(candidateLayers != null){
-        asset.params.bombardLadderNumLayers = candidateLayers;
-        const verifyResult = computeForAsset(key);
-        const actualLayers = (verifyResult.ladderLevels && verifyResult.ladderLevels.numLayers > 0) ? verifyResult.ladderLevels.numLayers : candidateLayers;
-        asset.params.bombardLadderNumLayers = actualLayers;
-        floorPctNote += `｜階梯總層數已自動更新為${actualLayers}層（依底層深度與近期振幅，已排除跳動單位過密的層）`;
-      }
-      await storageSet(KEY_ASSETS, state.assets);
-    }
-  }
-
   renderAll();
   const color = fetchResult.ok ? 'var(--teal)' : 'var(--amber)';
   const icon = fetchResult.ok ? '✅' : '・';
-  statusEl.innerHTML = `<span style="color:${color}">${icon} ${fetchResult.msg}${floorPctNote}</span>`;
+  statusEl.innerHTML = `<span style="color:${color}">${icon} ${fetchResult.msg}</span>`;
   btn.textContent = originalText;
   btn.disabled = false;
   // 這一長串日期清單顯示3秒後自動消失，避免一直佔用畫面空間；用版本標記(dataset.msgVersion)
