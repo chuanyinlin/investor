@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0D1620">
-<title>Invest OS v1.3</title>
+<title>Invest OS v1.4</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%230D1620'/%3E%3Crect x='14' y='14' width='92' height='92' rx='16' fill='none' stroke='%2321D4B4' stroke-width='3'/%3E%3Ctext x='60' y='58' font-family='monospace' font-size='26' fill='%2321D4B4' text-anchor='middle' font-weight='700'%3EINVEST%3C/text%3E%3Ctext x='60' y='86' font-family='monospace' font-size='16' fill='%23FFB020' text-anchor='middle' letter-spacing='2'%3EOS%3C/text%3E%3C/svg%3E">
 <style>
   :root{
@@ -408,7 +408,7 @@
       <div class="topbar">
         <div class="brand">
           <div class="wordmark">Invest<span>OS</span></div>
-          <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.3</div>
+          <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.4</div>
         </div>
         <div class="icon-btn" id="btnParams" title="設定">⚙︎</div>
       </div>
@@ -457,7 +457,7 @@
     <button class="btn btn-neutral btn-sm" id="btnQueryRealtime" style="width:100%;">查詢</button>
     <div class="footer-note" id="realtimeQuoteStatus" style="text-align:left; margin-top:6px; max-height:307px; overflow-y:auto;"></div>
 
-    <!-- 部位管理(現金/股數/平均成本/最近一次加碼價格日期)已搬到「委託清單」最下面，
+    <!-- 部位管理(現金/股數/平均成本)已搬到「委託清單」最下面，
          改成暫時輸入、不存檔，每次都要重新輸入；「貼上訊號明細快速填入」已完整移除；不再放在這裡 -->
 
     <!-- 上傳歷史紀錄已搬到「收盤資訊」卡片，跟「更新」「下載」放在一起 -->
@@ -594,7 +594,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-07 17:30</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-08 12:00</div>
   </div>
   </div>
 
@@ -644,8 +644,7 @@ const KEY_SHARES = k => 'tsmos:shares:' + k;
 const KEY_MARGIN_COST = k => 'tsmos:margincost:' + k;
 const KEY_MARGIN_SHARES = k => 'tsmos:marginshares:' + k;
 const KEY_AVG_COST = k => 'tsmos:avgcost:' + k;
-const KEY_LAST_BOMBARD_PRICE = k => 'tsmos:lastbombardprice:' + k;
-const KEY_LAST_BOMBARD_DATE = k => 'tsmos:lastbombarddate:' + k;
+const KEY_EXIT_FILLED_DATE = k => 'tsmos:exitfilleddate:' + k;  // v1.4 循環性暫停「停利成交日」，比照融資部位資料：持久化＋隨設定檔匯出匯入
 
 const DEFAULT_PARAMS = {
   defenseRequireMa60Trend: true,  // 2026-08 新增：防禦邊界（動能觸發/現金水位回補/定期定額暫停共用的核心判斷）
@@ -687,6 +686,11 @@ const DEFAULT_PARAMS = {
   exitMa60ConfirmDays: 3,
   dcaDefensiveLimitEnabled: false,  // 2026-07 新機制：MA60向下且股價<MA60時，定期定額/定股改用「前一天最低價」限價單，預設關閉，需使用者主動勾選才啟用
   dcaPauseOnWeakDefense: false,  // 2026-07 從回測「測試特定機制」轉正：防禦邊界不安全時暫停定期定額（不管現金水位夠不夠），比現行「現金不足才暫停」更寬鬆；預設關閉
+  dcaPauseAfterExitEnabled: false,  // 2026-08 v1.4 新概念「循環性暫停」：停利單實際成交後，每日定期定額/定股暫停並
+  // 「累積」，與本金一起在MA20接回時投入——修正「剛在1.08賣出、隔天又在同價位區買回」的引擎內部矛盾。
+  // 跟 dcaPauseOnWeakDefense（防禦性暫停，由市場訊號觸發）本質不同：這個由使用者自己的交易狀態觸發，
+  // 且資金不是不投入而是改道到接回單。狀態由部位管理的「停利成交日」暫時輸入控制：填日期＝進入累積模式，
+  // 清空＝接回已成交、恢復每日投入。回測驗證(TSM 2010-2026)：期末財富+9.6%，兩個年代同向(+1.3%/+11.5%)
   bombardRequireMa20: false,  // 2026-07 更新：依「驗證紀錄」情境③實測結果，設為預設值——關閉MA20要求，讓加碼在MA20層級的溫和拉回時依然有機會觸發，MA60這道更大格局的防線已經足夠把關
   bombardRequireMa60: true,  // 加碼是否要求MA60持平或向上（只看趨勢方向）；預設開啟（維持現行規則）
   bombardRequirePriceAboveMa60: true,  // 2026-07 新增：加碼是否要求股價站上MA60（只看股價位置，跟上面的MA60趨勢方向是獨立的兩件事）；預設開啟（維持現行規則，等同原本「MA60持平向上 且 站穩MA60」合併判斷）
@@ -715,6 +719,7 @@ const PARAM_META = [
   ['useDca','啟用定期定額','bool','定期定額','預設是開啟。關閉後，定期定額（或定期定股）完全停用，不再出現在委託清單／訊號明細，依附於它的動能加碼也一併停用'],
   ['dcaDefensiveLimitEnabled','啟用定期定額防禦性限價單（目前僅支援回測模擬）','bool','定期定額','預設是關閉。啟用後，MA60向下且股價低於MA60時，改掛「前一天最低價」的限價單，不用市價買'],
   ['dcaPauseOnWeakDefense','防禦邊界不安全時暫停定期定額（目前僅支援回測模擬）','bool','定期定額','預設是關閉。啟用後，防禦邊界不安全就暫停定期定額，不管現金水位夠不夠'],
+  ['dcaPauseAfterExitEnabled','停利成交後暫停定期定額至接回（累積併單）','bool','定期定額','預設是關閉。啟用後，在部位管理輸入「停利成交日」即進入累積模式：每日定期定額/定股暫停並累積，建議與本金一起在MA20接回時投入；接回成交後清空日期即恢復每日投入'],
   ['useMomentum','啟用動能邏輯','bool','動能邏輯','預設是開啟。關閉後，動能永遠不會觸發，不再出現在委託清單／訊號明細'],
   ['momentumRequireMa60Trend','動能要求MA60持平或向上','bool','動能邏輯','預設是開啟。關閉後，動能不再檢查MA60的趨勢方向'],
   ['momentumRequireCash','動能要求流動現金充足','bool','動能邏輯','預設是開啟。關閉後，動能不再檢查流動現金是否充足'],
@@ -755,9 +760,21 @@ const PARAM_META = [
   ['marginCallRatio','融資維持率警戒門檻%','pct','融資防禦','融資維持率跌破這個百分比視為危險，會關閉防禦邊界、暫停動能／加碼，提醒你注意融資部位風險'],
 ];
 
+// 匯出設定檔時，params 依 PARAM_META 的分類與順序分組（跟進階設定畫面的設定流程一致），
+// 讓使用者直接打開 JSON 檔就能對照設定畫面閱讀；PARAM_META 是唯一的分類來源，不另外維護對照表，
+// 新增參數時只要照常加進 PARAM_META，匯出分組自動跟上
+function groupParamsByCategory(params){
+  const grouped = {};
+  PARAM_META.forEach(([pk,,,cat])=>{
+    if(!(cat in grouped)) grouped[cat] = {};
+    if(params && pk in params) grouped[cat][pk] = params[pk];
+  });
+  return grouped;
+}
+
 // 每個投資標的都是獨立設定：計價幣別、定期定額/股模式、剛性參數、價格取整單位、以及一整組獨立的策略參數
 const DEFAULT_ASSETS = [
-  { key:'spot', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, stockNo:'2330', params:{...DEFAULT_PARAMS} },
+  { key:'asset1', name:'台積電 2330', currency:'台幣',  priceDecimals:2, roundTick:5, dcaMode:'amount', dcaValue:10000, boostMult:1.0, stockNo:'2330', params:{...DEFAULT_PARAMS} },
   { key:'asset2',  name:'TSM ADR',    currency:'美元', priceDecimals:2, roundTick:0, dcaMode:'shares', dcaValue:1,     boostMult:1.0, stockNo:'', params:{...DEFAULT_PARAMS} },
 ];
 
@@ -2019,12 +2036,16 @@ let state = {
   marginCost: {},
   marginShares: {},
   avgCost: {},
+  exitFilledDate: {},  // 2026-08 v1.4：「停利成交日」(per-asset)，dcaPauseAfterExitEnabled 開啟時，
+  // 填入日期＝定期定額進入「暫停累積」模式；清空＝接回成交、恢復。累積模式會持續數週(歷史最長63個交易日)，
+  // 性質比照融資買進均價（耐久事實，非即時試算輸入）：持久化到localStorage、隨設定檔匯出匯入，
+  // 讓每日Daily Check與跨裝置使用不需重複輸入
   ladderReservePct: {},  // 2026-08 新增：階梯現金緩衝比例%，改成跟活存現金一樣的暫時輸入（因為兩者是同一個
   // 公式(ladderBudget=現金×(1-緩衝比例))裡的一對搭檔，活存現金本來就不存檔，緩衝比例也一併改成不存檔），
   // 每次重新整理頁面都要重新輸入，不像其他階梯策略參數(層數/底層%)持久保存
   realtimeQuote: {},  // 2026-08 新增：盤中即時查詢結果暫存，純參考用途，不影響任何計算，只用來讓
   // 委託清單/訊號狀態/訊號明細「對照顯示」今天的即時價格有沒有觸及既有的限價（不重新計算限價本身）
-  activeTab: 'spot',
+  activeTab: 'asset1',
   histCollapsed: true,
   inputCollapsed: true,
   ledCollapsed: true,
@@ -2769,7 +2790,27 @@ function renderOrders(){
   // 尚未輸入過個人持有部位資料時，這裡的試算依然照樣顯示（金額/股數本身不受現金餘額影響），
   // 但額外註記「尚無現金資料，無法確認是否會被暫停」，避免讓人誤以為現金狀態已經確認正常
   let dcaDetail, dcaCond;
-  if(d.dcaPaused){
+  // 2026-08 v1.4 循環性暫停：停利成交日已輸入時，定期定額進入「暫停累積」模式——
+  // 每日資金不投入、逐日累積，建議與本金一起掛前日MA20觸價單在接回時投入；
+  // 判斷需要 showPersonalAmounts（停利成交日屬個人交易資料，總開關關閉時整個機制退場）
+  const cyclePauseActive = P.dcaPauseAfterExitEnabled && d.showPersonalAmounts && state.exitFilledDate[key];
+  let cycleAccumDays = 0, cycleRebuyLimit = null;
+  if(cyclePauseActive){
+    const logRows = sortedLog(key);
+    cycleAccumDays = logRows.filter(rr => rr.date > state.exitFilledDate[key]).length;
+    if(d.today && d.today.ma20 != null){
+      // 接回限價＝前日MA20（明日下單視角＝今日MA20），進位比照加碼頂層：無條件進位到tick，略增成交機會
+      cycleRebuyLimit = applyTick(d.today.ma20, getEffectiveTick(asset, d.today.ma20), 'ceil');
+    }
+  }
+  if(cyclePauseActive){
+    const accumTxt = (asset.dcaMode === 'amount')
+      ? `${(cycleAccumDays * asset.dcaValue).toLocaleString()} ${asset.currency}`
+      : `${cycleAccumDays * asset.dcaValue} 股`;
+    const limitTxt = (cycleRebuyLimit != null) ? fmtRaw(cycleRebuyLimit, tickDec) : '—（MA20資料不足）';
+    dcaCond = '停利後暫停累積中';
+    dcaDetail = `已累積 ${accumTxt}（${cycleAccumDays} 個交易日）｜接回時與本金一起 買入 ＠${limitTxt}（觸價）`;
+  } else if(d.dcaPaused){
     dcaDetail = `<span style="color:var(--amber); font-weight:700;">暫停</span>`;
     dcaCond = '不執行';
   } else {
@@ -2791,8 +2832,11 @@ function renderOrders(){
   const dcaTip = asset.dcaMode === 'amount'
     ? `買入金額為標的設定的固定值＝${asset.dcaValue.toLocaleString()} ${asset.currency}，不受現金水位影響，永遠用市價執行。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`
     : `買入股數為標的設定的固定值＝${asset.dcaValue} 股，不受現金水位影響；股價已知時掛前一天收盤價，否則用市價。<br><br>是否暫停：只有「MA60未持平或向上（或股價&lt;MA60）」且「流動現金不足」兩者同時發生才會暫停；只符合其中一項不會暫停。`;
+  const dcaTipFinal = cyclePauseActive
+    ? `停利成交後暫停累積模式：自「停利成交日」次一交易日起，每日定期定額/定股不投入、逐日累積；接回時與本金合併為同一張限價單（前日MA20，無條件進位到tick）一次投入。接回成交後請清空「停利成交日」，即恢復每日投入。<br><br>設計理由：剛在MA20×停利乘數賣出後，等待期價格仍在循環頂部區，每日照買等於固定買在每輪最高點；累積改道到MA20接回，把這段資金的買進價從頂部搬到底部（回測：期末財富+9.6%）。`
+    : dcaTip;
   if(d.dcaEnabled){
-    html += orderRow(!d.dcaPaused, dcaLabel, dcaCond, dcaDetail, dcaTip);
+    html += orderRow(!d.dcaPaused && !cyclePauseActive, dcaLabel, dcaCond, dcaDetail, dcaTipFinal);
   }
 
   // 動能觸發：限價單，掛在最近一次收盤價（隔天下單用），需要精確股價與股數，不寫「市價」
@@ -3116,10 +3160,16 @@ function renderReserve(){
   // ---- 3. 定期定額（對應結果欄第2個燈號） ----
   const dcaLabelReserve = asset.dcaMode === 'amount' ? '定期定額' : '定期定股';
   let dcaStateHtml;
+  // 2026-08 v1.4 循環性暫停：跟委託清單同一套判斷（dcaPauseAfterExitEnabled＋停利成交日已輸入＋引用部位資料），
+  // 優先於其他狀態顯示——這是使用者主動宣告的狀態，不是系統判斷出來的
+  const cyclePauseActiveReserve = asset.params.dcaPauseAfterExitEnabled && d.showPersonalAmounts && state.exitFilledDate[state.activeTab];
   if(!d.dcaEnabled){
     // 「啟用定期定額」關閉，或金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟
     // 「今天判斷結果」無關，是一個靜態設定，整行都不顯示，跟融資防禦處理方式一致
     dcaStateHtml = '';
+  } else if(cyclePauseActiveReserve){
+    const accDays = sortedLog(state.activeTab).filter(rr => rr.date > state.exitFilledDate[state.activeTab]).length;
+    dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：停利後暫停累積中｜自 ${state.exitFilledDate[state.activeTab]} 起已累積 ${accDays} 個交易日｜接回成交後清空「停利成交日」即恢復</span>`;
   } else if(d.dcaPaused){
     const dcaPausedReason = !d.ma60upFlat ? 'MA60未持平或向上' : '股價&lt;MA60';
     dcaStateHtml = `<span style="color:var(--amber); font-weight:700;">→ ${dcaLabelReserve}：暫停｜${dcaPausedReason}｜流動現金不足</span>`;
@@ -3647,6 +3697,18 @@ function renderAssetManageInner(){
         <input type="number" step="0.1" data-aidx="${idx}" data-afield="boostMult" value="${a.boostMult}">
       </div>`);
     }
+    // 停利成交日：比照融資部位資料的模式——不是策略參數（是實際的交易狀態），渲染在「停利成交後暫停定期定額至接回」
+    // 開關正下方，用disabled控制能不能編輯；持久化＋隨設定檔匯出匯入，跨裝置與每日Daily Check不需重複輸入
+    if(pkey === 'dcaPauseAfterExitEnabled'){
+      const exitDateVal = state.exitFilledDate[a.key] || '';
+      const cyclePauseEnabledVal = !!(a.params || DEFAULT_PARAMS).dcaPauseAfterExitEnabled;
+      const exitDateDisabled = cyclePauseEnabledVal ? '' : 'disabled';
+      catGroups[cat].push(`<div class="param-row-mini">
+        <div class="plabel">停利成交日</div>
+        <div class="pdesc">停利單實際成交的日期；填入即進入「暫停累積」模式，接回單成交後清空即恢復每日投入</div>
+        <input type="date" data-aidx="${idx}" data-exitdatefield="1" value="${exitDateVal}" ${exitDateDisabled}>
+      </div>`);
+    }
     // 融資買進均價／融資股數：同樣不是策略參數（是實際的部位資料），永遠渲染在這裡，只用disabled控制能不能編輯
     if(pkey === 'marginDefenseEnabled'){
       const marginCostVal = state.marginCost[a.key] || '';
@@ -3774,6 +3836,19 @@ function renderAssetManageInner(){
         }
         // 取消勾選「加碼要求股價≥MA60」時，「MA60觀察期」失去意義（沒有「股價≥MA60」這個要求可以被觀察期救濟），
         // 停用但不清空設定值，重新勾選回來時原本的天數設定還在
+        // 取消勾選「停利成交後暫停定期定額至接回」時，「停利成交日」跟著清空（比照融資防禦的清空邏輯）：
+        // 開關關閉代表退出這套機制，殘留日期會讓重新勾選時誤入陳舊的累積狀態
+        if(pfield === 'dcaPauseAfterExitEnabled'){
+          const key = state.assets[i].key;
+          const dateInput = wrap.querySelector('input[data-exitdatefield]');
+          if(dateInput) dateInput.disabled = !v;
+          if(!v){
+            delete state.exitFilledDate[key];
+            await storageSet(KEY_EXIT_FILLED_DATE(key), null);
+            if(dateInput) dateInput.value = '';
+          }
+          renderAll(); // 委託清單/訊號明細的累積狀態即時切換（renderAll覆蓋範圍陷阱：這兩處都在範圍內）
+        }
         if(pfield === 'bombardRequirePriceAboveMa60'){
           const obsEnabledInput = wrap.querySelector('input[data-pfield="bombardMa60ObservationEnabled"]');
           const obsDaysInput = wrap.querySelector('input[data-pfield="bombardMa60ObservationDays"]');
@@ -3833,6 +3908,16 @@ function renderAssetManageInner(){
       state.assets[i].params[pfield] = v;
       await storageSet(KEY_ASSETS, state.assets);
       renderAll();
+    });
+  });
+  wrap.querySelectorAll('input[data-exitdatefield]').forEach(el=>{
+    el.addEventListener('change', async (e)=>{
+      const i = parseInt(e.target.dataset.aidx, 10);
+      const key = state.assets[i].key;
+      const v = e.target.value || null;
+      if(v){ state.exitFilledDate[key] = v; } else { delete state.exitFilledDate[key]; }
+      await storageSet(KEY_EXIT_FILLED_DATE(key), v);
+      renderAll(); // 填入/清空日期 → 委託清單與訊號明細的累積狀態即時更新
     });
   });
   wrap.querySelectorAll('input[data-marginfield]').forEach(el=>{
@@ -4340,6 +4425,7 @@ function parseImportText(text){
     let key = null, name = label;
     const m = label.match(/^([^:：]+)[:：]\s*(.+?)(\s*\([^)]*\))?$/);
     if(m){ key = m[1].trim(); name = m[2].trim(); }
+    if(key === 'spot') key = 'asset1'; // 2026-08 相容：舊版匯出檔的第一代 key 'spot' 對應到改名後的 'asset1'，讓舊備份檔歸戶到同一個標的，不會誤開新標的
     const existing = state.assets.find(a=> (key && a.key===key) || a.name===name);
     currentKey = existing ? existing.key : (key || name);
     result[currentKey] = result[currentKey] || [];
@@ -4742,16 +4828,31 @@ document.getElementById('btnAddAsset').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btnExportAssets').addEventListener('click', ()=>{
-  // 融資買進均價／融資股數／現金／股數／平均成本／最近一次加碼價格／日期，
+  // 融資買進均價／融資股數／現金／股數／平均成本，
   // 雖然不是asset.params的一部分（存在獨立的state物件裡），但因為都是使用者輸入的部位資料，
   // 換手機/清除資料後會期待這些也一併還原，這裡一併打包進去；
-  // 現金／股數／平均成本／最近一次加碼價格／日期，這幾個欄位「未輸入」的正確表示方式是null，不是0
+  // 現金／股數／平均成本，這幾個欄位「未輸入」的正確表示方式是null，不是0
   // （不像融資買進均價／融資股數，那兩個是用0代表未輸入），這裡直接保留原始值，不能用||0，
   // 否則會把「從未輸入」誤匯出成「已輸入且是0」，匯入後會讓showPersonalAmounts等判斷失真
+  // 2026-08：匯出格式改成「照設定流程排列」——基本設定欄位在前、params 依進階設定的分類分組排序、
+  // 部位資料放最後，讓使用者直接打開 JSON 檔就能像看設定畫面一樣由上往下閱讀
   const assetsWithExtra = state.assets.map(a => ({
-    ...a,
+    // 基本設定（對應「投資標的管理」畫面的欄位順序）
+    key: a.key,
+    name: a.name,
+    stockNo: a.stockNo,
+    currency: a.currency,
+    priceDecimals: a.priceDecimals,
+    dataKeepDays: a.dataKeepDays,
+    dcaMode: a.dcaMode,
+    dcaValue: a.dcaValue,
+    boostMult: a.boostMult,
+    // 策略參數（依進階設定的分類分組：防禦邊界→定期定額→動能→加碼→停利→現金防禦→融資防禦）
+    params: groupParamsByCategory(a.params),
+    // 部位資料（使用者輸入的個人資料，換裝置後期待一併還原）
     marginCost: state.marginCost[a.key] || 0,
     marginShares: state.marginShares[a.key] || 0,
+    exitFilledDate: state.exitFilledDate[a.key] || null,
     cash: state.cash[a.key],
     shares: state.shares[a.key],
     avgCost: state.avgCost[a.key],
@@ -4791,7 +4892,13 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
     const finalKeysInOrder = []; // 追蹤每筆匯入項目最終實際生效的key（可能因合併而改用既有key，不是原始imported.key），供匯入完成後重新排序用
     for(const imported of assetsArr){
       const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
-      const paramsSrc = (imported.params && typeof imported.params === 'object') ? imported.params : {};
+      const paramsRaw = (imported.params && typeof imported.params === 'object') ? imported.params : {};
+      // 相容兩種格式：新版匯出檔的 params 依分類分組（值是物件就攤平取內層），舊版是單層鍵值（直接保留）
+      const paramsSrc = {};
+      Object.entries(paramsRaw).forEach(([k, v])=>{
+        if(v && typeof v === 'object' && !Array.isArray(v)) Object.assign(paramsSrc, v);
+        else paramsSrc[k] = v;
+      });
       const cleanParams = {};
       PARAM_META.forEach(([pk,,ptype])=>{
         const v = paramsSrc[pk];
@@ -4845,7 +4952,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       // 融資買進均價／融資股數：跟asset.params分開存放，等clean.key確定最終值後（可能因合併而改用既有key）才寫入，
       // 避免合併情境下用到匯入檔案裡舊的key、對不上實際資料
       const numOr2 = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
-      // 現金／股數／平均成本／最近一次加碼價格／日期：跟融資那三個不一樣，「未輸入」要還原成null，不能給0這種fallback，
+      // 現金／股數／平均成本：跟融資那兩個不一樣，「未輸入」要還原成null，不能給0這種fallback，
       // 否則會讓「從未輸入」被誤判成「已輸入且是0」，連帶影響showPersonalAmounts等判斷
       const numOrNull = (v) => (typeof v === 'number' && !isNaN(v)) ? v : null;
       const importedMarginCost = numOr2(imported.marginCost, 0);
@@ -4853,6 +4960,10 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       const importedCash = numOrNull(imported.cash);
       const importedShares = numOrNull(imported.shares);
       const importedAvgCost = numOrNull(imported.avgCost);
+      // 停利成交日：字串日期或null（跟數字欄位的null語意同一套精神：沒填就是沒填）
+      const importedExitFilledDate = (typeof imported.exitFilledDate === 'string' && imported.exitFilledDate) ? imported.exitFilledDate : null;
+      if(importedExitFilledDate){ state.exitFilledDate[clean.key] = importedExitFilledDate; } else { delete state.exitFilledDate[clean.key]; }
+      await storageSet(KEY_EXIT_FILLED_DATE(clean.key), importedExitFilledDate);
       state.marginCost[clean.key] = importedMarginCost;
       state.marginShares[clean.key] = importedMarginShares;
       state.cash[clean.key] = importedCash;
@@ -4934,6 +5045,25 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
 (async function init(){
   const savedAssets = await storageGet(KEY_ASSETS, null);
   state.assets = (savedAssets && savedAssets.length) ? savedAssets : DEFAULT_ASSETS.map(a=>({...a, params:{...DEFAULT_PARAMS}}));
+  // 2026-08 一次性遷移：第一代命名 'spot'（單標的年代的「現貨」語意）統一改為通用命名 'asset1'，
+  // 與後來多標的架構的 'asset2'、'asset3'… 流水號一致。localStorage 裡所有以舊 key 索引的
+  // 持久資料（歷史紀錄/融資/最近加碼）一併搬移到新 key，搬完刪除舊條目，之後不再出現 'spot'
+  if(state.assets.some(a => a.key === 'spot') && !state.assets.some(a => a.key === 'asset1')){
+    state.assets.forEach(a => { if(a.key === 'spot') a.key = 'asset1'; });
+    const keyFns = [KEY_LOG, KEY_CASH, KEY_SHARES, KEY_MARGIN_COST, KEY_MARGIN_SHARES, KEY_AVG_COST];
+    // 「最近一次加碼價格/日期」機制已隨加碼節流一併移除（階梯模式天生不需要節流記憶），
+    // 這裡順手清掉舊版可能殘留的storage條目，不搬移
+    localStorage.removeItem('tsmos:lastbombardprice:spot');
+    localStorage.removeItem('tsmos:lastbombarddate:spot');
+    for(const fn of keyFns){
+      const oldRaw = localStorage.getItem(fn('spot'));
+      if(oldRaw !== null){
+        localStorage.setItem(fn('asset1'), oldRaw);
+        localStorage.removeItem(fn('spot'));
+      }
+    }
+    await storageSet(KEY_ASSETS, state.assets);
+  }
   // 相容舊版資產設定：如果是更新前存的資料，沒有boostMult（可能還是舊的固定金額boostValue），補上預設值避免算出NaN
   state.assets.forEach(a=>{
     if(typeof a.boostMult !== 'number' || isNaN(a.boostMult)) a.boostMult = 1.0;
@@ -4950,11 +5080,13 @@ function armConfirmClick(el, originalText, confirmText, onConfirm){
   for(const a of state.assets){
     ensureAssetData(a.key);
     state.log[a.key] = await storageGet(KEY_LOG(a.key), []);
-    // 現金/股數/平均成本/最近一次加碼價格/日期：改成暫時輸入、不存檔，每次重新整理頁面都要重新輸入，
+    // 現金/股數/平均成本：改成暫時輸入、不存檔，每次重新整理頁面都要重新輸入，
     // 所以這裡不再從storage讀取，永遠從null開始（即使storage裡還留著舊資料，也不會被載入使用）
     state.cash[a.key] = null;
     state.shares[a.key] = null;
     state.marginCost[a.key] = await storageGet(KEY_MARGIN_COST(a.key), 0);
+    const efd = await storageGet(KEY_EXIT_FILLED_DATE(a.key), null);
+    if(efd) state.exitFilledDate[a.key] = efd;
     state.marginShares[a.key] = await storageGet(KEY_MARGIN_SHARES(a.key), 0);
     state.avgCost[a.key] = null;
   }
