@@ -594,7 +594,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-08 12:00</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-08 22:55</div>
   </div>
   </div>
 
@@ -4836,7 +4836,13 @@ document.getElementById('btnExportAssets').addEventListener('click', ()=>{
   // 否則會把「從未輸入」誤匯出成「已輸入且是0」，匯入後會讓showPersonalAmounts等判斷失真
   // 2026-08：匯出格式改成「照設定流程排列」——基本設定欄位在前、params 依進階設定的分類分組排序、
   // 部位資料放最後，讓使用者直接打開 JSON 檔就能像看設定畫面一樣由上往下閱讀
-  const assetsWithExtra = state.assets.map(a => ({
+  // 2026-08：匯出範圍改為「設定視窗目前選到的標的」——設定視窗一次操作一個標的，
+  // 匯出所見即所得；一份檔案＝一張卡的完整快照，與 per-asset 參數設定表文件同一種歸檔粒度，
+  // 也天然避免把其他標的的個人部位資料（融資、停利成交日）一併帶出。
+  // 匯入端本來就是逐標的比對合併（對得上更新、對不上新增、檔案裡沒有的不動），單卡檔案直接相容。
+  // 注意：跨裝置搬家請對每個標的各匯出一次（一卡一檔）。
+  const exportTargets = state.assets.filter(a => a.key === assetMgmtActiveKey);
+  const assetsWithExtra = exportTargets.map(a => ({
     // 基本設定（對應「投資標的管理」畫面的欄位順序）
     key: a.key,
     name: a.name,
@@ -4867,11 +4873,15 @@ document.getElementById('btnExportAssets').addEventListener('click', ()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `投資標的設定.json`;
+  // 檔名帶標的名稱：一卡一檔，多張卡的快照不會互相覆蓋，檔案總管裡也一眼可辨
+  const exportName = exportTargets.length ? exportTargets[0].name : '投資標的';
+  a.download = `投資標的設定_${exportName}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  const st = document.getElementById('assetImportStatus');
+  if(st) st.textContent = `已匯出「${exportName}」單一標的設定（含個人部位資料）；跨裝置搬家請對每個標的各匯出一次`;
 });
 
 document.getElementById('btnImportAssets').addEventListener('click', ()=>{
