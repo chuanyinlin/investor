@@ -409,6 +409,8 @@
         <div class="brand">
           <div class="wordmark">Invest<span>OS</span></div>
           <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.4</div>
+          <!-- 2026-08-09 系統形狀一行版：六標的職能審查總計分板的最終裁決，字型顏色沿用 tagline 樣式 -->
+          <div class="tagline">2330 核心 · TSM 引擎 · 2383 唯一輸送帶 · GLW 唯一分散 · 2308退場中</div>
         </div>
         <div class="icon-btn" id="btnParams" title="設定">⚙︎</div>
       </div>
@@ -594,7 +596,7 @@
     </div>
   </div>
 
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-08 22:55</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-09 05:20</div>
   </div>
   </div>
 
@@ -4899,6 +4901,7 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       throw new Error('format');
     }
     let addedCount = 0, updatedCount = 0;
+    const skippedNotes = []; // 格式無法辨識而被跳過的標的，匯入完成後明確告知使用者，不靜默吞掉
     const finalKeysInOrder = []; // 追蹤每筆匯入項目最終實際生效的key（可能因合併而改用既有key，不是原始imported.key），供匯入完成後重新排序用
     for(const imported of assetsArr){
       const numOr = (v, fallback) => (typeof v === 'number' && !isNaN(v)) ? v : fallback;
@@ -4909,6 +4912,14 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
         if(v && typeof v === 'object' && !Array.isArray(v)) Object.assign(paramsSrc, v);
         else paramsSrc[k] = v;
       });
+      // 2026-08 防呆：params 有內容、但攤平後一個認得的參數key都沒有 → 檔案格式無法辨識
+      // （例如未來又改格式、或被手動編輯壞掉）。此時「靜默退回預設值」會把使用者的設定
+      // 無聲換成出廠值（useExit等關鍵開關被悄悄打開），比直接失敗危險得多——大聲跳過，不默默預設
+      const recognizedCount = PARAM_META.filter(([pk]) => pk in paramsSrc).length;
+      if(Object.keys(paramsRaw).length > 0 && recognizedCount === 0){
+        skippedNotes.push(`「${imported.name || imported.key}」設定格式無法辨識（可能是新舊版本不相容），已跳過未匯入`);
+        continue;
+      }
       const cleanParams = {};
       PARAM_META.forEach(([pk,,ptype])=>{
         const v = paramsSrc[pk];
@@ -5002,7 +5013,8 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
     renderAssetManage();
     renderTabs();
     renderAll();
-    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，新增 ${addedCount} 個、更新 ${updatedCount} 個標的設定（含各自的策略參數）。</span>`;
+    const skippedHtml = skippedNotes.length ? `<br><span style="color:var(--amber)">⚠ ${skippedNotes.join('；')}</span>` : '';
+    statusEl.innerHTML = `<span style="color:var(--teal)">✅ 匯入完成，新增 ${addedCount} 個、更新 ${updatedCount} 個標的設定（含各自的策略參數）。</span>${skippedHtml}`;
   } catch(err){
     console.error('asset import failed', err);
     statusEl.innerHTML = `<span style="color:var(--red)">匯入失敗，請確認檔案是否為「匯出標的設定」產生的.json格式。</span>`;
