@@ -599,7 +599,7 @@
   <!-- 版本時間戳規則（2026-08-11 定案）：InvestOS 檔案有任何變動——程式邏輯、參數、
        或僅僅文字——一律更新此時間戳。它的職能是「跨裝置快取核對的第一檢查點」（回答
        「這台裝置載到的是哪一份檔案」），不是程式碼版本史；判準不需要分類判斷，部署即更新。 -->
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-14 06:08</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-14 08:06</div>
   </div>
   </div>
 
@@ -5070,17 +5070,21 @@ document.getElementById('inImportAssets').addEventListener('change', async (e)=>
       // 不再呼叫storageSet——跟頁面上其他輸入方式（手動輸入、貼上訊號明細）一致，都是「這次有效、不記住」
       finalKeysInOrder.push(clean.key);
     }
-    // 依照匯入檔案的順序，重新排列整個state.assets——這次匯入有提到的標的，
-    // 按照匯入檔案裡的順序排在前面；沒提到的標的（例如這個平台自己額外新增過的），
-    // 維持原本的相對順序，接在最後面
+    // 2026-08 排序規則修正：只有「全量匯入」（匯入檔涵蓋畫面上全部既有標的＝完整清單匯出檔）
+    // 才依匯入檔案的順序重排——這是跨裝置同步分頁順序的原始用意；
+    // 「部分匯入」（例如v1.4的單一標的匯出檔）不重排：既有標的已在原位就地更新、
+    // 新標的已push在尾端——修正「匯入單一標的會被搬到第一位」的順序副作用
     {
-      const inImportFile = [], notInImportFile = [];
-      state.assets.forEach(a => {
-        if(finalKeysInOrder.includes(a.key)) inImportFile.push(a);
-        else notInImportFile.push(a);
-      });
-      inImportFile.sort((a,b) => finalKeysInOrder.indexOf(a.key) - finalKeysInOrder.indexOf(b.key));
-      state.assets = [...inImportFile, ...notInImportFile];
+      const isFullSetImport = state.assets.every(a => finalKeysInOrder.includes(a.key));
+      if(isFullSetImport){
+        const inImportFile = [], notInImportFile = [];
+        state.assets.forEach(a => {
+          if(finalKeysInOrder.includes(a.key)) inImportFile.push(a);
+          else notInImportFile.push(a);
+        });
+        inImportFile.sort((a,b) => finalKeysInOrder.indexOf(a.key) - finalKeysInOrder.indexOf(b.key));
+        state.assets = [...inImportFile, ...notInImportFile];
+      }
     }
     await storageSet(KEY_ASSETS, state.assets);
 
