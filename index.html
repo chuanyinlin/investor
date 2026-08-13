@@ -599,7 +599,7 @@
   <!-- 版本時間戳規則（2026-08-11 定案）：InvestOS 檔案有任何變動——程式邏輯、參數、
        或僅僅文字——一律更新此時間戳。它的職能是「跨裝置快取核對的第一檢查點」（回答
        「這台裝置載到的是哪一份檔案」），不是程式碼版本史；判準不需要分類判斷，部署即更新。 -->
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-12 09:25</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-14 06:08</div>
   </div>
   </div>
 
@@ -967,6 +967,60 @@ async function fetchLast5DaysCore(){
   try{
     const keepDays = asset.dataKeepDays || 5;
     const today = new Date();
+
+    // ===== 2026-08 增量更新路徑 =====
+    // 日常情境（昨天更新過、今天補最新幾筆）下，原本每次回抓7~8個月只為重算已存在的資料，
+    // 台股逐月請求＋停頓要8個請求約5秒。改為：既有資料足夠時，只抓「最後一筆所在月份～今天」，
+    // 通常1個請求即完成。三道正確性護欄：
+    // (1) MA銜接——新筆的MA用「既有收盤＋新收盤」銜接計算，僅在存量≥60筆時與全量計算數學上完全一致，
+    //     不足即退回全量（dataKeepDays=5的卡永遠走全量，行為不變）
+    // (2) 重疊覆寫——抓取範圍從「最後一筆當天(含)」起，讓可能是盤中暫存的最後一筆被官方最終值覆寫
+    // (3) 斷檔退場——最後一筆距今超過40天，銜接風險高，退回全量重建
+    // 增量路徑任何失敗都靜默退回全量路徑（全量是永遠正確的地板，增量只是捷徑）
+    const existingRows = sortedLog(key).filter(r => r.close != null);
+    const lastStored = existingRows.length ? existingRows[existingRows.length - 1].date : null;
+    if(existingRows.length >= 60 && lastStored){
+      const lastDate = new Date(lastStored + 'T00:00:00');
+      const gapDays = (today - lastDate) / 86400000;
+      if(gapDays >= 0 && gapDays <= 40){
+        try{
+          // 台股資料源是月粒度：從最後一筆所在月份1號抓起（自然涵蓋「覆寫最後一筆」）；
+          // 美股（Twelve Data）是區間請求：從最後一筆往前抓7天緩衝
+          const fromDate = isUsTicker(asset.stockNo)
+            ? new Date(lastDate.getTime() - 7 * 86400000)
+            : new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+          const fetched = await fetchAssetRange(asset, fromDate, today);
+          const newRows = fetched.filter(r => r.date >= lastStored);
+          if(newRows.length > 0){
+            // MA銜接：既有紀錄在最後一筆「之前」的收盤（59筆）＋新列逐日累加
+            const ctx = existingRows.filter(r => r.date < lastStored).map(r => r.close);
+            newRows.forEach(target => {
+              ctx.push(target.close);
+              const existingIdx = state.log[key].findIndex(r => r.date === target.date);
+              const entry = {
+                date: target.date,
+                close: target.close,
+                ma5: calcMA(ctx, 5), ma20: calcMA(ctx, 20), ma60: calcMA(ctx, 60),
+                open: target.open, high: target.high, low: target.low,
+                volume: target.volume, amount: target.amount,
+                change: target.change, tradeCount: target.tradeCount,
+                cash: existingIdx >= 0 ? state.log[key][existingIdx].cash : null,
+              };
+              if(existingIdx >= 0){ state.log[key][existingIdx] = entry; }
+              else { state.log[key].push(entry); }
+            });
+            state.log[key] = sortedLog(key).slice(-keepDays);
+            await storageSet(KEY_LOG(key), state.log[key]);
+            const addCount = newRows.filter(r => r.date > lastStored).length;
+            return { ok:true, msg:`已更新收盤資訊（增量）：新增 ${addCount} 筆、覆寫 ${newRows.length - addCount} 筆（${newRows[0].date} ~ ${newRows[newRows.length-1].date}）` };
+          }
+          // fetched成功但沒有 >= lastStored 的列（罕見）：交給全量路徑處理
+        } catch(err){
+          console.warn('增量更新失敗，退回全量更新', err);
+        }
+      }
+    }
+    // ===== 全量路徑（原邏輯，不動）=====
     // 往前抓的緩衝：要讓「保留天數」裡最早的那一天，也能有完整60個交易日的歷史資料回溯算出MA60；
     // 60個交易日約當3個月，多留1個月當安全邊際；保留天數本身也要換算成月份一併往前推
     const bufferMonths = 4 + Math.ceil(keepDays / 21);
@@ -2898,6 +2952,23 @@ function renderOrders(){
     } else {
       const exitShares = Math.round((state.shares[key]||0) * P.exitPartialFrac);
       exitDetail = `賣出 ${fmtRaw(exitShares,0)} 股 ＠${fmtRaw(exitPrice, tickDec)} ${getRealtimeTouchNote(key,exitPrice,false)}`;
+    }
+    // 2026-08 純顯示訊號（後勤預告，零決策權）：距出清門檻的距離＋換算成「約幾個日波動」。
+    // 驗證依據：距離是觸價的第一預測子（<3%時10日內觸及機率50~80%、<6%約40~50%），
+    // 近10日平均振幅是唯一通過雙標的穩健性檢驗的第二預測子；動能與量能皆落選。
+    // 用途＝出清後下游流程的備妥提醒（轉出資金動線、停利成交日記錄），不觸發任何委託。
+    const distRows = sortedLog(key).filter(r => r.close != null);
+    if(distRows.length >= 11 && d.exitThreshold && d.today && d.today.close){
+      const absRets = [];
+      for(let i = distRows.length - 10; i < distRows.length; i++){
+        absRets.push(Math.abs(distRows[i].close / distRows[i-1].close - 1));
+      }
+      const vol10 = absRets.reduce((a,b)=>a+b,0) / absRets.length * 100;
+      const gapPct = (d.exitThreshold / d.today.close - 1) * 100;
+      const distTxt = gapPct <= 0
+        ? '已達出清門檻'
+        : `距出清門檻 +${gapPct.toFixed(1)}%` + (vol10 > 0.05 ? `，約 ${(gapPct/vol10).toFixed(1)} 個日波動` : '');
+      exitDetail += `<br><span style="color:var(--text-faint); font-size:12px">${distTxt}</span>`;
     }
   }
   const exitCondTxt = (d.exitThresholdSource === 'cost')
