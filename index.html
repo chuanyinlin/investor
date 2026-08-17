@@ -410,7 +410,7 @@
           <div class="wordmark">Invest<span>OS</span></div>
           <div class="tagline">DAILY CHECK · 掛單即紀律 · v1.4</div>
           <!-- 2026-08-09 系統形狀一行版：六標的職能審查總計分板的最終裁決，字型顏色沿用 tagline 樣式 -->
-          <div class="tagline">2330 核心 · TSM 引擎 · 2383+2345 雙輸送帶 · GLW 唯一分散 · 2308退場中</div>
+          <div class="tagline">2330 核心 · TSM 引擎 · 2345+2383 雙輸送帶 · GLW 唯一分散</div>
         </div>
         <div class="icon-btn" id="btnParams" title="設定">⚙︎</div>
       </div>
@@ -599,7 +599,7 @@
   <!-- 版本時間戳規則（2026-08-11 定案）：InvestOS 檔案有任何變動——程式邏輯、參數、
        或僅僅文字——一律更新此時間戳。它的職能是「跨裝置快取核對的第一檢查點」（回答
        「這台裝置載到的是哪一份檔案」），不是程式碼版本史；判準不需要分類判斷，部署即更新。 -->
-  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-14 08:06</div>
+  <div class="footer-note">© 2026 InvestOS. All rights reserved.<br>Contact: <a href="mailto:chuanyinlin@gmail.com" style="color:var(--teal); text-decoration:underline;">chuanyinlin@gmail.com</a><br>最後更新：2026-08-17 10:15</div>
   </div>
   </div>
 
@@ -2851,8 +2851,10 @@ function renderOrders(){
   let dcaDetail, dcaCond;
   // 2026-08 v1.4 循環性暫停：停利成交日已輸入時，定期定額進入「暫停累積」模式——
   // 每日資金不投入、逐日累積，建議與本金一起掛前日MA20觸價單在接回時投入；
-  // 判斷需要 showPersonalAmounts（停利成交日屬個人交易資料，總開關關閉時整個機制退場）
-  const cyclePauseActive = P.dcaPauseAfterExitEnabled && d.showPersonalAmounts && state.exitFilledDate[key];
+  // 2026-08-15 前提漂移修正：本判斷原掛在「引用標的部位資料」總開關（隱私退場語意）下；
+  // 總開關移除後 showPersonalAmounts 改為「是否填過現金/股數/平均成本」，循環性暫停被誤耦合——
+  // 停利成交日本身就是驅動本機制的個人資料（填了=有），不應依賴其他無關欄位（使用者指正）
+  const cyclePauseActive = P.dcaPauseAfterExitEnabled && state.exitFilledDate[key];
   let cycleAccumDays = 0, cycleRebuyLimit = null;
   if(cyclePauseActive){
     const logRows = sortedLog(key);
@@ -3238,7 +3240,7 @@ function renderReserve(){
   let dcaStateHtml;
   // 2026-08 v1.4 循環性暫停：跟委託清單同一套判斷（dcaPauseAfterExitEnabled＋停利成交日已輸入＋引用部位資料），
   // 優先於其他狀態顯示——這是使用者主動宣告的狀態，不是系統判斷出來的
-  const cyclePauseActiveReserve = asset.params.dcaPauseAfterExitEnabled && d.showPersonalAmounts && state.exitFilledDate[state.activeTab];
+  const cyclePauseActiveReserve = asset.params.dcaPauseAfterExitEnabled && state.exitFilledDate[state.activeTab]; // 2026-08-15 同上：與現金/股數/均價欄位解耦
   if(!d.dcaEnabled){
     // 「啟用定期定額」關閉，或金額/股數設成0，代表這個標的實質上完全沒有在跑定期定額，這件事本身跟
     // 「今天判斷結果」無關，是一個靜態設定，整行都不顯示，跟融資防禦處理方式一致
